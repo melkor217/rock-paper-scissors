@@ -66,6 +66,19 @@ data class Match(
     fun currentRoundData(): RoundResult? =
         rounds.filter { it.resolvedAt == null }.lastOrNull()
             ?: rounds.find { it.roundNumber == currentRound }
+
+    fun lastResolvedRound(): RoundResult? =
+        rounds
+            .filter { it.resolvedAt != null }
+            .maxByOrNull { it.resolvedAt ?: 0L }
+
+    /** Last round was a tie and we're replaying the same round number (score unchanged). */
+    fun pendingDrawReplay(): RoundResult? {
+        val last = lastResolvedRound() ?: return null
+        if (last.winner != "tie") return null
+        val hasOpenRound = rounds.any { it.resolvedAt == null && it.roundNumber == currentRound }
+        return if (hasOpenRound) last else null
+    }
 }
 
 data class UserProfile(

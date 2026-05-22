@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.GameViewModel
 
 @Composable
@@ -51,9 +51,7 @@ fun GameScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.rpsScreenPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (match == null || userId == null) {
@@ -89,9 +87,49 @@ fun GameScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         val currentRound = match.currentRoundData()
+        val drawReplay = match.pendingDrawReplay()
+        val showDrawReveal = currentRound?.winner == "tie" &&
+            currentRound.player1Choice != null &&
+            currentRound.player2Choice != null
+
         when {
-            currentRound?.winner == "tie" -> {
-                Text("Tie! Replay this round.", style = MaterialTheme.typography.bodyLarge)
+            showDrawReveal || drawReplay != null -> {
+                val round = if (showDrawReveal) currentRound!! else drawReplay!!
+                val myChoice = if (userId == match.player1) {
+                    round.player1Choice
+                } else {
+                    round.player2Choice
+                }
+                val oppChoice = if (userId == match.player1) {
+                    round.player2Choice
+                } else {
+                    round.player1Choice
+                }
+                DrawRoundBanner(
+                    myChoice = myChoice,
+                    opponentChoice = oppChoice,
+                    isReplay = drawReplay != null,
+                )
+                when {
+                    drawReplay != null && uiState.hasSubmittedMove -> {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Choice locked in. Waiting for opponent…")
+                        CircularProgressIndicator()
+                    }
+
+                    drawReplay != null -> {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Pick your move to replay the round",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        MovePicker(
+                            isSubmitting = uiState.isSubmitting,
+                            onMove = viewModel::submitMove,
+                        )
+                    }
+                }
             }
 
             currentRound?.winner != null && currentRound.player1Choice != null -> {
@@ -108,7 +146,6 @@ fun GameScreen(
                 Text("You: ${myChoice?.lowercase()}  •  Opponent: ${oppChoice?.lowercase()}")
                 val roundWinner = currentRound.winner
                 val message = when (roundWinner) {
-                    "tie" -> "Round tied"
                     userId -> "You won the round!"
                     else -> "Opponent won the round"
                 }
@@ -127,17 +164,10 @@ fun GameScreen(
             else -> {
                 Text("Pick your move (10s)", style = MaterialTheme.typography.bodyLarge)
                 Spacer(modifier = Modifier.height(16.dp))
-                MoveButton("Rock", Icons.Default.Landscape) {
-                    viewModel.submitMove(Move.ROCK)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                MoveButton("Paper", Icons.Default.Description) {
-                    viewModel.submitMove(Move.PAPER)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                MoveButton("Scissors", Icons.Default.ContentCut) {
-                    viewModel.submitMove(Move.SCISSORS)
-                }
+                MovePicker(
+                    isSubmitting = uiState.isSubmitting,
+                    onMove = viewModel::submitMove,
+                )
             }
         }
 
@@ -146,6 +176,22 @@ fun GameScreen(
             Text(text = error, color = MaterialTheme.colorScheme.error)
         }
     }
+}
+
+@Composable
+private fun MovePicker(
+    isSubmitting: Boolean,
+    onMove: (Move) -> Unit,
+) {
+    if (isSubmitting) {
+        CircularProgressIndicator()
+        return
+    }
+    MoveButton("Rock", Icons.Default.Landscape) { onMove(Move.ROCK) }
+    Spacer(modifier = Modifier.height(8.dp))
+    MoveButton("Paper", Icons.Default.Description) { onMove(Move.PAPER) }
+    Spacer(modifier = Modifier.height(8.dp))
+    MoveButton("Scissors", Icons.Default.ContentCut) { onMove(Move.SCISSORS) }
 }
 
 @Composable

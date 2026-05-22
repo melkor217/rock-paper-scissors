@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.HomeViewModel
 
 @Composable
@@ -40,9 +41,7 @@ fun HomeScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+        modifier = Modifier.rpsScreenPadding(),
     ) {
         if (uiState.isLoading && uiState.profile == null) {
             Column(
