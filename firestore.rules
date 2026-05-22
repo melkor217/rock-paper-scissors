@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['displayName', 'elo', 'wins', 'losses', 'createdAt'])
+        && request.resource.data.elo == 1000
+        && request.resource.data.wins == 0
+        && request.resource.data.losses == 0;
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['elo', 'wins', 'losses', 'activeMatchId']);
+    }
+
+    match /queue/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    match /matches/{matchId} {
+      allow read: if isSignedIn()
+        && (resource.data.player1 == request.auth.uid || resource.data.player2 == request.auth.uid);
+      allow write: if false;
+
+      match /rounds/{roundNumber}/choices/{userId} {
+        allow read: if isSignedIn()
+          && (get(/databases/$(database)/documents/matches/$(matchId)).data.player1 == request.auth.uid
+              || get(/databases/$(database)/documents/matches/$(matchId)).data.player2 == request.auth.uid);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasAll(['choice'])
+          && request.resource.data.choice in ['ROCK', 'PAPER', 'SCISSORS']
+          && get(/databases/$(database)/documents/matches/$(matchId)).data.status == 'active'
+          && int(roundNumber) == get(/databases/$(database)/documents/matches/$(matchId)).data.currentRound
+          && (get(/databases/$(database)/documents/matches/$(matchId)).data.player1 == request.auth.uid
+              || get(/databases/$(database)/documents/matches/$(matchId)).data.player2 == request.auth.uid);
+        allow update, delete: if false;
+      }
+    }
+  }
+}

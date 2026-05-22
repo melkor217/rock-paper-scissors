@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "=== RPS Online - Android environment setup ==="
+echo ""
+echo "1. Install Android Studio from https://developer.android.com/studio"
+echo "2. Open SDK Manager and install:"
+echo "   - Android SDK Platform 35"
+echo "   - Android SDK Build-Tools"
+echo "   - Android Emulator + a Google Play system image (API 35)"
+echo "3. Create an AVD in Device Manager"
+echo "4. Add to ~/.zshrc:"
+echo '   export ANDROID_HOME=$HOME/Library/Android/sdk'
+echo '   export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator'
+echo ""
+echo "5. Firebase setup:"
+echo "   - Create project at https://console.firebase.google.com"
+echo "   - Add Android app: com.rpsonline.app"
+echo "   - Add debug SHA-1:"
+keytool -list -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android 2>/dev/null | grep SHA1 || echo "   (Run after Android Studio creates debug keystore)"
+echo "   - Download google-services.json -> app/google-services.json"
+echo "   - Copy Web client ID into app/src/main/res/values/strings.xml (default_web_client_id)"
+echo "   - Enable Google Sign-In in Authentication"
+echo ""
+echo "6. Deploy backend:"
+echo "   cd functions && npm install && npm run build"
+echo "   cp ../.firebaserc.example ../.firebaserc  # set project id"
+echo "   firebase deploy --only functions,firestore:rules,firestore:indexes"
+echo ""
+echo "7. Open ~/Documents/rock-paper-scissors in Android Studio and Run"
