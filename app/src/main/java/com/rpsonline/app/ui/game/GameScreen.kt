@@ -1,12 +1,16 @@
 package com.rpsonline.app.ui.game
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,6 +30,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.Match
@@ -146,13 +152,21 @@ fun GameScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ScoreColumn(label = "You", score = match.myWins(userId))
+                    ScoreColumn(
+                        label = "You",
+                        score = match.myWins(userId),
+                        progressColor = MaterialTheme.colorScheme.primary,
+                    )
                     Text(
                         text = ":",
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    ScoreColumn(label = "Opponent", score = match.opponentWins(userId))
+                    ScoreColumn(
+                        label = "Opponent",
+                        score = match.opponentWins(userId),
+                        progressColor = MaterialTheme.colorScheme.tertiary,
+                    )
                 }
             }
 
@@ -263,8 +277,15 @@ private fun MovePicker(
 }
 
 @Composable
-private fun ScoreColumn(label: String, score: Int) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun ScoreColumn(
+    label: String,
+    score: Int,
+    progressColor: Color,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.widthIn(min = 88.dp),
+    ) {
         Text(
             label,
             style = MaterialTheme.typography.labelLarge,
@@ -275,6 +296,36 @@ private fun ScoreColumn(label: String, score: Int) {
             style = MaterialTheme.typography.displaySmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        MatchWinProgressBar(
+            wins = score,
+            fillColor = progressColor,
+        )
+    }
+}
+
+@Composable
+private fun MatchWinProgressBar(
+    wins: Int,
+    fillColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        repeat(GameRules.WINS_TO_FINISH) { index ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (index < wins) fillColor else trackColor),
+            )
+        }
     }
 }
 

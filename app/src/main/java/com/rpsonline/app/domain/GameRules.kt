@@ -3,6 +3,11 @@ package com.rpsonline.app.domain
 import com.rpsonline.app.data.model.Move
 
 object GameRules {
+    /** Must match Cloud Functions `WINS_TO_FINISH`. */
+    const val WINS_TO_FINISH = 2
+
+    const val BEST_OF_ROUNDS = 3
+
     /** Must match Cloud Functions `ROUND_TIMEOUT_MS` (60s). Late player forfeits the series. */
     const val ROUND_TIMEOUT_SECONDS = 60
 
