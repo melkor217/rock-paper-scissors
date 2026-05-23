@@ -1,6 +1,7 @@
 package com.rpsonline.app.viewmodel
 
 import android.content.Context
+import com.rpsonline.app.ui.util.offerSavePassword
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -129,7 +130,7 @@ class SignInViewModel(
         }
     }
 
-    fun submitEmailAuth() {
+    fun submitEmailAuth(context: Context) {
         val state = _uiState.value
         val email = state.email.trim()
         val password = state.password
@@ -154,6 +155,11 @@ class SignInViewModel(
                         displayName = state.displayName,
                     )
                 }
+                offerSavePassword(
+                    context = context,
+                    email = email,
+                    password = password,
+                )
                 _uiState.update { it.copy(isLoading = false, profile = profile) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.toAuthMessage()) }
