@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -25,11 +26,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.ui.components.autofillEmail
+import com.rpsonline.app.ui.components.autofillNewPassword
+import com.rpsonline.app.ui.components.autofillPassword
+import com.rpsonline.app.ui.components.autofillPersonName
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.EmailAuthMode
 import com.rpsonline.app.viewmodel.SignInViewModel
@@ -165,13 +172,26 @@ private fun EmailAuthSection(
 
     Spacer(modifier = Modifier.height(12.dp))
 
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val isRegister = mode == EmailAuthMode.REGISTER
+    val submitFromKeyboard: () -> Unit = {
+        keyboardController?.hide()
+        onSubmit()
+    }
+
     OutlinedTextField(
         value = email,
         onValueChange = onEmailChange,
         label = { Text("Email") },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Email,
+            imeAction = ImeAction.Next,
+            autoCorrectEnabled = false,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .autofillEmail(),
     )
     Spacer(modifier = Modifier.height(8.dp))
     OutlinedTextField(
@@ -180,18 +200,38 @@ private fun EmailAuthSection(
         label = { Text("Password") },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = if (isRegister) ImeAction.Next else ImeAction.Done,
+            autoCorrectEnabled = false,
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = { submitFromKeyboard() },
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isRegister) Modifier.autofillNewPassword() else Modifier.autofillPassword(),
+            ),
     )
 
-    if (mode == EmailAuthMode.REGISTER) {
+    if (isRegister) {
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = displayName,
             onValueChange = onDisplayNameChange,
             label = { Text("Display name (optional)") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Done,
+                autoCorrectEnabled = false,
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { submitFromKeyboard() },
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .autofillPersonName(),
         )
     }
 
