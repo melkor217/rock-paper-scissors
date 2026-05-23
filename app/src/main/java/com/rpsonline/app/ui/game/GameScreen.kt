@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -110,11 +111,13 @@ fun GameScreen(
             Text(
                 text = "vs ${match.opponentName(userId)}",
                 style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Round ${match.currentRound}  •  Best of 3",
                 style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -130,7 +133,12 @@ fun GameScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ),
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -139,7 +147,11 @@ fun GameScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ScoreColumn(label = "You", score = match.myWins(userId))
-                    Text(":", style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        text = ":",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                     ScoreColumn(label = "Opponent", score = match.opponentWins(userId))
                 }
             }
@@ -253,8 +265,16 @@ private fun MovePicker(
 @Composable
 private fun ScoreColumn(label: String, score: Int) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
-        Text("$score", style = MaterialTheme.typography.displaySmall)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "$score",
+            style = MaterialTheme.typography.displaySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,7 +34,11 @@ fun LeaderboardScreen(
     Column(
         modifier = Modifier.rpsScreenPadding(),
     ) {
-        Text("Leaderboard", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            text = "Leaderboard",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
         Spacer(modifier = Modifier.height(16.dp))
 
         if (uiState.isLoading) {
@@ -56,7 +61,12 @@ fun LeaderboardScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             itemsIndexed(uiState.entries) { index, entry ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -64,10 +74,21 @@ fun LeaderboardScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Column {
-                            Text("#${index + 1} ${entry.displayName}", style = MaterialTheme.typography.titleMedium)
-                            Text("W ${entry.wins} / L ${entry.losses}")
+                            Text(
+                                text = "#${index + 1} ${entry.displayName}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "W ${entry.wins} / L ${entry.losses}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
-                        Text("${entry.elo}", style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            text = "${entry.elo}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
                     }
                 }
             }
