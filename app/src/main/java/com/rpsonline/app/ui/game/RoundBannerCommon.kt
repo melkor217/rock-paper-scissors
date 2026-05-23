@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Move
 
 @Composable
-internal fun RoundOutcomeCard(
+fun RoundOutcomeCard(
     containerColor: Color,
     contentColor: Color,
     icon: ImageVector,
