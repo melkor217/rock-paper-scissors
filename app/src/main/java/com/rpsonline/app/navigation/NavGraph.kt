@@ -120,7 +120,9 @@ fun RpsNavGraph() {
         }
 
         composable(Routes.LEADERBOARD) {
-            LeaderboardScreen()
+            LeaderboardScreen(
+                onBackToHome = { navController.popBackStack() },
+            )
         }
     }
 }
