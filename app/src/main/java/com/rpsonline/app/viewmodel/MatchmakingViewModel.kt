@@ -6,6 +6,7 @@ import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ data class MatchmakingUiState(
     val matchId: String? = null,
     val match: Match? = null,
     val error: String? = null,
+    val queueElapsedSeconds: Long = 0,
 )
 
 class MatchmakingViewModel(
@@ -35,14 +37,22 @@ class MatchmakingViewModel(
     val uiState: StateFlow<MatchmakingUiState> = _uiState.asStateFlow()
 
     private var observeJob: Job? = null
+    private var queueTimerJob: Job? = null
 
     fun startMatchmaking() {
         if (_uiState.value.status == MatchmakingStatus.SEARCHING) return
 
         viewModelScope.launch {
             _uiState.update {
-                it.copy(status = MatchmakingStatus.SEARCHING, error = null, matchId = null, match = null)
+                it.copy(
+                    status = MatchmakingStatus.SEARCHING,
+                    error = null,
+                    matchId = null,
+                    match = null,
+                    queueElapsedSeconds = 0,
+                )
             }
+            startQueueTimer()
             try {
                 if (authRepository.currentUserId == null) {
                     _uiState.update {
@@ -55,6 +65,7 @@ class MatchmakingViewModel(
                 }
                 val immediateMatchId = matchRepository.joinQueue()
                 if (immediateMatchId != null) {
+                    stopQueueTimer()
                     _uiState.update {
                         it.copy(status = MatchmakingStatus.MATCHED, matchId = immediateMatchId)
                     }
@@ -62,6 +73,7 @@ class MatchmakingViewModel(
                 }
                 observeForMatch()
             } catch (e: Exception) {
+                stopQueueTimer()
                 _uiState.update {
                     it.copy(status = MatchmakingStatus.ERROR, error = e.message ?: "Matchmaking failed")
                 }
@@ -74,6 +86,7 @@ class MatchmakingViewModel(
         observeJob = viewModelScope.launch {
             matchRepository.observeActiveMatch().collect { match ->
                 if (match != null) {
+                    stopQueueTimer()
                     _uiState.update {
                         it.copy(
                             status = MatchmakingStatus.MATCHED,
@@ -94,6 +107,7 @@ class MatchmakingViewModel(
             } catch (_: Exception) {
             } finally {
                 observeJob?.cancel()
+                stopQueueTimer()
                 _uiState.update {
                     MatchmakingUiState(status = MatchmakingStatus.IDLE)
                 }
@@ -101,8 +115,27 @@ class MatchmakingViewModel(
         }
     }
 
+    private fun startQueueTimer() {
+        queueTimerJob?.cancel()
+        val startedAtMs = System.currentTimeMillis()
+        queueTimerJob = viewModelScope.launch {
+            while (true) {
+                delay(1_000)
+                if (_uiState.value.status != MatchmakingStatus.SEARCHING) break
+                val elapsed = (System.currentTimeMillis() - startedAtMs) / 1_000
+                _uiState.update { it.copy(queueElapsedSeconds = elapsed) }
+            }
+        }
+    }
+
+    private fun stopQueueTimer() {
+        queueTimerJob?.cancel()
+        queueTimerJob = null
+    }
+
     override fun onCleared() {
         observeJob?.cancel()
+        stopQueueTimer()
         super.onCleared()
     }
 }

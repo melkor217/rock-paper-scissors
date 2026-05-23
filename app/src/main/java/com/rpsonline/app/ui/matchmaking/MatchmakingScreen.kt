@@ -15,10 +15,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.rpsonline.app.viewmodel.MatchmakingStatus
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.util.playMatchFoundSound
+import com.rpsonline.app.viewmodel.MatchmakingStatus
 import com.rpsonline.app.viewmodel.MatchmakingViewModel
 
 @Composable
@@ -28,6 +30,7 @@ fun MatchmakingScreen(
     viewModel: MatchmakingViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.startMatchmaking()
@@ -35,6 +38,7 @@ fun MatchmakingScreen(
 
     LaunchedEffect(uiState.status, uiState.matchId) {
         if (uiState.status == MatchmakingStatus.MATCHED && uiState.matchId != null) {
+            playMatchFoundSound(context.applicationContext)
             onMatchFound(uiState.matchId!!)
         }
     }
@@ -50,6 +54,12 @@ fun MatchmakingScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Searching for opponent…", style = MaterialTheme.typography.titleMedium)
                 Text("Matching by similar ELO rating")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = formatQueueElapsed(uiState.queueElapsedSeconds),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
                 Spacer(modifier = Modifier.height(24.dp))
                 OutlinedButton(onClick = {
                     viewModel.cancelMatchmaking()
@@ -84,4 +94,10 @@ fun MatchmakingScreen(
             }
         }
     }
+}
+
+private fun formatQueueElapsed(seconds: Long): String {
+    val minutes = seconds / 60
+    val secs = seconds % 60
+    return "In queue: %d:%02d".format(minutes, secs)
 }
