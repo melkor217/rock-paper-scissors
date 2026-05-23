@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.HomeViewModel
@@ -209,34 +210,20 @@ fun HomeScreen(
             }
         }
 
-        if (uiState.versionName.isNotBlank()) {
-            Text(
-                text = "Version ${uiState.versionName}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        uiState.updateMessage?.let { message ->
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        OutlinedButton(
-            onClick = { viewModel.checkForUpdate(context) },
-            enabled = !uiState.isCheckingForUpdate && !uiState.isDownloadingUpdate,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (uiState.isCheckingForUpdate) "Checking…" else "Check for updates")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
+        HomeAppInfoFooter(
+            versionName = uiState.versionName,
+            updatesEnabled = BuildConfig.GITHUB_UPDATES_ENABLED,
+            availableUpdate = uiState.availableUpdate,
+            isCheckingForUpdate = uiState.isCheckingForUpdate,
+            isDownloadingUpdate = uiState.isDownloadingUpdate,
+            updateMessage = uiState.updateMessage,
+            onCheckForUpdate = { viewModel.checkForUpdate(context) },
+            onInstallUpdate = {
+                activity?.let { viewModel.downloadAndInstallUpdate(it) }
+                    ?: viewModel.showUpdatePrompt()
+            },
+        )
+        Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(
             onClick = { viewModel.signOut(context) },
             modifier = Modifier.fillMaxWidth(),

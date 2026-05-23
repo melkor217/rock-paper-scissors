@@ -112,6 +112,10 @@ class HomeViewModel(
         _uiState.update { it.copy(dismissedUpdateTag = tag) }
     }
 
+    fun showUpdatePrompt() {
+        _uiState.update { it.copy(dismissedUpdateTag = null) }
+    }
+
     fun downloadAndInstallUpdate(activity: Activity) {
         val update = _uiState.value.availableUpdate ?: return
         val repo = AppUpdateRepository(activity.applicationContext)
