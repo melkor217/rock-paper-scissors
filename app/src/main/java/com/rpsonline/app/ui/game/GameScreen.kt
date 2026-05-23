@@ -327,9 +327,9 @@ private fun MovePicker(
     MoveButton("Scissors", Icons.Default.ContentCut, compact = compact) { onMove(Move.SCISSORS) }
 }
 
-@Composable
 private enum class MatchScoreSide { YOU, OPPONENT }
 
+@Composable
 private fun ScoreColumn(
     label: String,
     score: Int,
