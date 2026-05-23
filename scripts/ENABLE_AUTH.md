@@ -22,6 +22,15 @@ Release APKs from GitHub are signed with the upload keystore, **not** your local
 
 The web client ID in `strings.xml` must stay the **Web client** from Firebase/Google Cloud (not the Android client ID).
 
+## Credential Manager (save password)
+
+Release builds need **Digital Asset Links** so the system can offer to save email/password:
+
+1. Enable **GitHub Pages** for this repo: **Settings → Pages → Build from branch → `/docs` → main**.
+2. Confirm `https://melkor217.github.io/rock-paper-scissors/.well-known/assetlinks.json` returns JSON (200).
+3. Add each signing certificate’s **SHA-256** to `docs/.well-known/assetlinks.json` (debug + upload keystore). Get upload SHA-256 with:
+   `keytool -list -v -keystore app/upload.keystore -alias upload`
+
 ## Notes
 
 - Email/password fields use native **EditText** autofill hints (`username` + `newPassword` on Register) so Google Password Manager can offer **Suggest strong password** when you focus the password field.

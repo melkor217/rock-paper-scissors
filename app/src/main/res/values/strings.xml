@@ -2,4 +2,9 @@
 <resources>
     <string name="app_name">RPS Online</string>
     <string name="default_web_client_id">1040843099416-rpvhqu5iop5n1vu1qmkp38q22c47gdaq.apps.googleusercontent.com</string>
+    <string name="asset_statements" translatable="false">
+        [{
+            \"include\": \"https://melkor217.github.io/rock-paper-scissors/.well-known/assetlinks.json\"
+        }]
+    </string>
 </resources>
