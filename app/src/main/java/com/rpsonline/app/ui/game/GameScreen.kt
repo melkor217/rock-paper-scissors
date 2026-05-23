@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Description
@@ -58,48 +60,15 @@ fun GameScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (match == null || userId == null) {
-            CircularProgressIndicator()
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator()
+            }
             return
         }
-
-        Text(
-            text = "vs ${match.opponentName(userId)}",
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Round ${match.currentRound}  •  Best of 3",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        val showCountdown = match.status == MatchStatus.ACTIVE &&
-            match.openRound()?.deadline != null &&
-            uiState.countdownSeconds != null
-        if (showCountdown) {
-            RoundCountdown(
-                secondsRemaining = uiState.countdownSeconds,
-                isResolvingTimeout = uiState.isResolvingTimeout,
-                hasSubmittedMove = uiState.hasSubmittedMove,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ScoreColumn(label = "You", score = match.myWins(userId))
-                Text(":", style = MaterialTheme.typography.headlineMedium)
-                ScoreColumn(label = "Opponent", score = match.opponentWins(userId))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
 
         val currentRound = match.currentRoundData()
         val drawReplay = match.pendingDrawReplay()
@@ -113,102 +82,136 @@ fun GameScreen(
             currentRound.winner != "tie" &&
             currentRound.player1Choice != null &&
             currentRound.player2Choice != null
+        val awaitingNextRound = pendingOutcome != null && openRound != null
+        val showMovePicker = !uiState.hasSubmittedMove && !uiState.isSubmitting && when {
+            drawReplay != null -> true
+            awaitingNextRound -> true
+            showDrawReveal || showOutcomeReveal -> false
+            else -> true
+        }
+        val pickPrompt = when {
+            uiState.hasSubmittedMove -> null
+            drawReplay != null ->
+                "Pick your move to replay the round (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)"
+            awaitingNextRound ->
+                "Pick your move for round ${openRound!!.roundNumber} (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)"
+            showMovePicker ->
+                "Pick your move — ${GameRules.ROUND_TIMEOUT_SECONDS}s per round"
+            else -> null
+        }
 
-        when {
-            showDrawReveal || drawReplay != null -> {
-                val round = if (showDrawReveal) currentRound!! else drawReplay!!
-                val (myChoice, oppChoice) = round.choicesFor(userId, match)
-                DrawRoundBanner(
-                    myChoice = myChoice,
-                    opponentChoice = oppChoice,
-                    isReplay = drawReplay != null,
-                )
-                when {
-                    drawReplay != null && uiState.hasSubmittedMove -> {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        myLockedChoice?.let { WaitingForOpponentCard(myChoice = it) }
-                    }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "vs ${match.opponentName(userId)}",
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Round ${match.currentRound}  •  Best of 3",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    drawReplay != null -> {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Pick your move to replay the round (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        MovePicker(
-                            isSubmitting = uiState.isSubmitting,
-                            onMove = viewModel::submitMove,
-                        )
-                    }
-                }
-            }
-
-            showOutcomeReveal || pendingOutcome != null -> {
-                val round = if (showOutcomeReveal) currentRound!! else pendingOutcome!!
-                val (myChoice, oppChoice) = round.choicesFor(userId, match)
-                val wonRound = round.winner == userId
-                val awaitingNextRound = pendingOutcome != null && openRound != null
-
-                if (wonRound) {
-                    WinRoundBanner(
-                        myChoice = myChoice,
-                        opponentChoice = oppChoice,
-                        awaitingNextRound = awaitingNextRound,
-                    )
-                } else {
-                    LoseRoundBanner(
-                        myChoice = myChoice,
-                        opponentChoice = oppChoice,
-                        awaitingNextRound = awaitingNextRound,
-                    )
-                }
-
-                when {
-                    awaitingNextRound && uiState.hasSubmittedMove -> {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        myLockedChoice?.let { WaitingForOpponentCard(myChoice = it) }
-                    }
-
-                    awaitingNextRound -> {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Pick your move for round ${openRound!!.roundNumber} (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        MovePicker(
-                            isSubmitting = uiState.isSubmitting,
-                            onMove = viewModel::submitMove,
-                        )
-                    }
-                }
-            }
-
-            uiState.hasSubmittedMove -> {
-                myLockedChoice?.let { WaitingForOpponentCard(myChoice = it) }
-            }
-
-            uiState.isSubmitting -> {
-                CircularProgressIndicator()
-            }
-
-            else -> {
-                Text(
-                    text = "Pick your move — ${GameRules.ROUND_TIMEOUT_SECONDS}s per round",
-                    style = MaterialTheme.typography.bodyLarge,
+            val showCountdown = match.status == MatchStatus.ACTIVE &&
+                match.openRound()?.deadline != null &&
+                uiState.countdownSeconds != null
+            if (showCountdown) {
+                RoundCountdown(
+                    secondsRemaining = uiState.countdownSeconds,
+                    isResolvingTimeout = uiState.isResolvingTimeout,
+                    hasSubmittedMove = uiState.hasSubmittedMove,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                MovePicker(
-                    isSubmitting = uiState.isSubmitting,
-                    onMove = viewModel::submitMove,
-                )
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ScoreColumn(label = "You", score = match.myWins(userId))
+                    Text(":", style = MaterialTheme.typography.headlineMedium)
+                    ScoreColumn(label = "Opponent", score = match.opponentWins(userId))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            when {
+                showDrawReveal || drawReplay != null -> {
+                    val round = if (showDrawReveal) currentRound!! else drawReplay!!
+                    val (myChoice, oppChoice) = round.choicesFor(userId, match)
+                    DrawRoundBanner(
+                        myChoice = myChoice,
+                        opponentChoice = oppChoice,
+                        isReplay = drawReplay != null,
+                    )
+                }
+
+                showOutcomeReveal || pendingOutcome != null -> {
+                    val round = if (showOutcomeReveal) currentRound!! else pendingOutcome!!
+                    val (myChoice, oppChoice) = round.choicesFor(userId, match)
+                    val wonRound = round.winner == userId
+                    if (wonRound) {
+                        WinRoundBanner(
+                            myChoice = myChoice,
+                            opponentChoice = oppChoice,
+                            awaitingNextRound = awaitingNextRound,
+                        )
+                    } else {
+                        LoseRoundBanner(
+                            myChoice = myChoice,
+                            opponentChoice = oppChoice,
+                            awaitingNextRound = awaitingNextRound,
+                        )
+                    }
+                }
+            }
+
+            uiState.error?.let { error ->
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(text = error, color = MaterialTheme.colorScheme.error)
             }
         }
 
-        uiState.error?.let { error ->
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = error, color = MaterialTheme.colorScheme.error)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            when {
+                uiState.hasSubmittedMove && myLockedChoice != null -> {
+                    WaitingForOpponentCard(myChoice = myLockedChoice)
+                }
+
+                uiState.isSubmitting -> {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CircularProgressIndicator()
+                }
+
+                showMovePicker -> {
+                    pickPrompt?.let { prompt ->
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = prompt,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    MovePicker(
+                        isSubmitting = uiState.isSubmitting,
+                        onMove = viewModel::submitMove,
+                    )
+                }
+            }
         }
     }
 }

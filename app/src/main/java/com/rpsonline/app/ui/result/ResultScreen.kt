@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material3.Button
@@ -54,13 +57,20 @@ fun ResultScreen(
         isLoading = false
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier.rpsScreenPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
         if (isLoading || match == null) {
-            CircularProgressIndicator()
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator()
+            }
             return
         }
 
@@ -77,6 +87,13 @@ fun ResultScreen(
         val recaps = userId?.let { currentMatch.resolvedRoundRecaps(it) } ?: emptyList()
         val lastRound = recaps.lastOrNull()
 
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
         if (isDraw) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -156,8 +173,9 @@ fun ResultScreen(
             Spacer(modifier = Modifier.height(16.dp))
             MatchRecapCard(recaps = recaps)
         }
+        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = onPlayAgain,
             modifier = Modifier.fillMaxWidth(),
@@ -240,32 +258,32 @@ private fun MatchRecapCard(recaps: List<RoundRecap>) {
                 fontWeight = FontWeight.SemiBold,
             )
             recaps.forEachIndexed { index, recap ->
-                if (index > 0) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Round ${recap.roundNumber}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = recapChoicesLine(recap),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
                         Text(
-                            text = "Round ${recap.roundNumber}",
+                            text = recapOutcomeLabel(recap),
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = recapChoicesLine(recap),
-                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = recapOutcomeColor(recap),
                         )
                     }
-                    Text(
-                        text = recapOutcomeLabel(recap),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = recapOutcomeColor(recap),
-                    )
-                }
             }
         }
     }
