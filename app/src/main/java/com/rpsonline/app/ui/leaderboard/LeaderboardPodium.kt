@@ -2,17 +2,23 @@ package com.rpsonline.app.ui.leaderboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
+import kotlin.math.max
 
 private data class PodiumStyle(
     val borderColor: Color,
@@ -47,6 +53,57 @@ private fun podiumStyleForRank(rank: Int): PodiumStyle? {
     }
 }
 
+private fun DrawScope.drawInwardPodiumGlow(glowColor: Color, cornerRadius: Float) {
+    val center = Offset(size.width / 2f, size.height / 2f)
+    val radius = max(size.width, size.height) * 0.72f
+    val corner = CornerRadius(cornerRadius, cornerRadius)
+
+    drawRoundRect(
+        brush = Brush.radialGradient(
+            colorStops = arrayOf(
+                0.0f to Color.Transparent,
+                0.42f to glowColor.copy(alpha = 0.05f),
+                0.72f to glowColor.copy(alpha = 0.24f),
+                1.0f to glowColor.copy(alpha = 0.52f),
+            ),
+            center = center,
+            radius = radius,
+        ),
+        size = size,
+        cornerRadius = corner,
+    )
+
+    val edgeStrength = 0.38f
+    drawRoundRect(
+        brush = Brush.horizontalGradient(
+            colorStops = arrayOf(
+                0.0f to glowColor.copy(alpha = edgeStrength),
+                0.22f to Color.Transparent,
+                0.78f to Color.Transparent,
+                1.0f to glowColor.copy(alpha = edgeStrength),
+            ),
+            startX = 0f,
+            endX = size.width,
+        ),
+        size = size,
+        cornerRadius = corner,
+    )
+    drawRoundRect(
+        brush = Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.0f to glowColor.copy(alpha = edgeStrength * 0.85f),
+                0.28f to Color.Transparent,
+                0.72f to Color.Transparent,
+                1.0f to glowColor.copy(alpha = edgeStrength * 0.85f),
+            ),
+            startY = 0f,
+            endY = size.height,
+        ),
+        size = size,
+        cornerRadius = corner,
+    )
+}
+
 @Composable
 fun LeaderboardEntryCard(
     rank: Int,
@@ -56,31 +113,35 @@ fun LeaderboardEntryCard(
     val podium = podiumStyleForRank(rank)
     val shape = MaterialTheme.shapes.medium
     val baseContainer = MaterialTheme.colorScheme.surfaceContainerHigh
-    val containerColor = podium?.let { lerp(baseContainer, it.containerTint, 0.22f) } ?: baseContainer
+    val containerColor = podium?.let { lerp(baseContainer, it.containerTint, 0.18f) } ?: baseContainer
+    val cornerRadius = 12.dp
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (podium != null) {
-                    Modifier.shadow(
-                        elevation = 12.dp,
-                        shape = shape,
-                        spotColor = podium.glowColor.copy(alpha = 0.55f),
-                        ambientColor = podium.glowColor.copy(alpha = 0.28f),
-                    )
-                } else {
-                    Modifier
-                },
-            ),
+        modifier = modifier.fillMaxWidth(),
         shape = shape,
-        border = podium?.let { BorderStroke(2.dp, it.borderColor) },
+        border = podium?.let { BorderStroke(1.5.dp, it.borderColor) },
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (podium != null) 0.dp else 1.dp,
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        content()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .then(
+                    if (podium != null) {
+                        Modifier.drawBehind {
+                            drawInwardPodiumGlow(
+                                glowColor = podium.glowColor,
+                                cornerRadius = cornerRadius.toPx(),
+                            )
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
+            content()
+        }
     }
 }
 
