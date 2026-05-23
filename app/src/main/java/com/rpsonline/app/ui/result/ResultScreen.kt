@@ -82,7 +82,6 @@ fun ResultScreen(
         val eloDelta = userId?.let { currentMatch.myEloDelta(it) } ?: 0
         val opponentName = userId?.let { currentMatch.opponentName(it) } ?: "Opponent"
         val recaps = userId?.let { currentMatch.resolvedRoundRecaps(it) } ?: emptyList()
-        val lastRound = recaps.lastOrNull()
 
         Column(
             modifier = Modifier
@@ -145,29 +144,16 @@ fun ResultScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text("Final score: $myWins - $opponentWins")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "ELO ${if (eloDelta >= 0) "+" else ""}$eloDelta",
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-            }
-        }
-
-        if (lastRound != null) {
-            Spacer(modifier = Modifier.height(16.dp))
-            LastRoundCard(lastRound = lastRound)
-        }
+        FinalScoreCard(
+            myWins = myWins,
+            opponentWins = opponentWins,
+            eloDelta = eloDelta,
+        )
 
         if (recaps.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             MatchRecapCard(recaps = recaps)
         }
         }
@@ -190,16 +176,33 @@ fun ResultScreen(
 }
 
 @Composable
-private fun LastRoundCard(lastRound: RoundRecap) {
+private fun FinalScoreCard(
+    myWins: Int,
+    opponentWins: Int,
+    eloDelta: Int,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            RoundRecapRow(
-                roundLabel = "Final round",
-                recap = lastRound,
+            Text(
+                text = "Final score: $myWins – $opponentWins",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "ELO ${if (eloDelta >= 0) "+" else ""}$eloDelta",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = when {
+                    eloDelta > 0 -> MaterialTheme.colorScheme.primary
+                    eloDelta < 0 -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
             )
         }
     }
@@ -211,12 +214,12 @@ private fun MatchRecapCard(recaps: List<RoundRecap>) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = "Match recap",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             recaps.forEachIndexed { index, recap ->
@@ -224,7 +227,11 @@ private fun MatchRecapCard(recaps: List<RoundRecap>) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 RoundRecapRow(
-                    roundLabel = "Round ${recap.roundNumber}",
+                    roundLabel = if (index == recaps.lastIndex) {
+                        "Final round"
+                    } else {
+                        "Round ${recap.roundNumber}"
+                    },
                     recap = recap,
                 )
             }
@@ -251,7 +258,7 @@ private fun RoundRecapRow(
             )
             Text(
                 text = recapChoicesLine(recap),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
         Text(
