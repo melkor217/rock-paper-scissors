@@ -3,13 +3,16 @@ package com.rpsonline.app.ui.theme
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +45,9 @@ private val LightColors = lightColorScheme(
     onSurface = Color(0xFF1A1C19),
     surfaceVariant = Color(0xFFDEE5DE),
     onSurfaceVariant = Color(0xFF424940),
+    surfaceContainer = Color(0xFFEBF2EB),
+    surfaceContainerHigh = Color(0xFFE3EAE3),
+    surfaceContainerHighest = Color(0xFFDEE5DE),
     outline = Color(0xFF727970),
     error = Color(0xFFBA1A1A),
     onError = Color(0xFFFFFFFF),
@@ -68,6 +74,9 @@ private val DarkColors = darkColorScheme(
     onSurface = Color(0xFFE2E3DD),
     surfaceVariant = Color(0xFF424940),
     onSurfaceVariant = Color(0xFFC2C9BE),
+    surfaceContainer = Color(0xFF1A1F1A),
+    surfaceContainerHigh = Color(0xFF242924),
+    surfaceContainerHighest = Color(0xFF2F342F),
     outline = Color(0xFF8C9388),
     error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
@@ -78,7 +87,7 @@ private val DarkColors = darkColorScheme(
 @Composable
 fun RpsTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -104,6 +113,13 @@ fun RpsTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        content = content,
+        content = {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = colorScheme.background,
+                contentColor = colorScheme.onBackground,
+                content = content,
+            )
+        },
     )
 }

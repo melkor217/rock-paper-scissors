@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -58,18 +59,32 @@ fun HomeScreen(
         Text(
             text = "Welcome, ${profile?.displayName ?: "Player"}",
             style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ),
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("ELO Rating", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "ELO Rating",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Text(
                     text = "${profile?.elo ?: 1000}",
                     style = MaterialTheme.typography.displaySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Wins: ${profile?.wins ?: 0}  •  Losses: ${profile?.losses ?: 0}")
+                Text(
+                    text = "Wins: ${profile?.wins ?: 0}  •  Losses: ${profile?.losses ?: 0}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
@@ -89,7 +104,11 @@ fun HomeScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-        Text("Top Players", style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = "Top Players",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
         Spacer(modifier = Modifier.height(8.dp))
 
         LazyColumn(
@@ -97,15 +116,26 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             itemsIndexed(uiState.leaderboard) { index, entry ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("#${index + 1} ${entry.displayName}")
-                        Text("${entry.elo} ELO")
+                        Text(
+                            text = "#${index + 1} ${entry.displayName}",
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "${entry.elo} ELO",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
