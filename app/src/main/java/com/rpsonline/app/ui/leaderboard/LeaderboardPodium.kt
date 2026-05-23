@@ -32,22 +32,22 @@ private fun podiumStyleForRank(rank: Int): PodiumStyle? {
     val dark = isSystemInDarkTheme()
     return when (rank) {
         1 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFFFD54F) else Color(0xFFFFB300),
+            borderColor = if (dark) Color(0xFFFFD54F).copy(alpha = 0.45f) else Color(0xFFFFB300).copy(alpha = 0.5f),
             glowColor = if (dark) Color(0xFFFFCA28) else Color(0xFFFFA000),
             containerTint = if (dark) Color(0xFF5D4037) else Color(0xFFFFF8E1),
-            rankLabelColor = if (dark) Color(0xFFFFE082) else Color(0xFFF57F17),
+            rankLabelColor = if (dark) Color(0xFFFFE082).copy(alpha = 0.85f) else Color(0xFFF57F17).copy(alpha = 0.9f),
         )
         2 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFE0E0E0) else Color(0xFF90A4AE),
+            borderColor = if (dark) Color(0xFFE0E0E0).copy(alpha = 0.4f) else Color(0xFF90A4AE).copy(alpha = 0.45f),
             glowColor = if (dark) Color(0xFFB0BEC5) else Color(0xFF78909C),
             containerTint = if (dark) Color(0xFF37474F) else Color(0xFFECEFF1),
-            rankLabelColor = if (dark) Color(0xFFECEFF1) else Color(0xFF546E7A),
+            rankLabelColor = if (dark) Color(0xFFECEFF1).copy(alpha = 0.9f) else Color(0xFF546E7A),
         )
         3 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFFFAB91) else Color(0xFF8D6E63),
+            borderColor = if (dark) Color(0xFFFFAB91).copy(alpha = 0.45f) else Color(0xFF8D6E63).copy(alpha = 0.5f),
             glowColor = if (dark) Color(0xFFFF8A65) else Color(0xFFA1887F),
             containerTint = if (dark) Color(0xFF4E342E) else Color(0xFFEFEBE9),
-            rankLabelColor = if (dark) Color(0xFFFFCCBC) else Color(0xFF6D4C41),
+            rankLabelColor = if (dark) Color(0xFFFFCCBC).copy(alpha = 0.85f) else Color(0xFF6D4C41),
         )
         else -> null
     }
@@ -62,9 +62,9 @@ private fun DrawScope.drawInwardPodiumGlow(glowColor: Color, cornerRadius: Float
         brush = Brush.radialGradient(
             colorStops = arrayOf(
                 0.0f to Color.Transparent,
-                0.42f to glowColor.copy(alpha = 0.05f),
-                0.72f to glowColor.copy(alpha = 0.24f),
-                1.0f to glowColor.copy(alpha = 0.52f),
+                0.42f to glowColor.copy(alpha = 0.02f),
+                0.72f to glowColor.copy(alpha = 0.08f),
+                1.0f to glowColor.copy(alpha = 0.16f),
             ),
             center = center,
             radius = radius,
@@ -73,7 +73,7 @@ private fun DrawScope.drawInwardPodiumGlow(glowColor: Color, cornerRadius: Float
         cornerRadius = corner,
     )
 
-    val edgeStrength = 0.38f
+    val edgeStrength = 0.12f
     drawRoundRect(
         brush = Brush.horizontalGradient(
             colorStops = arrayOf(
@@ -114,13 +114,13 @@ fun LeaderboardEntryCard(
     val podium = podiumStyleForRank(rank)
     val shape = MaterialTheme.shapes.medium
     val baseContainer = MaterialTheme.colorScheme.surfaceContainerHigh
-    var containerColor = podium?.let { lerp(baseContainer, it.containerTint, 0.18f) } ?: baseContainer
+    var containerColor = podium?.let { lerp(baseContainer, it.containerTint, 0.10f) } ?: baseContainer
     if (isCurrentUser) {
-        containerColor = lerp(containerColor, MaterialTheme.colorScheme.primaryContainer, 0.35f)
+        containerColor = lerp(containerColor, MaterialTheme.colorScheme.primaryContainer, 0.48f)
     }
     val border = when {
-        podium != null -> BorderStroke(1.5.dp, podium.borderColor)
         isCurrentUser -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        podium != null -> BorderStroke(1.dp, podium.borderColor)
         else -> null
     }
     val cornerRadius = 12.dp
@@ -137,7 +137,7 @@ fun LeaderboardEntryCard(
                 .fillMaxWidth()
                 .clip(shape)
                 .then(
-                    if (podium != null) {
+                    if (podium != null && !isCurrentUser) {
                         Modifier.drawBehind {
                             drawInwardPodiumGlow(
                                 glowColor = podium.glowColor,
