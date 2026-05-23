@@ -12,8 +12,10 @@ No code changes are needed after enabling providers. If a method is disabled, th
 
 ## Notes
 
-- Email fields use Android Autofill semantics so Google Password Manager (or similar) can **suggest** saved logins and **offer to save** new passwords after registration (`NewPassword` on the register form).
+- Email/password fields use native **EditText** autofill hints (`username` + `newPassword` on Register) so Google Password Manager can offer **Suggest strong password** when you focus the password field.
+- After successful email sign-up or sign-in, the app calls **Credential Manager** (`CreatePasswordRequest`) to show the system **Save password** dialog (requires Activity context).
 - Ensure **Settings → Google → Autofill** (or your password manager) is enabled on the device.
+- Optional display name is excluded from the autofill set so it does not break the username/password pair.
 
 - Guest accounts get a random display name (`Guest abc123`). ELO and match history are tied to that Firebase UID.
 - Email users need a password of at least 6 characters (Firebase default).

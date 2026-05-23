@@ -29,6 +29,7 @@ import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundResult
+import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.GameViewModel
 
@@ -72,6 +73,18 @@ fun GameScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
+        val showCountdown = match.status == MatchStatus.ACTIVE &&
+            match.openRound()?.deadline != null &&
+            uiState.countdownSeconds != null
+        if (showCountdown) {
+            RoundCountdown(
+                secondsRemaining = uiState.countdownSeconds,
+                isResolvingTimeout = uiState.isResolvingTimeout,
+                hasSubmittedMove = uiState.hasSubmittedMove,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
@@ -92,6 +105,7 @@ fun GameScreen(
         val drawReplay = match.pendingDrawReplay()
         val pendingOutcome = match.pendingRoundOutcome()
         val openRound = match.openRound()
+        val myLockedChoice = myLockedChoice(userId, match, openRound, uiState.lockedMove)
         val showDrawReveal = currentRound?.winner == "tie" &&
             currentRound.player1Choice != null &&
             currentRound.player2Choice != null
@@ -112,14 +126,13 @@ fun GameScreen(
                 when {
                     drawReplay != null && uiState.hasSubmittedMove -> {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Choice locked in. Waiting for opponent…")
-                        CircularProgressIndicator()
+                        myLockedChoice?.let { WaitingForOpponentCard(myChoice = it) }
                     }
 
                     drawReplay != null -> {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Pick your move to replay the round",
+                            text = "Pick your move to replay the round (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)",
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -154,14 +167,13 @@ fun GameScreen(
                 when {
                     awaitingNextRound && uiState.hasSubmittedMove -> {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Choice locked in. Waiting for opponent…")
-                        CircularProgressIndicator()
+                        myLockedChoice?.let { WaitingForOpponentCard(myChoice = it) }
                     }
 
                     awaitingNextRound -> {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Pick your move for round ${openRound!!.roundNumber}",
+                            text = "Pick your move for round ${openRound!!.roundNumber} (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)",
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -174,8 +186,7 @@ fun GameScreen(
             }
 
             uiState.hasSubmittedMove -> {
-                Text("Choice locked in. Waiting for opponent…")
-                CircularProgressIndicator()
+                myLockedChoice?.let { WaitingForOpponentCard(myChoice = it) }
             }
 
             uiState.isSubmitting -> {
@@ -183,7 +194,10 @@ fun GameScreen(
             }
 
             else -> {
-                Text("Pick your move (10s)", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "Pick your move — ${GameRules.ROUND_TIMEOUT_SECONDS}s per round",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 MovePicker(
                     isSubmitting = uiState.isSubmitting,
@@ -197,6 +211,18 @@ fun GameScreen(
             Text(text = error, color = MaterialTheme.colorScheme.error)
         }
     }
+}
+
+private fun myLockedChoice(
+    userId: String,
+    match: Match,
+    openRound: RoundResult?,
+    lockedMove: Move?,
+): String? {
+    val fromServer = openRound?.let { round ->
+        if (userId == match.player1) round.player1Choice else round.player2Choice
+    }
+    return fromServer ?: lockedMove?.name
 }
 
 private fun RoundResult.choicesFor(userId: String, match: Match): Pair<String?, String?> {

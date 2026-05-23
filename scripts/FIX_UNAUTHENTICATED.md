@@ -12,7 +12,7 @@ Callable Functions were blocked by Cloud Run IAM. The app now uses **Firestore**
 ## Deploy (required once)
 
 ```bash
-cd ~/Documents/rock-paper-scissors
+cd ~/rock-paper-scissors
 firebase deploy --only functions,firestore:rules
 ```
 

@@ -57,6 +57,22 @@ class MatchRepository(
         firestore.collection("queue").document(uid).delete().await()
     }
 
+    suspend fun requestRoundTimeout(matchId: String, roundNumber: Int) {
+        // Auto-id doc: rules only allow create (not update). Reusing uid doc breaks tie replays.
+        firestore.collection("matches")
+            .document(matchId)
+            .collection("rounds")
+            .document(roundNumber.toString())
+            .collection("timeoutRequests")
+            .add(
+                mapOf(
+                    "userId" to uid,
+                    "requestedAt" to FieldValue.serverTimestamp(),
+                ),
+            )
+            .await()
+    }
+
     suspend fun submitMove(matchId: String, move: Move, roundNumber: Int) {
         firestore.collection("matches")
             .document(matchId)

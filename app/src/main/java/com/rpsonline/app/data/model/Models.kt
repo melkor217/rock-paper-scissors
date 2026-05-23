@@ -91,7 +91,38 @@ data class Match(
         val open = openRound() ?: return null
         return if (open.roundNumber > last.roundNumber) last else null
     }
+
+    fun resolvedRoundRecaps(userId: String): List<RoundRecap> =
+        rounds
+            .filter { it.resolvedAt != null }
+            .sortedBy { it.roundNumber }
+            .map { round ->
+                val myChoice = if (userId == player1) round.player1Choice else round.player2Choice
+                val opponentChoice = if (userId == player1) round.player2Choice else round.player1Choice
+                val won = when (round.winner) {
+                    "tie" -> null
+                    userId -> true
+                    else -> false
+                }
+                RoundRecap(
+                    roundNumber = round.roundNumber,
+                    myChoice = myChoice,
+                    opponentChoice = opponentChoice,
+                    won = won,
+                    opponentTimedOut = won == true && opponentChoice == null,
+                    iTimedOut = won == false && myChoice == null,
+                )
+            }
 }
+
+data class RoundRecap(
+    val roundNumber: Int,
+    val myChoice: String?,
+    val opponentChoice: String?,
+    val won: Boolean?,
+    val opponentTimedOut: Boolean = false,
+    val iTimedOut: Boolean = false,
+)
 
 data class UserProfile(
     val uid: String = "",

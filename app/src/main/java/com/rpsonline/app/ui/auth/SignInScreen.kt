@@ -1,5 +1,7 @@
 package com.rpsonline.app.ui.auth
 
+import android.view.View
+import android.view.inputmethod.EditorInfo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -29,14 +31,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.rpsonline.app.ui.components.autofillEmail
-import com.rpsonline.app.ui.components.autofillNewPassword
-import com.rpsonline.app.ui.components.autofillPassword
-import com.rpsonline.app.ui.components.autofillPersonName
+import com.rpsonline.app.ui.components.AutofillTextField
+import com.rpsonline.app.ui.components.excludeFromAutofill
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.EmailAuthMode
 import com.rpsonline.app.viewmodel.SignInViewModel
@@ -97,7 +96,7 @@ fun SignInScreen(
                 onPasswordChange = viewModel::updatePassword,
                 onDisplayNameChange = viewModel::updateDisplayName,
                 onModeChange = viewModel::setEmailMode,
-                onSubmit = viewModel::submitEmailAuth,
+                onSubmit = { viewModel.submitEmailAuth(context) },
             )
         }
 
@@ -179,44 +178,37 @@ private fun EmailAuthSection(
         onSubmit()
     }
 
-    OutlinedTextField(
+    val emailHints = if (isRegister) {
+        arrayOf(View.AUTOFILL_HINT_USERNAME)
+    } else {
+        arrayOf(View.AUTOFILL_HINT_EMAIL_ADDRESS)
+    }
+    val passwordHints = if (isRegister) {
+        arrayOf("newPassword")
+    } else {
+        arrayOf(View.AUTOFILL_HINT_PASSWORD)
+    }
+
+    AutofillTextField(
         value = email,
         onValueChange = onEmailChange,
-        label = { Text("Email") },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Email,
-            imeAction = ImeAction.Next,
-            autoCorrectEnabled = false,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .autofillEmail(),
+        label = "Email",
+        autofillHints = emailHints,
+        imeAction = EditorInfo.IME_ACTION_NEXT,
     )
-    Spacer(modifier = Modifier.height(8.dp))
-    OutlinedTextField(
+    Spacer(modifier = Modifier.height(12.dp))
+    AutofillTextField(
         value = password,
         onValueChange = onPasswordChange,
-        label = { Text("Password") },
-        singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Password,
-            imeAction = if (isRegister) ImeAction.Next else ImeAction.Done,
-            autoCorrectEnabled = false,
-        ),
-        keyboardActions = KeyboardActions(
-            onDone = { submitFromKeyboard() },
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (isRegister) Modifier.autofillNewPassword() else Modifier.autofillPassword(),
-            ),
+        label = "Password",
+        autofillHints = passwordHints,
+        isPassword = true,
+        imeAction = if (isRegister) EditorInfo.IME_ACTION_NEXT else EditorInfo.IME_ACTION_DONE,
+        onImeAction = { submitFromKeyboard() },
     )
 
     if (isRegister) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         OutlinedTextField(
             value = displayName,
             onValueChange = onDisplayNameChange,
@@ -231,7 +223,7 @@ private fun EmailAuthSection(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .autofillPersonName(),
+                .excludeFromAutofill(),
         )
     }
 

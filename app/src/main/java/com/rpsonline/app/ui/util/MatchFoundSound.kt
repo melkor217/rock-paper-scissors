@@ -35,9 +35,9 @@ fun playMatchFoundSound(context: Context) {
     }
 
     try {
-        ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80).use { tone ->
-            tone.startTone(ToneGenerator.TONE_PROP_ACK, 200)
-        }
+        val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80)
+        tone.startTone(ToneGenerator.TONE_PROP_ACK, 200)
+        tone.release()
     } catch (_: Exception) {
         // No audio available
     }
