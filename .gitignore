@@ -11,6 +11,8 @@ app/build/
 .cxx
 local.properties
 app/google-services.json
+app/upload.keystore
+*.jks
 functions/node_modules/
 functions/lib/
 .firebase/
