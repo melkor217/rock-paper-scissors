@@ -108,18 +108,27 @@ private fun DrawScope.drawInwardPodiumGlow(glowColor: Color, cornerRadius: Float
 fun LeaderboardEntryCard(
     rank: Int,
     modifier: Modifier = Modifier,
+    isCurrentUser: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val podium = podiumStyleForRank(rank)
     val shape = MaterialTheme.shapes.medium
     val baseContainer = MaterialTheme.colorScheme.surfaceContainerHigh
-    val containerColor = podium?.let { lerp(baseContainer, it.containerTint, 0.18f) } ?: baseContainer
+    var containerColor = podium?.let { lerp(baseContainer, it.containerTint, 0.18f) } ?: baseContainer
+    if (isCurrentUser) {
+        containerColor = lerp(containerColor, MaterialTheme.colorScheme.primaryContainer, 0.35f)
+    }
+    val border = when {
+        podium != null -> BorderStroke(1.5.dp, podium.borderColor)
+        isCurrentUser -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        else -> null
+    }
     val cornerRadius = 12.dp
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = shape,
-        border = podium?.let { BorderStroke(1.5.dp, it.borderColor) },
+        border = border,
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
