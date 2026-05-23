@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.rpsonline.app",
+      "sha256_cert_fingerprints": [
+        "6C:8E:6C:A9:28:B0:51:88:3D:39:F0:75:BF:FB:3F:41:C3:55:59:98:86:65:0C:A9:28:43:00:D4:B2:2F:3E:1B"
+      ]
+    }
+  }
+]
