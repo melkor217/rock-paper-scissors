@@ -34,20 +34,6 @@ class UserRepository(
         return snapshot.documents.map { doc -> doc.toLeaderboardEntry() }
     }
 
-    /** 1-based rank by Elo (tied Elo shares the same rank). */
-    suspend fun getUserRank(uid: String): Int? {
-        val profile = getUserProfile(uid) ?: return null
-        val playersAbove = firestore.collection("users")
-            .whereGreaterThan("elo", profile.elo)
-            .get()
-            .await()
-            .size()
-        return playersAbove + 1
-    }
-
-    suspend fun getLeaderboardEntry(uid: String): LeaderboardEntry? =
-        getUserProfile(uid)?.toLeaderboardEntry()
-
     private fun DocumentSnapshot.toLeaderboardEntry(): LeaderboardEntry =
         LeaderboardEntry(
             uid = id,
@@ -55,5 +41,14 @@ class UserRepository(
             elo = getLong("elo")?.toInt() ?: 1000,
             wins = getLong("wins")?.toInt() ?: 0,
             losses = getLong("losses")?.toInt() ?: 0,
+        )
+
+    private fun UserProfile.toLeaderboardEntry(): LeaderboardEntry =
+        LeaderboardEntry(
+            uid = uid,
+            displayName = displayName,
+            elo = elo,
+            wins = wins,
+            losses = losses,
         )
 }

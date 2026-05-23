@@ -65,6 +65,12 @@ fun LeaderboardScreen(
                 }
             }
             else -> {
+                val yourRank = uiState.yourRank
+                val yourEntry = uiState.yourEntry
+                if (yourRank != null && yourEntry != null) {
+                    YourRankSection(rank = yourRank, entry = yourEntry)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -126,55 +132,6 @@ fun LeaderboardScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Back to Home")
-        }
-    }
-}
-
-@Composable
-private fun YourRankSection(
-    rank: Int,
-    entry: LeaderboardEntry,
-) {
-    Text(
-        text = "Your rank",
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-    )
-    Spacer(modifier = Modifier.height(6.dp))
-    LeaderboardEntryCard(rank = rank, isCurrentUser = true) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = "#$rank ${entry.displayName}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "W ${entry.wins} / L ${entry.losses}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    entry.winRatePercent()?.let { winRate ->
-                        Text(
-                            text = " · $winRate%",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = leaderboardWinRateColor(winRate),
-                        )
-                    }
-                }
-            }
-            Text(
-                text = "${entry.elo}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
         }
     }
 }
