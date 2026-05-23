@@ -1,5 +1,6 @@
 package com.rpsonline.app.data.repository
 
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.rpsonline.app.data.model.LeaderboardEntry
@@ -30,14 +31,15 @@ class UserRepository(
             .get()
             .await()
 
-        return snapshot.documents.map { doc ->
-            LeaderboardEntry(
-                uid = doc.id,
-                displayName = doc.getString("displayName") ?: "Player",
-                elo = doc.getLong("elo")?.toInt() ?: 1000,
-                wins = doc.getLong("wins")?.toInt() ?: 0,
-                losses = doc.getLong("losses")?.toInt() ?: 0,
-            )
-        }
+        return snapshot.documents.map { doc -> doc.toLeaderboardEntry() }
     }
+
+    private fun DocumentSnapshot.toLeaderboardEntry(): LeaderboardEntry =
+        LeaderboardEntry(
+            uid = id,
+            displayName = getString("displayName") ?: "Player",
+            elo = getLong("elo")?.toInt() ?: 1000,
+            wins = getLong("wins")?.toInt() ?: 0,
+            losses = getLong("losses")?.toInt() ?: 0,
+        )
 }

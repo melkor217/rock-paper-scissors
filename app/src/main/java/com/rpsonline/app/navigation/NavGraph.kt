@@ -96,6 +96,11 @@ fun RpsNavGraph() {
                         popUpTo(Routes.game(matchId)) { inclusive = true }
                     }
                 },
+                onMatchAbandoned = {
+                    navController.navigate(Routes.HOME) {
+                        popUpTo(Routes.game(matchId)) { inclusive = true }
+                    }
+                },
             )
         }
 
