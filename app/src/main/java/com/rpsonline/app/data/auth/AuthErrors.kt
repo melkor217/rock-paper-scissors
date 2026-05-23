@@ -1,5 +1,6 @@
 package com.rpsonline.app.data.auth
 
+import androidx.credentials.exceptions.GetCredentialException
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -20,4 +21,20 @@ fun Throwable.toAuthMessage(): String = when (this) {
         else -> message ?: "Authentication failed"
     }
     else -> message ?: "Authentication failed"
+}
+
+fun GetCredentialException.toGoogleSignInMessage(): String {
+    val detail = message.orEmpty()
+    return when {
+        detail.contains("No credentials", ignoreCase = true) ||
+            detail.contains("NoCredential", ignoreCase = true) ->
+            "Google Sign-In is not configured for this app build. In Firebase Console, " +
+                "add your release keystore SHA-1 under Project settings → Your apps → " +
+                "Android → Add fingerprint, wait a few minutes, then try again."
+        detail.contains("28433", ignoreCase = true) ||
+            detail.contains("Cannot find a matching credential", ignoreCase = true) ->
+            "Google Sign-In could not access saved credentials on this device. " +
+                "Try again after setting a screen lock, or use email/guest sign-in."
+        else -> detail.ifBlank { "Sign-in cancelled" }
+    }
 }
