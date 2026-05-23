@@ -42,13 +42,4 @@ class UserRepository(
             wins = getLong("wins")?.toInt() ?: 0,
             losses = getLong("losses")?.toInt() ?: 0,
         )
-
-    private fun UserProfile.toLeaderboardEntry(): LeaderboardEntry =
-        LeaderboardEntry(
-            uid = uid,
-            displayName = displayName,
-            elo = elo,
-            wins = wins,
-            losses = losses,
-        )
 }

@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
 
@@ -65,12 +64,6 @@ fun LeaderboardScreen(
                 }
             }
             else -> {
-                val yourRank = uiState.yourRank
-                val yourEntry = uiState.yourEntry
-                if (yourRank != null && yourEntry != null) {
-                    YourRankSection(rank = yourRank, entry = yourEntry)
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
