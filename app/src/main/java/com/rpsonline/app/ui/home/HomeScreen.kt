@@ -128,6 +128,17 @@ fun HomeScreen(
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
+        uiState.onlinePlayerCount?.let { count ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = when (count) {
+                    1 -> "1 player online"
+                    else -> "$count players online"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         Card(

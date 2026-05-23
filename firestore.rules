@@ -21,6 +21,14 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).changedKeys().hasAny(['elo', 'wins', 'losses', 'activeMatchId']);
     }
 
+    match /presence/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['lastSeen'])
+        && request.resource.data.lastSeen is timestamp;
+      allow delete: if isOwner(userId);
+    }
+
     match /queue/{userId} {
       allow read: if isOwner(userId);
       allow create, update, delete: if isOwner(userId);
