@@ -25,8 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.GameViewModel
 
@@ -88,23 +90,20 @@ fun GameScreen(
 
         val currentRound = match.currentRoundData()
         val drawReplay = match.pendingDrawReplay()
+        val pendingOutcome = match.pendingRoundOutcome()
+        val openRound = match.openRound()
         val showDrawReveal = currentRound?.winner == "tie" &&
+            currentRound.player1Choice != null &&
+            currentRound.player2Choice != null
+        val showOutcomeReveal = currentRound?.winner != null &&
+            currentRound.winner != "tie" &&
             currentRound.player1Choice != null &&
             currentRound.player2Choice != null
 
         when {
             showDrawReveal || drawReplay != null -> {
                 val round = if (showDrawReveal) currentRound!! else drawReplay!!
-                val myChoice = if (userId == match.player1) {
-                    round.player1Choice
-                } else {
-                    round.player2Choice
-                }
-                val oppChoice = if (userId == match.player1) {
-                    round.player2Choice
-                } else {
-                    round.player1Choice
-                }
+                val (myChoice, oppChoice) = round.choicesFor(userId, match)
                 DrawRoundBanner(
                     myChoice = myChoice,
                     opponentChoice = oppChoice,
@@ -132,24 +131,46 @@ fun GameScreen(
                 }
             }
 
-            currentRound?.winner != null && currentRound.player1Choice != null -> {
-                val myChoice = if (userId == match.player1) {
-                    currentRound.player1Choice
+            showOutcomeReveal || pendingOutcome != null -> {
+                val round = if (showOutcomeReveal) currentRound!! else pendingOutcome!!
+                val (myChoice, oppChoice) = round.choicesFor(userId, match)
+                val wonRound = round.winner == userId
+                val awaitingNextRound = pendingOutcome != null && openRound != null
+
+                if (wonRound) {
+                    WinRoundBanner(
+                        myChoice = myChoice,
+                        opponentChoice = oppChoice,
+                        awaitingNextRound = awaitingNextRound,
+                    )
                 } else {
-                    currentRound.player2Choice
+                    LoseRoundBanner(
+                        myChoice = myChoice,
+                        opponentChoice = oppChoice,
+                        awaitingNextRound = awaitingNextRound,
+                    )
                 }
-                val oppChoice = if (userId == match.player1) {
-                    currentRound.player2Choice
-                } else {
-                    currentRound.player1Choice
+
+                when {
+                    awaitingNextRound && uiState.hasSubmittedMove -> {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Choice locked in. Waiting for opponent…")
+                        CircularProgressIndicator()
+                    }
+
+                    awaitingNextRound -> {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Pick your move for round ${openRound!!.roundNumber}",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        MovePicker(
+                            isSubmitting = uiState.isSubmitting,
+                            onMove = viewModel::submitMove,
+                        )
+                    }
                 }
-                Text("You: ${myChoice?.lowercase()}  •  Opponent: ${oppChoice?.lowercase()}")
-                val roundWinner = currentRound.winner
-                val message = when (roundWinner) {
-                    userId -> "You won the round!"
-                    else -> "Opponent won the round"
-                }
-                Text(message, style = MaterialTheme.typography.titleMedium)
             }
 
             uiState.hasSubmittedMove -> {
@@ -176,6 +197,12 @@ fun GameScreen(
             Text(text = error, color = MaterialTheme.colorScheme.error)
         }
     }
+}
+
+private fun RoundResult.choicesFor(userId: String, match: Match): Pair<String?, String?> {
+    val myChoice = if (userId == match.player1) player1Choice else player2Choice
+    val oppChoice = if (userId == match.player1) player2Choice else player1Choice
+    return myChoice to oppChoice
 }
 
 @Composable
