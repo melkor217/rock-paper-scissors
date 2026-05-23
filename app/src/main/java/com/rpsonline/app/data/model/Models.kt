@@ -79,6 +79,18 @@ data class Match(
         val hasOpenRound = rounds.any { it.resolvedAt == null && it.roundNumber == currentRound }
         return if (hasOpenRound) last else null
     }
+
+    fun openRound(): RoundResult? =
+        rounds.filter { it.resolvedAt == null }.lastOrNull()
+
+    /** Last round had a winner; next round is open — keep showing outcome until play resumes. */
+    fun pendingRoundOutcome(): RoundResult? {
+        val last = lastResolvedRound() ?: return null
+        if (last.winner == "tie" || last.winner == null) return null
+        if (last.player1Choice == null || last.player2Choice == null) return null
+        val open = openRound() ?: return null
+        return if (open.roundNumber > last.roundNumber) last else null
+    }
 }
 
 data class UserProfile(
