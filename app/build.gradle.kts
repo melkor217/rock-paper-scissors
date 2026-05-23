@@ -26,6 +26,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Debug keystore so CI can produce installable release APKs without Play signing.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
