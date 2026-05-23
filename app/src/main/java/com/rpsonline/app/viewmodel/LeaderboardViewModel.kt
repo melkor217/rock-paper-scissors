@@ -40,17 +40,11 @@ class LeaderboardViewModel(
             try {
                 val userId = authRepository.currentUserId
                 val entries = userRepository.getLeaderboard(limit = 50)
-                val yourRank = userId?.let { userRepository.getUserRank(it) }
-                val yourEntry = userId?.let { id ->
-                    entries.find { it.uid == id } ?: userRepository.getLeaderboardEntry(id)
-                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         entries = entries,
                         currentUserId = userId,
-                        yourRank = yourRank,
-                        yourEntry = yourEntry,
                     )
                 }
             } catch (e: Exception) {
