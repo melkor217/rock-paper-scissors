@@ -119,6 +119,28 @@ function sanitizeRounds(rounds: RoundDoc[]): RoundDoc[] {
   return rounds.map(sanitizeRound);
 }
 
+async function abandonMatch(
+  matchRef: FirebaseFirestore.DocumentReference,
+  match: MatchDoc,
+  rounds: RoundDoc[],
+  roundIndex: number,
+  now: Timestamp,
+): Promise<void> {
+  rounds[roundIndex] = sanitizeRound({
+    ...rounds[roundIndex],
+    resolvedAt: now,
+  });
+  const batch = db.batch();
+  batch.update(matchRef, {
+    status: "abandoned",
+    rounds: sanitizeRounds(rounds),
+    lastActivityAt: FieldValue.serverTimestamp(),
+  });
+  batch.update(db.collection("users").doc(match.player1), { activeMatchId: FieldValue.delete() });
+  batch.update(db.collection("users").doc(match.player2), { activeMatchId: FieldValue.delete() });
+  await batch.commit();
+}
+
 async function finalizeMatch(
   matchRef: FirebaseFirestore.DocumentReference,
   match: MatchDoc,
@@ -226,20 +248,8 @@ async function resolveRoundIfReady(
       );
       return;
     }
-    // Neither player submitted in time — replay with next round number.
-    const nextRoundNumber = match.currentRound + 1;
-    const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
-    rounds[roundIndex] = sanitizeRound({
-      ...round,
-      winner: "tie",
-      resolvedAt: now,
-    });
-    rounds.push({ roundNumber: nextRoundNumber, deadline: nextDeadline });
-    await matchRef.update({
-      rounds: sanitizeRounds(rounds),
-      currentRound: nextRoundNumber,
-      lastActivityAt: FieldValue.serverTimestamp(),
-    });
+    // Neither player submitted in time — cancel the match (no Elo change).
+    await abandonMatch(matchRef, match, rounds, roundIndex, now);
     return;
   } else {
     return;

@@ -46,6 +46,7 @@ import com.rpsonline.app.viewmodel.GameViewModel
 fun GameScreen(
     matchId: String,
     onMatchComplete: (String) -> Unit,
+    onMatchAbandoned: () -> Unit,
     viewModel: GameViewModel = viewModel(factory = GameViewModel.factory(matchId)),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -53,12 +54,14 @@ fun GameScreen(
     val userId = uiState.userId
 
     LaunchedEffect(match?.status, match?.id) {
-        if (match?.status == MatchStatus.COMPLETED) {
-            onMatchComplete(matchId)
+        when (match?.status) {
+            MatchStatus.COMPLETED -> onMatchComplete(matchId)
+            MatchStatus.ABANDONED -> onMatchAbandoned()
+            else -> Unit
         }
     }
 
-    if (match?.status == MatchStatus.COMPLETED) {
+    if (match?.status == MatchStatus.COMPLETED || match?.status == MatchStatus.ABANDONED) {
         return
     }
 
