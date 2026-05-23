@@ -77,7 +77,7 @@ jobs:
             -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME"
 
       - name: Run unit tests
-        run: ./gradlew :app:testReleaseUnitTest --no-daemon
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
 
       - name: Prepare release asset
         run: |
