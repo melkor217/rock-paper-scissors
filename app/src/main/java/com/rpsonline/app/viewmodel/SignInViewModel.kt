@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.rpsonline.app.R
+import com.rpsonline.app.data.auth.toAuthMessage
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,10 +19,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class EmailAuthMode {
+    SIGN_IN,
+    REGISTER,
+}
+
 data class SignInUiState(
     val isLoading: Boolean = false,
     val profile: UserProfile? = null,
     val error: String? = null,
+    val email: String = "",
+    val password: String = "",
+    val displayName: String = "",
+    val emailMode: EmailAuthMode = EmailAuthMode.SIGN_IN,
 )
 
 class SignInViewModel(
@@ -44,13 +54,29 @@ class SignInViewModel(
                             )
                         _uiState.update { it.copy(profile = profile, isLoading = false) }
                     } catch (e: Exception) {
-                        _uiState.update { it.copy(error = e.message, isLoading = false) }
+                        _uiState.update { it.copy(error = e.toAuthMessage(), isLoading = false) }
                     }
                 } else {
                     _uiState.update { it.copy(profile = null, isLoading = false) }
                 }
             }
         }
+    }
+
+    fun updateEmail(value: String) {
+        _uiState.update { it.copy(email = value, error = null) }
+    }
+
+    fun updatePassword(value: String) {
+        _uiState.update { it.copy(password = value, error = null) }
+    }
+
+    fun updateDisplayName(value: String) {
+        _uiState.update { it.copy(displayName = value, error = null) }
+    }
+
+    fun setEmailMode(mode: EmailAuthMode) {
+        _uiState.update { it.copy(emailMode = mode, error = null) }
     }
 
     fun signInWithGoogle(context: Context) {
@@ -86,7 +112,51 @@ class SignInViewModel(
             } catch (e: GetCredentialException) {
                 _uiState.update { it.copy(isLoading = false, error = e.message ?: "Sign-in cancelled") }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Sign-in failed") }
+                _uiState.update { it.copy(isLoading = false, error = e.toAuthMessage()) }
+            }
+        }
+    }
+
+    fun signInAnonymously() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val profile = authRepository.signInAnonymously()
+                _uiState.update { it.copy(isLoading = false, profile = profile) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.toAuthMessage()) }
+            }
+        }
+    }
+
+    fun submitEmailAuth() {
+        val state = _uiState.value
+        val email = state.email.trim()
+        val password = state.password
+
+        if (email.isBlank()) {
+            _uiState.update { it.copy(error = "Enter your email") }
+            return
+        }
+        if (password.length < 6) {
+            _uiState.update { it.copy(error = "Password must be at least 6 characters") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val profile = when (state.emailMode) {
+                    EmailAuthMode.SIGN_IN -> authRepository.signInWithEmail(email, password)
+                    EmailAuthMode.REGISTER -> authRepository.registerWithEmail(
+                        email = email,
+                        password = password,
+                        displayName = state.displayName,
+                    )
+                }
+                _uiState.update { it.copy(isLoading = false, profile = profile) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = e.toAuthMessage()) }
             }
         }
     }

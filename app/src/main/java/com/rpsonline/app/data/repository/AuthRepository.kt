@@ -7,6 +7,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.rpsonline.app.data.model.UserProfile
@@ -39,6 +40,35 @@ class AuthRepository(
         val result = auth.signInWithCredential(credential).await()
         val user = result.user ?: error("Google sign-in failed")
         return ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
+    }
+
+    suspend fun signInAnonymously(): UserProfile {
+        val result = auth.signInAnonymously().await()
+        val user = result.user ?: error("Guest sign-in failed")
+        val guestName = "Guest ${user.uid.take(6)}"
+        return ensureUserProfile(user.uid, guestName, photoUrl = null)
+    }
+
+    suspend fun signInWithEmail(email: String, password: String): UserProfile {
+        val result = auth.signInWithEmailAndPassword(email.trim(), password).await()
+        val user = result.user ?: error("Email sign-in failed")
+        val name = user.displayName?.takeIf { it.isNotBlank() }
+            ?: email.substringBefore('@').ifBlank { "Player" }
+        return ensureUserProfile(user.uid, name, user.photoUrl?.toString())
+    }
+
+    suspend fun registerWithEmail(
+        email: String,
+        password: String,
+        displayName: String,
+    ): UserProfile {
+        val result = auth.createUserWithEmailAndPassword(email.trim(), password).await()
+        val user = result.user ?: error("Registration failed")
+        val name = displayName.trim().ifBlank { email.substringBefore('@') }
+        user.updateProfile(
+            UserProfileChangeRequest.Builder().setDisplayName(name).build(),
+        ).await()
+        return ensureUserProfile(user.uid, name, photoUrl = null)
     }
 
     suspend fun ensureUserProfile(
