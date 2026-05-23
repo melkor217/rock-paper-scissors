@@ -37,9 +37,6 @@ import com.rpsonline.app.data.model.RoundRecap
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.game.RoundOutcomeCard
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.ThumbDown
 
 @Composable
 fun ResultScreen(
@@ -166,7 +163,7 @@ fun ResultScreen(
 
         if (lastRound != null) {
             Spacer(modifier = Modifier.height(16.dp))
-            LastRoundCard(lastRound = lastRound, won = won, isDraw = isDraw)
+            LastRoundCard(lastRound = lastRound)
         }
 
         if (recaps.isNotEmpty()) {
@@ -193,54 +190,19 @@ fun ResultScreen(
 }
 
 @Composable
-private fun LastRoundCard(
-    lastRound: RoundRecap,
-    won: Boolean,
-    isDraw: Boolean,
-) {
-    val (headline, containerColor, contentColor, icon) = when {
-        lastRound.isDraw -> Quad(
-            "Final round — draw",
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer,
-            Icons.Default.Balance,
-        )
-        lastRound.opponentTimedOut -> Quad(
-            "Final round — opponent timed out",
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
-            Icons.Default.EmojiEvents,
-        )
-        lastRound.iTimedOut -> Quad(
-            "Final round — you timed out",
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer,
-            Icons.Default.ThumbDown,
-        )
-        won -> Quad(
-            "Final round — you won",
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
-            Icons.Default.EmojiEvents,
-        )
-        else -> Quad(
-            "Final round — you lost",
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer,
-            Icons.Default.ThumbDown,
-        )
+private fun LastRoundCard(lastRound: RoundRecap) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            RoundRecapRow(
+                roundLabel = "Final round",
+                recap = lastRound,
+            )
+        }
     }
-
-    RoundOutcomeCard(
-        containerColor = containerColor,
-        contentColor = contentColor,
-        icon = icon,
-        headline = headline,
-        subtitle = recapSummary(lastRound),
-        myChoice = lastRound.myChoice,
-        opponentChoice = lastRound.opponentChoice,
-        choiceSeparator = "vs",
-    )
 }
 
 @Composable
@@ -258,43 +220,48 @@ private fun MatchRecapCard(recaps: List<RoundRecap>) {
                 fontWeight = FontWeight.SemiBold,
             )
             recaps.forEachIndexed { index, recap ->
-                    if (index > 0) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Round ${recap.roundNumber}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = recapChoicesLine(recap),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                        }
-                        Text(
-                            text = recapOutcomeLabel(recap),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = recapOutcomeColor(recap),
-                        )
-                    }
+                if (index > 0) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                RoundRecapRow(
+                    roundLabel = "Round ${recap.roundNumber}",
+                    recap = recap,
+                )
             }
         }
     }
 }
 
-private data class Quad(
-    val headline: String,
-    val containerColor: androidx.compose.ui.graphics.Color,
-    val contentColor: androidx.compose.ui.graphics.Color,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-)
+@Composable
+private fun RoundRecapRow(
+    roundLabel: String,
+    recap: RoundRecap,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = roundLabel,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = recapChoicesLine(recap),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+        Text(
+            text = recapOutcomeLabel(recap),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = recapOutcomeColor(recap),
+        )
+    }
+}
 
 private fun formatChoice(choice: String?): String =
     choice?.let { Move.fromString(it)?.label ?: it.lowercase() } ?: "—"
@@ -306,16 +273,6 @@ private fun recapChoicesLine(recap: RoundRecap): String = when {
     recap.isDraw && recap.myChoice == null && recap.opponentChoice == null ->
         "No picks — round replayed"
     recap.isDraw -> "${formatChoices(recap.myChoice, recap.opponentChoice)} — same move"
-    else -> formatChoices(recap.myChoice, recap.opponentChoice)
-}
-
-private fun recapSummary(recap: RoundRecap): String = when {
-    recap.isDraw && recap.myChoice == null && recap.opponentChoice == null ->
-        "Neither player picked in time"
-    recap.isDraw -> "Same move — round tied"
-    recap.won == null -> "Same move — round tied"
-    recap.opponentTimedOut -> "You picked in time; opponent did not"
-    recap.iTimedOut -> "You did not pick in time"
     else -> formatChoices(recap.myChoice, recap.opponentChoice)
 }
 
