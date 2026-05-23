@@ -17,6 +17,9 @@ android {
         versionName = project.findProperty("versionName") as String? ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "GITHUB_REPO_OWNER", "\"melkor217\"")
+        buildConfigField("String", "GITHUB_REPO_NAME", "\"rock-paper-scissors\"")
     }
 
     signingConfigs {
@@ -37,6 +40,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "false")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -44,6 +50,7 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("release")
+            buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "true")
         }
     }
 
