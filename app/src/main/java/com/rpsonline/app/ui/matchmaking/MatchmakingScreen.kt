@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.playMatchFoundSound
 import com.rpsonline.app.viewmodel.MatchmakingStatus
@@ -48,6 +49,10 @@ fun MatchmakingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        uiState.onlinePlayerCount?.let { count ->
+            PlayersOnlineLabel(count = count)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         when (uiState.status) {
             MatchmakingStatus.SEARCHING -> {
                 CircularProgressIndicator()
