@@ -22,16 +22,19 @@ fun RoundCountdown(
     secondsRemaining: Int?,
     isResolvingTimeout: Boolean = false,
     hasSubmittedMove: Boolean = false,
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     if (secondsRemaining == null) return
+
+    val timerSize = if (compact) 56.dp else 72.dp
 
     if (isResolvingTimeout) {
         Column(
             modifier = modifier,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(48.dp))
+            CircularProgressIndicator(modifier = Modifier.size(if (compact) 40.dp else 48.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = if (hasSubmittedMove) {
@@ -63,7 +66,7 @@ fun RoundCountdown(
             CircularProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(timerSize)
                     .graphicsLayer { scaleX = -1f },
                 color = color,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -71,7 +74,11 @@ fun RoundCountdown(
             )
             Text(
                 text = secondsRemaining.toString(),
-                style = MaterialTheme.typography.headlineMedium,
+                style = if (compact) {
+                    MaterialTheme.typography.titleLarge
+                } else {
+                    MaterialTheme.typography.headlineMedium
+                },
                 fontWeight = FontWeight.Bold,
                 color = color,
             )
