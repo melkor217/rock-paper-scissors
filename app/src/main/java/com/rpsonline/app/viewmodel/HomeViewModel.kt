@@ -9,6 +9,7 @@ import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AppUpdateRepository
 import com.rpsonline.app.data.repository.AuthRepository
+import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.data.update.AppUpdateInfo
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ import kotlinx.coroutines.withContext
 data class HomeUiState(
     val isLoading: Boolean = true,
     val profile: UserProfile? = null,
+    val onlinePlayerCount: Int? = null,
     val leaderboard: List<LeaderboardEntry> = emptyList(),
     val error: String? = null,
     val versionName: String = "",
@@ -36,6 +38,7 @@ data class HomeUiState(
 class HomeViewModel(
     private val authRepository: AuthRepository = AuthRepository(),
     private val userRepository: UserRepository = UserRepository(),
+    private val presenceRepository: PresenceRepository = PresenceRepository(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -43,9 +46,16 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
+            presenceRepository.observeOnlineCount().collect { count ->
+                _uiState.update { it.copy(onlinePlayerCount = count) }
+            }
+        }
+        viewModelScope.launch {
             authRepository.authStateFlow().collect { user ->
                 if (user == null) {
-                    _uiState.update { it.copy(isLoading = false, profile = null) }
+                    _uiState.update {
+                        it.copy(isLoading = false, profile = null, onlinePlayerCount = null)
+                    }
                 } else {
                     refresh(user)
                 }
@@ -147,9 +157,17 @@ class HomeViewModel(
 
     fun signOut(context: Context) {
         viewModelScope.launch {
+            authRepository.currentUserId?.let { uid ->
+                runCatching { presenceRepository.clearPresence(uid) }
+            }
             authRepository.signOut(context)
             _uiState.update {
-                HomeUiState(isLoading = false, profile = null, leaderboard = emptyList())
+                HomeUiState(
+                    isLoading = false,
+                    profile = null,
+                    onlinePlayerCount = null,
+                    leaderboard = emptyList(),
+                )
             }
         }
     }

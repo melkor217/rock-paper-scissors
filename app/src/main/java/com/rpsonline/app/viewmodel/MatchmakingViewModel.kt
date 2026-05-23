@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
+import com.rpsonline.app.data.repository.PresenceRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,11 +27,13 @@ data class MatchmakingUiState(
     val match: Match? = null,
     val error: String? = null,
     val queueElapsedSeconds: Long = 0,
+    val onlinePlayerCount: Int? = null,
 )
 
 class MatchmakingViewModel(
     private val matchRepository: MatchRepository = MatchRepository(),
     private val authRepository: AuthRepository = AuthRepository(),
+    private val presenceRepository: PresenceRepository = PresenceRepository(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MatchmakingUiState())
@@ -38,6 +41,14 @@ class MatchmakingViewModel(
 
     private var observeJob: Job? = null
     private var queueTimerJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            presenceRepository.observeOnlineCount().collect { count ->
+                _uiState.update { it.copy(onlinePlayerCount = count) }
+            }
+        }
+    }
 
     fun startMatchmaking() {
         if (_uiState.value.status == MatchmakingStatus.SEARCHING) return
@@ -109,7 +120,13 @@ class MatchmakingViewModel(
                 observeJob?.cancel()
                 stopQueueTimer()
                 _uiState.update {
-                    MatchmakingUiState(status = MatchmakingStatus.IDLE)
+                    it.copy(
+                        status = MatchmakingStatus.IDLE,
+                        error = null,
+                        matchId = null,
+                        match = null,
+                        queueElapsedSeconds = 0,
+                    )
                 }
             }
         }

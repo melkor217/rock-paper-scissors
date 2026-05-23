@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
+import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.HomeViewModel
@@ -128,6 +129,10 @@ fun HomeScreen(
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
+        uiState.onlinePlayerCount?.let { count ->
+            Spacer(modifier = Modifier.height(4.dp))
+            PlayersOnlineLabel(count = count)
+        }
         Spacer(modifier = Modifier.height(16.dp))
 
         Card(
