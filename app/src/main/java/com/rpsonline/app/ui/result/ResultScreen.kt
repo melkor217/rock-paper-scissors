@@ -4,9 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material3.Button
@@ -54,13 +57,20 @@ fun ResultScreen(
         isLoading = false
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier.rpsScreenPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
         if (isLoading || match == null) {
-            CircularProgressIndicator()
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator()
+            }
             return
         }
 
@@ -77,6 +87,13 @@ fun ResultScreen(
         val recaps = userId?.let { currentMatch.resolvedRoundRecaps(it) } ?: emptyList()
         val lastRound = recaps.lastOrNull()
 
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
         if (isDraw) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -156,8 +173,9 @@ fun ResultScreen(
             Spacer(modifier = Modifier.height(16.dp))
             MatchRecapCard(recaps = recaps)
         }
+        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = onPlayAgain,
             modifier = Modifier.fillMaxWidth(),
@@ -181,7 +199,7 @@ private fun LastRoundCard(
     isDraw: Boolean,
 ) {
     val (headline, containerColor, contentColor, icon) = when {
-        isDraw -> Quad(
+        lastRound.isDraw -> Quad(
             "Final round — draw",
             MaterialTheme.colorScheme.tertiaryContainer,
             MaterialTheme.colorScheme.onTertiaryContainer,
@@ -240,32 +258,32 @@ private fun MatchRecapCard(recaps: List<RoundRecap>) {
                 fontWeight = FontWeight.SemiBold,
             )
             recaps.forEachIndexed { index, recap ->
-                if (index > 0) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Round ${recap.roundNumber}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = recapChoicesLine(recap),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
                         Text(
-                            text = "Round ${recap.roundNumber}",
+                            text = recapOutcomeLabel(recap),
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = formatChoices(recap.myChoice, recap.opponentChoice),
-                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = recapOutcomeColor(recap),
                         )
                     }
-                    Text(
-                        text = recapOutcomeLabel(recap),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = recapOutcomeColor(recap),
-                    )
-                }
             }
         }
     }
@@ -284,7 +302,17 @@ private fun formatChoice(choice: String?): String =
 private fun formatChoices(myChoice: String?, opponentChoice: String?): String =
     "${formatChoice(myChoice)} vs ${formatChoice(opponentChoice)}"
 
+private fun recapChoicesLine(recap: RoundRecap): String = when {
+    recap.isDraw && recap.myChoice == null && recap.opponentChoice == null ->
+        "No picks — round replayed"
+    recap.isDraw -> "${formatChoices(recap.myChoice, recap.opponentChoice)} — same move"
+    else -> formatChoices(recap.myChoice, recap.opponentChoice)
+}
+
 private fun recapSummary(recap: RoundRecap): String = when {
+    recap.isDraw && recap.myChoice == null && recap.opponentChoice == null ->
+        "Neither player picked in time"
+    recap.isDraw -> "Same move — round tied"
     recap.won == null -> "Same move — round tied"
     recap.opponentTimedOut -> "You picked in time; opponent did not"
     recap.iTimedOut -> "You did not pick in time"
@@ -292,7 +320,7 @@ private fun recapSummary(recap: RoundRecap): String = when {
 }
 
 private fun recapOutcomeLabel(recap: RoundRecap): String = when {
-    recap.won == null -> "Draw"
+    recap.isDraw || recap.won == null -> "Draw"
     recap.opponentTimedOut -> "Win (timeout)"
     recap.iTimedOut -> "Loss (timeout)"
     recap.won -> "Win"
@@ -301,7 +329,7 @@ private fun recapOutcomeLabel(recap: RoundRecap): String = when {
 
 @Composable
 private fun recapOutcomeColor(recap: RoundRecap): androidx.compose.ui.graphics.Color = when {
-    recap.won == null -> MaterialTheme.colorScheme.onSurfaceVariant
+    recap.isDraw || recap.won == null -> MaterialTheme.colorScheme.tertiary
     recap.won -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error
 }

@@ -226,16 +226,18 @@ async function resolveRoundIfReady(
       );
       return;
     }
-    // Neither player submitted in time — replay the round.
+    // Neither player submitted in time — replay with next round number.
+    const nextRoundNumber = match.currentRound + 1;
     const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
     rounds[roundIndex] = sanitizeRound({
       ...round,
       winner: "tie",
       resolvedAt: now,
     });
-    rounds.push({ roundNumber: match.currentRound, deadline: nextDeadline });
+    rounds.push({ roundNumber: nextRoundNumber, deadline: nextDeadline });
     await matchRef.update({
       rounds: sanitizeRounds(rounds),
+      currentRound: nextRoundNumber,
       lastActivityAt: FieldValue.serverTimestamp(),
     });
     return;
@@ -290,6 +292,7 @@ async function resolveRoundIfReady(
   }
 
   if (winner === "tie") {
+    const nextRoundNumber = match.currentRound + 1;
     const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
     rounds[roundIndex] = sanitizeRound({
       ...round,
@@ -298,9 +301,10 @@ async function resolveRoundIfReady(
       winner: "tie",
       resolvedAt: now,
     });
-    rounds.push({ roundNumber: match.currentRound, deadline: nextDeadline });
+    rounds.push({ roundNumber: nextRoundNumber, deadline: nextDeadline });
     await matchRef.update({
       rounds: sanitizeRounds(rounds),
+      currentRound: nextRoundNumber,
       player1Wins,
       player2Wins,
       lastActivityAt: FieldValue.serverTimestamp(),
