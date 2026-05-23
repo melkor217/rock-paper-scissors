@@ -38,9 +38,9 @@ fun RoundOutcomeCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -53,25 +53,10 @@ fun RoundOutcomeCard(
                 )
                 Text(
                     text = headline,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = contentColor,
                 )
-            }
-
-            if (myChoice != null && opponentChoice != null) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ChoiceChip(label = "You", choice = myChoice, color = contentColor)
-                    Text(
-                        text = choiceSeparator,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = contentColor,
-                    )
-                    ChoiceChip(label = "Opponent", choice = opponentChoice, color = contentColor)
-                }
             }
 
             Text(
@@ -79,6 +64,22 @@ fun RoundOutcomeCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = contentColor,
             )
+
+            if (myChoice != null && opponentChoice != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ChoiceChip(label = "You", choice = myChoice, color = contentColor)
+                    Text(
+                        text = choiceSeparator,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = contentColor,
+                    )
+                    ChoiceChip(label = "Opponent", choice = opponentChoice, color = contentColor)
+                }
+            }
         }
     }
 }

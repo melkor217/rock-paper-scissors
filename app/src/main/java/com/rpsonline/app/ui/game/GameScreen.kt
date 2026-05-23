@@ -152,13 +152,14 @@ fun GameScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(24.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ScoreColumn(
                         label = "You",
                         score = match.myWins(userId),
                         progressColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
                     )
                     Text(
                         text = ":",
@@ -169,46 +170,47 @@ fun GameScreen(
                         label = "Opponent",
                         score = match.opponentWins(userId),
                         progressColor = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.weight(1f),
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            when {
-                showDrawReveal || drawReplay != null -> {
-                    val round = if (showDrawReveal) currentRound!! else drawReplay!!
-                    val (myChoice, oppChoice) = round.choicesFor(userId, match)
-                    DrawRoundBanner(
-                        myChoice = myChoice,
-                        opponentChoice = oppChoice,
-                        isReplay = drawReplay != null,
-                    )
-                }
-
-                showOutcomeReveal || pendingOutcome != null -> {
-                    val round = if (showOutcomeReveal) currentRound!! else pendingOutcome!!
-                    val (myChoice, oppChoice) = round.choicesFor(userId, match)
-                    val wonRound = round.winner == userId
-                    if (wonRound) {
-                        WinRoundBanner(
-                            myChoice = myChoice,
-                            opponentChoice = oppChoice,
-                            awaitingNextRound = awaitingNextRound,
-                        )
-                    } else {
-                        LoseRoundBanner(
-                            myChoice = myChoice,
-                            opponentChoice = oppChoice,
-                            awaitingNextRound = awaitingNextRound,
-                        )
-                    }
                 }
             }
 
             uiState.error?.let { error ->
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = error, color = MaterialTheme.colorScheme.error)
+            }
+        }
+
+        when {
+            showDrawReveal || drawReplay != null -> {
+                val round = if (showDrawReveal) currentRound!! else drawReplay!!
+                val (myChoice, oppChoice) = round.choicesFor(userId, match)
+                Spacer(modifier = Modifier.height(16.dp))
+                DrawRoundBanner(
+                    myChoice = myChoice,
+                    opponentChoice = oppChoice,
+                    isReplay = drawReplay != null,
+                )
+            }
+
+            showOutcomeReveal || pendingOutcome != null -> {
+                val round = if (showOutcomeReveal) currentRound!! else pendingOutcome!!
+                val (myChoice, oppChoice) = round.choicesFor(userId, match)
+                val wonRound = round.winner == userId
+                Spacer(modifier = Modifier.height(16.dp))
+                if (wonRound) {
+                    WinRoundBanner(
+                        myChoice = myChoice,
+                        opponentChoice = oppChoice,
+                        awaitingNextRound = awaitingNextRound,
+                    )
+                } else {
+                    LoseRoundBanner(
+                        myChoice = myChoice,
+                        opponentChoice = oppChoice,
+                        awaitingNextRound = awaitingNextRound,
+                    )
+                }
             }
         }
 
@@ -284,10 +286,11 @@ private fun ScoreColumn(
     label: String,
     score: Int,
     progressColor: Color,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.widthIn(min = 88.dp),
+        modifier = modifier.widthIn(min = 72.dp),
     ) {
         Text(
             label,
