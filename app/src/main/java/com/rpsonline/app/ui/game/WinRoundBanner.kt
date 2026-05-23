@@ -12,20 +12,25 @@ fun WinRoundBanner(
     opponentChoice: String?,
     awaitingNextRound: Boolean,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    opponentLabel: String = "Opponent",
 ) {
     RoundOutcomeCard(
         containerColor = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         icon = Icons.Default.EmojiEvents,
-        headline = "You won the round!",
-        subtitle = if (awaitingNextRound) {
-            "Point scored — pick your move for the next round."
-        } else {
-            "Point scored."
+        headline = if (compact) "You won!" else "You won the round!",
+        subtitle = when {
+            compact && awaitingNextRound -> ""
+            compact -> "Point scored."
+            awaitingNextRound -> "Point scored — pick your move for the next round."
+            else -> "Point scored."
         },
         myChoice = myChoice,
         opponentChoice = opponentChoice,
         choiceSeparator = "vs",
         modifier = modifier,
+        compact = compact,
+        opponentLabel = opponentLabel,
     )
 }

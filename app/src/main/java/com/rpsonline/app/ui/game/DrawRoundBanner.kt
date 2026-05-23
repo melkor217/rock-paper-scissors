@@ -12,20 +12,25 @@ fun DrawRoundBanner(
     opponentChoice: String?,
     isReplay: Boolean,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    opponentLabel: String = "Opponent",
 ) {
     RoundOutcomeCard(
         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
         icon = Icons.Default.Balance,
         headline = "Draw!",
-        subtitle = if (isReplay) {
-            "Same move — replay this round. Score unchanged."
-        } else {
-            "Same move — no point awarded."
+        subtitle = when {
+            compact && isReplay -> "Replay this round."
+            compact -> "No point awarded."
+            isReplay -> "Same move — replay this round. Score unchanged."
+            else -> "Same move — no point awarded."
         },
         myChoice = myChoice,
         opponentChoice = opponentChoice,
         choiceSeparator = "=",
         modifier = modifier,
+        compact = compact,
+        opponentLabel = opponentLabel,
     )
 }

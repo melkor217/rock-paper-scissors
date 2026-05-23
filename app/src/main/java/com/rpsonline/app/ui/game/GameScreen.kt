@@ -1,6 +1,7 @@
 package com.rpsonline.app.ui.game
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -118,7 +119,7 @@ fun GameScreen(
 
         Column(
             modifier = Modifier
-                .weight(1f, fill = false)
+                .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -165,11 +166,13 @@ fun GameScreen(
                 showDrawReveal || drawReplay != null -> {
                     val round = if (showDrawReveal) currentRound!! else drawReplay!!
                     val (myChoice, oppChoice) = round.choicesFor(userId, match)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(if (compactLayout) 8.dp else 12.dp))
                     DrawRoundBanner(
                         myChoice = myChoice,
                         opponentChoice = oppChoice,
                         isReplay = drawReplay != null,
+                        compact = compactLayout,
+                        opponentLabel = opponentScoreLabel,
                     )
                 }
 
@@ -177,18 +180,22 @@ fun GameScreen(
                     val round = if (showOutcomeReveal) currentRound!! else pendingOutcome!!
                     val (myChoice, oppChoice) = round.choicesFor(userId, match)
                     val wonRound = round.winner == userId
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(if (compactLayout) 8.dp else 12.dp))
                     if (wonRound) {
                         WinRoundBanner(
                             myChoice = myChoice,
                             opponentChoice = oppChoice,
                             awaitingNextRound = awaitingNextRound,
+                            compact = compactLayout,
+                            opponentLabel = opponentScoreLabel,
                         )
                     } else {
                         LoseRoundBanner(
                             myChoice = myChoice,
                             opponentChoice = oppChoice,
                             awaitingNextRound = awaitingNextRound,
+                            compact = compactLayout,
+                            opponentLabel = opponentScoreLabel,
                         )
                     }
                 }
@@ -198,36 +205,39 @@ fun GameScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(text = error, color = MaterialTheme.colorScheme.error)
             }
+        }
 
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             when {
                 uiState.hasSubmittedMove && myLockedChoice != null -> {
-                    Spacer(modifier = Modifier.height(12.dp))
                     WaitingForOpponentCard(myChoice = myLockedChoice)
                 }
 
                 uiState.isSubmitting -> {
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     CircularProgressIndicator()
                 }
 
                 showMovePicker -> {
                     pickPrompt?.let { prompt ->
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = prompt,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     MovePicker(
                         isSubmitting = uiState.isSubmitting,
                         onMove = viewModel::submitMove,
+                        compact = compactLayout,
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -253,6 +263,7 @@ private fun MatchScoreCard(
             label = "You",
             score = myWins,
             progressColor = MaterialTheme.colorScheme.primary,
+            progressSide = MatchScoreSide.YOU,
             compact = compact,
             modifier = Modifier.weight(1f),
         )
@@ -265,6 +276,7 @@ private fun MatchScoreCard(
             label = opponentLabel,
             score = opponentWins,
             progressColor = MaterialTheme.colorScheme.tertiary,
+            progressSide = MatchScoreSide.OPPONENT,
             compact = compact,
             modifier = Modifier.weight(1f),
         )
@@ -301,23 +313,28 @@ private fun RoundResult.choicesFor(userId: String, match: Match): Pair<String?, 
 private fun MovePicker(
     isSubmitting: Boolean,
     onMove: (Move) -> Unit,
+    compact: Boolean = false,
 ) {
     if (isSubmitting) {
         CircularProgressIndicator()
         return
     }
-    MoveButton("Rock", Icons.Default.Landscape) { onMove(Move.ROCK) }
-    Spacer(modifier = Modifier.height(8.dp))
-    MoveButton("Paper", Icons.Default.Description) { onMove(Move.PAPER) }
-    Spacer(modifier = Modifier.height(8.dp))
-    MoveButton("Scissors", Icons.Default.ContentCut) { onMove(Move.SCISSORS) }
+    val buttonSpacing = if (compact) 6.dp else 8.dp
+    MoveButton("Rock", Icons.Default.Landscape, compact = compact) { onMove(Move.ROCK) }
+    Spacer(modifier = Modifier.height(buttonSpacing))
+    MoveButton("Paper", Icons.Default.Description, compact = compact) { onMove(Move.PAPER) }
+    Spacer(modifier = Modifier.height(buttonSpacing))
+    MoveButton("Scissors", Icons.Default.ContentCut, compact = compact) { onMove(Move.SCISSORS) }
 }
 
 @Composable
+private enum class MatchScoreSide { YOU, OPPONENT }
+
 private fun ScoreColumn(
     label: String,
     score: Int,
     progressColor: Color,
+    progressSide: MatchScoreSide,
     compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -348,6 +365,7 @@ private fun ScoreColumn(
         MatchWinProgressBar(
             wins = score,
             fillColor = progressColor,
+            side = progressSide,
         )
     }
 }
@@ -356,22 +374,42 @@ private fun ScoreColumn(
 private fun MatchWinProgressBar(
     wins: Int,
     fillColor: Color,
+    side: MatchScoreSide,
     modifier: Modifier = Modifier,
 ) {
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val slots = GameRules.WINS_TO_FINISH
+    val segmentShape = RoundedCornerShape(3.dp)
+    val emptyFill = MaterialTheme.colorScheme.surface
+    val emptyBorder = MaterialTheme.colorScheme.outline
+    val barHeight = 8.dp
+    val segmentGap = 3.dp
+    val rowAlignment = when (side) {
+        MatchScoreSide.YOU -> Alignment.End
+        MatchScoreSide.OPPONENT -> Alignment.Start
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(5.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .height(barHeight),
+        horizontalArrangement = Arrangement.spacedBy(segmentGap, rowAlignment),
     ) {
-        repeat(GameRules.WINS_TO_FINISH) { index ->
+        repeat(slots) { index ->
+            val filled = index < wins
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(5.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(if (index < wins) fillColor else trackColor),
+                    .height(barHeight)
+                    .clip(segmentShape)
+                    .then(
+                        if (filled) {
+                            Modifier.background(fillColor)
+                        } else {
+                            Modifier
+                                .background(emptyFill)
+                                .border(1.dp, emptyBorder, segmentShape)
+                        },
+                    ),
             )
         }
     }
@@ -381,11 +419,14 @@ private fun MatchWinProgressBar(
 private fun MoveButton(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (compact) Modifier.height(44.dp) else Modifier),
     ) {
         Icon(icon, contentDescription = label)
         Text("  $label")
