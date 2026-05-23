@@ -12,20 +12,25 @@ fun LoseRoundBanner(
     opponentChoice: String?,
     awaitingNextRound: Boolean,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    opponentLabel: String = "Opponent",
 ) {
     RoundOutcomeCard(
         containerColor = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
         icon = Icons.Default.HeartBroken,
-        headline = "You lost the round",
-        subtitle = if (awaitingNextRound) {
-            "Opponent scored — pick your move for the next round."
-        } else {
-            "Opponent scored a point."
+        headline = if (compact) "You lost" else "You lost the round",
+        subtitle = when {
+            compact && awaitingNextRound -> ""
+            compact -> "Opponent scored."
+            awaitingNextRound -> "Opponent scored — pick your move for the next round."
+            else -> "Opponent scored a point."
         },
         myChoice = myChoice,
         opponentChoice = opponentChoice,
         choiceSeparator = "vs",
         modifier = modifier,
+        compact = compact,
+        opponentLabel = opponentLabel,
     )
 }
