@@ -10,6 +10,18 @@ The app supports **Google**, **anonymous (guest)**, and **email/password**. Enab
 
 No code changes are needed after enabling providers. If a method is disabled, the app shows: *This sign-in method is not enabled in Firebase Console*.
 
+## Google Sign-In SHA-1 fingerprints
+
+Release APKs from GitHub are signed with the upload keystore, **not** your local debug key. Google Sign-In fails with *No credentials available* until Firebase knows that certificate.
+
+1. Firebase Console → **Project settings** → your Android app (`com.rpsonline.app`)
+2. **Add fingerprint** for each signing key you use:
+   - Local debug: `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android | grep SHA1`
+   - CI release: run `scripts/setup-release-keystore.sh` (or use the upload keystore SHA-1 from whoever created it)
+3. Wait a few minutes, then **download a fresh `google-services.json`** and update the `GOOGLE_SERVICES_JSON_BASE64` GitHub secret for CI.
+
+The web client ID in `strings.xml` must stay the **Web client** from Firebase/Google Cloud (not the Android client ID).
+
 ## Notes
 
 - Email/password fields use native **EditText** autofill hints (`username` + `newPassword` on Register) so Google Password Manager can offer **Suggest strong password** when you focus the password field.
