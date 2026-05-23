@@ -181,7 +181,7 @@ private fun LastRoundCard(
     isDraw: Boolean,
 ) {
     val (headline, containerColor, contentColor, icon) = when {
-        isDraw -> Quad(
+        lastRound.isDraw -> Quad(
             "Final round — draw",
             MaterialTheme.colorScheme.tertiaryContainer,
             MaterialTheme.colorScheme.onTertiaryContainer,
@@ -255,7 +255,7 @@ private fun MatchRecapCard(recaps: List<RoundRecap>) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = formatChoices(recap.myChoice, recap.opponentChoice),
+                            text = recapChoicesLine(recap),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                     }
@@ -284,7 +284,17 @@ private fun formatChoice(choice: String?): String =
 private fun formatChoices(myChoice: String?, opponentChoice: String?): String =
     "${formatChoice(myChoice)} vs ${formatChoice(opponentChoice)}"
 
+private fun recapChoicesLine(recap: RoundRecap): String = when {
+    recap.isDraw && recap.myChoice == null && recap.opponentChoice == null ->
+        "No picks — round replayed"
+    recap.isDraw -> "${formatChoices(recap.myChoice, recap.opponentChoice)} — same move"
+    else -> formatChoices(recap.myChoice, recap.opponentChoice)
+}
+
 private fun recapSummary(recap: RoundRecap): String = when {
+    recap.isDraw && recap.myChoice == null && recap.opponentChoice == null ->
+        "Neither player picked in time"
+    recap.isDraw -> "Same move — round tied"
     recap.won == null -> "Same move — round tied"
     recap.opponentTimedOut -> "You picked in time; opponent did not"
     recap.iTimedOut -> "You did not pick in time"
@@ -292,7 +302,7 @@ private fun recapSummary(recap: RoundRecap): String = when {
 }
 
 private fun recapOutcomeLabel(recap: RoundRecap): String = when {
-    recap.won == null -> "Draw"
+    recap.isDraw || recap.won == null -> "Draw"
     recap.opponentTimedOut -> "Win (timeout)"
     recap.iTimedOut -> "Loss (timeout)"
     recap.won -> "Win"
@@ -301,7 +311,7 @@ private fun recapOutcomeLabel(recap: RoundRecap): String = when {
 
 @Composable
 private fun recapOutcomeColor(recap: RoundRecap): androidx.compose.ui.graphics.Color = when {
-    recap.won == null -> MaterialTheme.colorScheme.onSurfaceVariant
+    recap.isDraw || recap.won == null -> MaterialTheme.colorScheme.tertiary
     recap.won -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error
 }

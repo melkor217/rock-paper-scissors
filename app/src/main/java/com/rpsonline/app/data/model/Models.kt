@@ -72,12 +72,12 @@ data class Match(
             .filter { it.resolvedAt != null }
             .maxByOrNull { it.resolvedAt ?: 0L }
 
-    /** Last round was a tie and we're replaying the same round number (score unchanged). */
+    /** Last round was a tie; next round is open (score unchanged). */
     fun pendingDrawReplay(): RoundResult? {
         val last = lastResolvedRound() ?: return null
         if (last.winner != "tie") return null
-        val hasOpenRound = rounds.any { it.resolvedAt == null && it.roundNumber == currentRound }
-        return if (hasOpenRound) last else null
+        val open = openRound() ?: return null
+        return if (open.roundNumber > last.roundNumber) last else null
     }
 
     fun openRound(): RoundResult? =
@@ -95,10 +95,11 @@ data class Match(
     fun resolvedRoundRecaps(userId: String): List<RoundRecap> =
         rounds
             .filter { it.resolvedAt != null }
-            .sortedBy { it.roundNumber }
+            .sortedWith(compareBy({ it.resolvedAt ?: 0L }, { it.roundNumber }))
             .map { round ->
                 val myChoice = if (userId == player1) round.player1Choice else round.player2Choice
                 val opponentChoice = if (userId == player1) round.player2Choice else round.player1Choice
+                val isDraw = round.winner == "tie"
                 val won = when (round.winner) {
                     "tie" -> null
                     userId -> true
@@ -109,8 +110,9 @@ data class Match(
                     myChoice = myChoice,
                     opponentChoice = opponentChoice,
                     won = won,
-                    opponentTimedOut = won == true && opponentChoice == null,
-                    iTimedOut = won == false && myChoice == null,
+                    isDraw = isDraw,
+                    opponentTimedOut = !isDraw && won == true && opponentChoice == null,
+                    iTimedOut = !isDraw && won == false && myChoice == null,
                 )
             }
 }
@@ -120,6 +122,7 @@ data class RoundRecap(
     val myChoice: String?,
     val opponentChoice: String?,
     val won: Boolean?,
+    val isDraw: Boolean = false,
     val opponentTimedOut: Boolean = false,
     val iTimedOut: Boolean = false,
 )
