@@ -1,8 +1,8 @@
 package com.rpsonline.app.data.repository
 
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -13,20 +13,21 @@ import kotlinx.coroutines.tasks.await
 
 class PresenceRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) {
     suspend fun touchPresence(uid: String) {
-        val now = Timestamp.now()
-        val batch = firestore.batch()
-        batch.set(
-            firestore.collection(COLLECTION).document(uid),
-            mapOf("lastSeen" to now),
-        )
-        batch.set(
-            firestore.collection("users").document(uid),
-            mapOf("lastSeen" to now),
-            SetOptions.merge(),
-        )
-        batch.commit().await()
+        runCatching {
+            auth.currentUser?.getIdToken(false)?.await()
+            val now = Timestamp.now()
+            firestore.collection(COLLECTION)
+                .document(uid)
+                .set(mapOf("lastSeen" to now))
+                .await()
+            firestore.collection("users")
+                .document(uid)
+                .update(mapOf("lastSeen" to now))
+                .await()
+        }
     }
 
     suspend fun clearPresence(uid: String) {

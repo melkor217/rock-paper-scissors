@@ -93,18 +93,18 @@ class AuthRepository(
         )
         val now = Timestamp.now()
         docRef.set(
-            mapOf(
-                "displayName" to profile.displayName,
-                "photoUrl" to profile.photoUrl,
-                "elo" to profile.elo,
-                "wins" to profile.wins,
-                "losses" to profile.losses,
-                "throwsRock" to profile.throwsRock,
-                "throwsPaper" to profile.throwsPaper,
-                "throwsScissors" to profile.throwsScissors,
-                "createdAt" to now,
-                "lastSeen" to now,
-            )
+            buildMap {
+                put("displayName", profile.displayName)
+                profile.photoUrl?.let { put("photoUrl", it) }
+                put("elo", profile.elo)
+                put("wins", profile.wins)
+                put("losses", profile.losses)
+                put("throwsRock", profile.throwsRock)
+                put("throwsPaper", profile.throwsPaper)
+                put("throwsScissors", profile.throwsScissors)
+                put("createdAt", now)
+                put("lastSeen", now)
+            },
         ).await()
         return profile
     }

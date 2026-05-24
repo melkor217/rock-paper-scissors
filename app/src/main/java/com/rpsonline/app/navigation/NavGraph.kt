@@ -60,10 +60,9 @@ fun RpsNavGraph() {
     LaunchedEffect(signedInUserId) {
         val uid = signedInUserId ?: return@LaunchedEffect
         try {
-            presenceRepository.touchPresence(uid)
             while (isActive) {
+                runCatching { presenceRepository.touchPresence(uid) }
                 delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
-                presenceRepository.touchPresence(uid)
             }
         } finally {
             runCatching { presenceRepository.clearPresence(uid) }
@@ -79,6 +78,7 @@ fun RpsNavGraph() {
         composable(Routes.SIGN_IN) {
             SignInScreen(
                 onSignedIn = {
+                    isSignedIn = true
                     navController.navigate(Routes.HOME) {
                         popUpTo(Routes.SIGN_IN) { inclusive = true }
                     }
