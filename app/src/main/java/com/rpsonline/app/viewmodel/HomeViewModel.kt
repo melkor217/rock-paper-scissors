@@ -13,10 +13,13 @@ import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.data.update.AppUpdateInfo
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -43,6 +46,8 @@ class HomeViewModel(
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private var presenceJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -91,9 +96,27 @@ class HomeViewModel(
             _uiState.update {
                 it.copy(isLoading = false, profile = profile, leaderboard = leaderboard)
             }
+            startPresenceHeartbeat(user.uid)
         } catch (e: Exception) {
+            stopPresenceHeartbeat()
             _uiState.update { it.copy(isLoading = false, error = e.message) }
         }
+    }
+
+    private fun startPresenceHeartbeat(uid: String) {
+        presenceJob?.cancel()
+        presenceJob = viewModelScope.launch {
+            presenceRepository.touchPresence(uid)
+            while (isActive) {
+                delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
+                presenceRepository.touchPresence(uid)
+            }
+        }
+    }
+
+    private fun stopPresenceHeartbeat() {
+        presenceJob?.cancel()
+        presenceJob = null
     }
 
     fun checkForUpdate(context: Context) {
@@ -158,8 +181,9 @@ class HomeViewModel(
 
     fun signOut(context: Context) {
         viewModelScope.launch {
+            stopPresenceHeartbeat()
             authRepository.currentUserId?.let { uid ->
-                runCatching { presenceRepository.clearPresence(uid) }
+                presenceRepository.clearPresence(uid)
             }
             authRepository.signOut(context)
             _uiState.update {
@@ -171,5 +195,10 @@ class HomeViewModel(
                 )
             }
         }
+    }
+
+    override fun onCleared() {
+        stopPresenceHeartbeat()
+        super.onCleared()
     }
 }

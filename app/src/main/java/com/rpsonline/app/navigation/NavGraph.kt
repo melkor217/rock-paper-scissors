@@ -12,10 +12,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.rpsonline.app.data.repository.AuthRepository
-import com.rpsonline.app.data.repository.PresenceRepository
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withTimeoutOrNull
 import com.rpsonline.app.ui.auth.SignInScreen
 import com.rpsonline.app.ui.game.GameScreen
 import com.rpsonline.app.ui.home.HomeScreen
@@ -42,36 +38,16 @@ object Routes {
 fun RpsNavGraph() {
     val navController = rememberNavController()
     val authRepository = remember { AuthRepository() }
-    val presenceRepository = remember { PresenceRepository() }
     var isSignedIn by remember { mutableStateOf(authRepository.currentUser != null) }
-    var signedInUserId by remember { mutableStateOf(authRepository.currentUserId) }
     LaunchedEffect(Unit) {
         authRepository.authStateFlow().collect { user ->
             isSignedIn = user != null
-            signedInUserId = user?.uid
             if (user == null) {
                 navController.navigate(Routes.SIGN_IN) {
                     popUpTo(navController.graph.id) { inclusive = true }
                     launchSingleTop = true
                 }
             }
-        }
-    }
-
-    LaunchedEffect(signedInUserId) {
-        val uid = signedInUserId ?: return@LaunchedEffect
-        try {
-            withTimeoutOrNull(15_000) {
-                while (isActive && authRepository.loadCurrentUserProfile() == null) {
-                    delay(250)
-                }
-            }
-            while (isActive) {
-                runCatching { presenceRepository.touchPresence(uid) }
-                delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
-            }
-        } finally {
-            runCatching { presenceRepository.clearPresence(uid) }
         }
     }
 

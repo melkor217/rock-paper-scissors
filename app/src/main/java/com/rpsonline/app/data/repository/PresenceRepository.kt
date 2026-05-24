@@ -12,24 +12,22 @@ import kotlinx.coroutines.launch
 class PresenceRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
-    /** Best-effort; failures are logged by Firestore and must not crash the app. */
+    /** Best-effort heartbeat; failures must never crash the app. */
     suspend fun touchPresence(uid: String) {
-        awaitFirestoreAuth()
+        runCatching { awaitFirestoreAuth() }
         val now = Timestamp.now()
         firestore.collection(COLLECTION)
             .document(uid)
-            .set(mapOf("lastSeen" to now))
+            .setBestEffort(mapOf("lastSeen" to now))
         firestore.collection("users")
             .document(uid)
-            .update(mapOf("lastSeen" to now))
+            .updateBestEffort(mapOf("lastSeen" to now))
     }
 
-    suspend fun clearPresence(uid: String) {
-        runCatching {
-            firestore.collection(COLLECTION)
-                .document(uid)
-                .delete()
-        }
+    fun clearPresence(uid: String) {
+        firestore.collection(COLLECTION)
+            .document(uid)
+            .deleteBestEffort()
     }
 
     fun observeOnlineCount(
