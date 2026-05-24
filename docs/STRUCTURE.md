@@ -70,7 +70,7 @@ The client does **not** call HTTPS Callable functions for matchmaking or moves. 
 
 | Collection / path | Written by | Read by |
 |-------------------|------------|---------|
-| `users/{uid}` | Client (profile create); server (ELO, wins, losses, `activeMatchId`) | Client, functions |
+| `users/{uid}` | Client (profile create, `lastSeen` heartbeat); server (ELO, wins, losses, throw counts, `activeMatchId`, `lastSeen`) | Client, functions |
 | `queue/{uid}` | Client (join/leave matchmaking) | Client (own doc), functions |
 | `matches/{id}` | Functions only | Both players |
 | `matches/{id}/rounds/{n}/choices/{uid}` | Client (move) | Functions merge into match |
@@ -79,6 +79,8 @@ The client does **not** call HTTPS Callable functions for matchmaking or moves. 
 Match document holds embedded `rounds[]` (choices, winner, deadlines). Subcollections are the write path; the match doc is the source of truth for the UI listener.
 
 Security: [firestore.rules](../firestore.rules) — users cannot write `matches` directly or change their own ELO.
+
+One-off migration for `users.lastSeen`: `./scripts/backfill-user-last-seen.sh` (requires ADC; use `--dry-run` first).
 
 ## Rules kept in sync
 

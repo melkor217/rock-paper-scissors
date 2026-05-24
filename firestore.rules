@@ -13,12 +13,24 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasAll(['displayName', 'elo', 'wins', 'losses', 'createdAt'])
+        && request.resource.data.keys().hasAll([
+          'displayName', 'elo', 'wins', 'losses', 'createdAt', 'lastSeen',
+          'throwsRock', 'throwsPaper', 'throwsScissors'
+        ])
         && request.resource.data.elo == 1000
         && request.resource.data.wins == 0
-        && request.resource.data.losses == 0;
+        && request.resource.data.losses == 0
+        && request.resource.data.throwsRock == 0
+        && request.resource.data.throwsPaper == 0
+        && request.resource.data.throwsScissors == 0
+        && request.resource.data.lastSeen is timestamp;
       allow update: if isOwner(userId)
-        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['elo', 'wins', 'losses', 'activeMatchId']);
+        && !request.resource.data.diff(resource.data).changedKeys().hasAny([
+          'elo', 'wins', 'losses', 'activeMatchId',
+          'throwsRock', 'throwsPaper', 'throwsScissors'
+        ])
+        && (!('lastSeen' in request.resource.data.diff(resource.data).changedKeys())
+            || request.resource.data.lastSeen is timestamp);
     }
 
     match /presence/{userId} {
