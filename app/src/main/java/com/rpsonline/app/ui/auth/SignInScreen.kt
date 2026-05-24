@@ -25,6 +25,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,9 +37,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.delay
 import com.rpsonline.app.ui.components.AutofillTextField
 import com.rpsonline.app.ui.components.excludeFromAutofill
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.util.NetworkUtils
 import com.rpsonline.app.viewmodel.EmailAuthMode
 import com.rpsonline.app.viewmodel.SignInViewModel
 
@@ -78,7 +83,7 @@ fun SignInScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         if (uiState.isLoading) {
-            CircularProgressIndicator()
+            SignInLoadingState(isRestoringSession = uiState.isRestoringSession)
         } else {
             AuthButtons(
                 onGoogle = { viewModel.signInWithGoogle(context) },
@@ -104,6 +109,39 @@ fun SignInScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = error,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SignInLoadingState(isRestoringSession: Boolean) {
+    val context = LocalContext.current
+    var isOnline by remember { mutableStateOf(NetworkUtils.isOnline(context)) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            isOnline = NetworkUtils.isOnline(context)
+            delay(2_000)
+        }
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        CircularProgressIndicator()
+        Text(
+            text = if (isRestoringSession) "Restoring session…" else "Signing in…",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+        )
+        if (!isOnline) {
+            Text(
+                text = "No internet connection. Connect to Wi‑Fi or mobile data and try again.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
             )

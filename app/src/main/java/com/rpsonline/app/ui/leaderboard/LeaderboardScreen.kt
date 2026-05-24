@@ -112,7 +112,10 @@ fun LeaderboardScreen(
                                             leaderboardRankLabelColor(rank)
                                         },
                                     )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
                                         Text(
                                             text = "W ${entry.wins} / L ${entry.losses}",
                                             style = MaterialTheme.typography.bodyMedium,
@@ -124,6 +127,14 @@ fun LeaderboardScreen(
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = leaderboardWinRateColor(winRate),
                                             )
+                                        }
+                                        entry.throwsPerWin()?.let { throwsPerWin ->
+                                            Text(
+                                                text = " · ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            RpsPerWinLabel(throwsPerWin = throwsPerWin)
                                         }
                                     }
                                 }

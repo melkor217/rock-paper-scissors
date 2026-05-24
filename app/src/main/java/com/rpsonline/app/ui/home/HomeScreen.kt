@@ -1,7 +1,6 @@
 package com.rpsonline.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -170,19 +169,7 @@ fun HomeScreen(
             Text("Leaderboard")
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        BoxWithConstraints(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-        ) {
-            if (maxHeight >= minHeightForTopPlayersSection()) {
-                HomeTopPlayersSection(
-                    entries = uiState.leaderboard,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
+        Spacer(modifier = Modifier.weight(1f))
 
         HomeAppInfoFooter(
             versionName = uiState.versionName,
