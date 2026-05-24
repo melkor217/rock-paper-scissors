@@ -15,6 +15,7 @@ import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.PresenceRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withTimeoutOrNull
 import com.rpsonline.app.ui.auth.SignInScreen
 import com.rpsonline.app.ui.game.GameScreen
 import com.rpsonline.app.ui.home.HomeScreen
@@ -60,6 +61,11 @@ fun RpsNavGraph() {
     LaunchedEffect(signedInUserId) {
         val uid = signedInUserId ?: return@LaunchedEffect
         try {
+            withTimeoutOrNull(15_000) {
+                while (isActive && authRepository.loadCurrentUserProfile() == null) {
+                    delay(250)
+                }
+            }
             while (isActive) {
                 runCatching { presenceRepository.touchPresence(uid) }
                 delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)

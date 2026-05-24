@@ -50,17 +50,14 @@ class SignInViewModel(
                 if (user != null) {
                     try {
                         val profile = authRepository.loadCurrentUserProfile()
-                            ?: authRepository.ensureUserProfile(
-                                uid = user.uid,
-                                displayName = user.displayName,
-                                photoUrl = user.photoUrl?.toString(),
-                            )
-                        _uiState.update { it.copy(profile = profile, isLoading = false) }
+                        _uiState.update {
+                            it.copy(profile = profile, isLoading = false, error = null)
+                        }
                     } catch (e: Exception) {
                         _uiState.update { it.copy(error = e.toAuthMessage(), isLoading = false) }
                     }
                 } else {
-                    _uiState.update { it.copy(profile = null, isLoading = false) }
+                    _uiState.update { it.copy(profile = null, isLoading = false, error = null) }
                 }
             }
         }

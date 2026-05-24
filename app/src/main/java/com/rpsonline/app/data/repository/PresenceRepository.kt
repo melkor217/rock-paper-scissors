@@ -1,6 +1,5 @@
 package com.rpsonline.app.data.repository
 
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -9,32 +8,28 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 class PresenceRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) {
+    /** Best-effort; failures are logged by Firestore and must not crash the app. */
     suspend fun touchPresence(uid: String) {
-        runCatching {
-            auth.currentUser?.getIdToken(false)?.await()
-            val now = Timestamp.now()
-            firestore.collection(COLLECTION)
-                .document(uid)
-                .set(mapOf("lastSeen" to now))
-                .await()
-            firestore.collection("users")
-                .document(uid)
-                .update(mapOf("lastSeen" to now))
-                .await()
-        }
+        awaitFirestoreAuth()
+        val now = Timestamp.now()
+        firestore.collection(COLLECTION)
+            .document(uid)
+            .set(mapOf("lastSeen" to now))
+        firestore.collection("users")
+            .document(uid)
+            .update(mapOf("lastSeen" to now))
     }
 
     suspend fun clearPresence(uid: String) {
-        firestore.collection(COLLECTION)
-            .document(uid)
-            .delete()
-            .await()
+        runCatching {
+            firestore.collection(COLLECTION)
+                .document(uid)
+                .delete()
+        }
     }
 
     fun observeOnlineCount(

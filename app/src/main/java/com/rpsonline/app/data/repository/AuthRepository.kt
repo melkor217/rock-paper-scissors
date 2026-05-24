@@ -76,6 +76,7 @@ class AuthRepository(
         displayName: String?,
         photoUrl: String?,
     ): UserProfile {
+        awaitFirestoreAuth()
         val docRef = firestore.collection("users").document(uid)
         val snapshot = docRef.get().await()
         if (snapshot.exists()) {
@@ -110,6 +111,7 @@ class AuthRepository(
     }
 
     suspend fun loadCurrentUserProfile(): UserProfile? {
+        awaitFirestoreAuth()
         val uid = currentUserId ?: return null
         val docRef = firestore.collection("users").document(uid)
         val snapshot = docRef.get().await()
@@ -125,7 +127,7 @@ class AuthRepository(
     ): UserProfile {
         val resolved = DisplayNames.resolve(storedName, uid)
         if (auth.currentUser?.isAnonymous == true && DisplayNames.isGeneric(storedName)) {
-            docRef.update("displayName", resolved).await()
+            runCatching { docRef.update("displayName", resolved).await() }
             return profile.copy(displayName = resolved)
         }
         return if (resolved != profile.displayName) profile.copy(displayName = resolved) else profile
