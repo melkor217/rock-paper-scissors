@@ -9,8 +9,8 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.rpsonline.app.data.model.UserProfile
+import com.rpsonline.app.domain.DisplayNames
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -45,7 +45,7 @@ class AuthRepository(
     suspend fun signInAnonymously(): UserProfile {
         val result = auth.signInAnonymously().await()
         val user = result.user ?: error("Guest sign-in failed")
-        val guestName = "Guest ${user.uid.take(6)}"
+        val guestName = DisplayNames.guestName(user.uid)
         return ensureUserProfile(user.uid, guestName, photoUrl = null)
     }
 
@@ -53,7 +53,7 @@ class AuthRepository(
         val result = auth.signInWithEmailAndPassword(email.trim(), password).await()
         val user = result.user ?: error("Email sign-in failed")
         val name = user.displayName?.takeIf { it.isNotBlank() }
-            ?: email.substringBefore('@').ifBlank { "Player" }
+            ?: email.substringBefore('@').ifBlank { DisplayNames.DEFAULT }
         return ensureUserProfile(user.uid, name, user.photoUrl?.toString())
     }
 
@@ -79,12 +79,16 @@ class AuthRepository(
         val docRef = firestore.collection("users").document(uid)
         val snapshot = docRef.get().await()
         if (snapshot.exists()) {
-            return snapshot.toUserProfile(uid)
+            return normalizeStoredProfile(docRef, uid, snapshot.getString("displayName"), snapshot.toUserProfile(uid))
         }
 
+        val defaultName = when {
+            auth.currentUser?.isAnonymous == true -> DisplayNames.guestName(uid)
+            else -> displayName ?: DisplayNames.DEFAULT
+        }
         val profile = UserProfile(
             uid = uid,
-            displayName = displayName ?: "Player",
+            displayName = defaultName,
             photoUrl = photoUrl,
             elo = 1000,
             wins = 0,
@@ -105,8 +109,24 @@ class AuthRepository(
 
     suspend fun loadCurrentUserProfile(): UserProfile? {
         val uid = currentUserId ?: return null
-        val snapshot = firestore.collection("users").document(uid).get().await()
-        return if (snapshot.exists()) snapshot.toUserProfile(uid) else null
+        val docRef = firestore.collection("users").document(uid)
+        val snapshot = docRef.get().await()
+        if (!snapshot.exists()) return null
+        return normalizeStoredProfile(docRef, uid, snapshot.getString("displayName"), snapshot.toUserProfile(uid))
+    }
+
+    private suspend fun normalizeStoredProfile(
+        docRef: com.google.firebase.firestore.DocumentReference,
+        uid: String,
+        storedName: String?,
+        profile: UserProfile,
+    ): UserProfile {
+        val resolved = DisplayNames.resolve(storedName, uid)
+        if (auth.currentUser?.isAnonymous == true && DisplayNames.isGeneric(storedName)) {
+            docRef.update("displayName", resolved).await()
+            return profile.copy(displayName = resolved)
+        }
+        return if (resolved != profile.displayName) profile.copy(displayName = resolved) else profile
     }
 
     suspend fun signOut(context: Context) {
@@ -124,7 +144,7 @@ class AuthRepository(
 private fun com.google.firebase.firestore.DocumentSnapshot.toUserProfile(uid: String): UserProfile {
     return UserProfile(
         uid = uid,
-        displayName = getString("displayName") ?: "Player",
+        displayName = DisplayNames.resolve(getString("displayName"), uid),
         photoUrl = getString("photoUrl"),
         elo = getLong("elo")?.toInt() ?: 1000,
         wins = getLong("wins")?.toInt() ?: 0,

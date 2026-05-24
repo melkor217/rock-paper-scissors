@@ -8,6 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.data.model.RoundResult
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -40,7 +41,7 @@ class MatchRepository(
         }
 
         val elo = userSnap.getLong("elo")?.toInt() ?: 1000
-        val displayName = userSnap.getString("displayName") ?: "Player"
+        val displayName = DisplayNames.resolve(userSnap.getString("displayName"), userId)
 
         firestore.collection("queue").document(userId).set(
             mapOf(
