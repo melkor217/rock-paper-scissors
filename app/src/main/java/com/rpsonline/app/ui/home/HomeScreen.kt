@@ -38,6 +38,7 @@ import com.rpsonline.app.viewmodel.HomeViewModel
 fun HomeScreen(
     onFindMatch: () -> Unit,
     onLeaderboard: () -> Unit,
+    onProfile: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -178,6 +179,13 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Leaderboard")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = onProfile,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Profile")
         }
 
         Spacer(modifier = Modifier.height(16.dp))

@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
@@ -146,6 +147,29 @@ class MatchRepository(
     suspend fun getMatch(matchId: String): Match? {
         val snapshot = firestore.collection("matches").document(matchId).get().await()
         return if (snapshot.exists()) snapshot.toMatch(matchId) else null
+    }
+
+    suspend fun getRecentMatchesForUser(userId: String, limit: Int = 10): List<Match> {
+        val perSide = limit.coerceAtLeast(1)
+        val asPlayer1 = firestore.collection("matches")
+            .whereEqualTo("player1", userId)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+        val asPlayer2 = firestore.collection("matches")
+            .whereEqualTo("player2", userId)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+
+        return (asPlayer1.documents + asPlayer2.documents)
+            .map { it.toMatch(it.id) }
+            .filter { it.status == MatchStatus.COMPLETED || it.status == MatchStatus.ABANDONED }
+            .distinctBy { it.id }
+            .sortedByDescending { it.lastActivityAt }
+            .take(limit)
     }
 }
 

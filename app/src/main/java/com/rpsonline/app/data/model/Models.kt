@@ -159,3 +159,41 @@ data class MatchResult(
     val opponentWins: Int,
     val opponentName: String,
 )
+
+data class MatchHistoryEntry(
+    val matchId: String,
+    val opponentName: String,
+    val myWins: Int,
+    val opponentWins: Int,
+    val won: Boolean?,
+    val isDraw: Boolean,
+    val isAbandoned: Boolean,
+    val eloDelta: Int?,
+    val lastActivityAt: Long,
+    val recaps: List<RoundRecap>,
+)
+
+fun Match.toHistoryEntry(userId: String): MatchHistoryEntry {
+    val myWins = myWins(userId)
+    val opponentWins = opponentWins(userId)
+    val abandoned = status == MatchStatus.ABANDONED
+    val draw = !abandoned && winnerId == null && myWins == opponentWins
+    val won = when {
+        abandoned -> null
+        draw -> null
+        winnerId == userId -> true
+        else -> false
+    }
+    return MatchHistoryEntry(
+        matchId = id,
+        opponentName = opponentName(userId),
+        myWins = myWins,
+        opponentWins = opponentWins,
+        won = won,
+        isDraw = draw,
+        isAbandoned = abandoned,
+        eloDelta = myEloDelta(userId),
+        lastActivityAt = lastActivityAt,
+        recaps = resolvedRoundRecaps(userId),
+    )
+}

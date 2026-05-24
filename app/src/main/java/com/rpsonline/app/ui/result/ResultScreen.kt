@@ -16,7 +16,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,10 +31,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Match
-import com.rpsonline.app.data.model.Move
-import com.rpsonline.app.data.model.RoundRecap
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
+import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
 
 @Composable
@@ -208,92 +206,3 @@ private fun FinalScoreCard(
     }
 }
 
-@Composable
-private fun MatchRecapCard(recaps: List<RoundRecap>) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = "Match recap",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            recaps.forEachIndexed { index, recap ->
-                if (index > 0) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                RoundRecapRow(
-                    roundLabel = if (index == recaps.lastIndex) {
-                        "Final round"
-                    } else {
-                        "Round ${recap.roundNumber}"
-                    },
-                    recap = recap,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RoundRecapRow(
-    roundLabel: String,
-    recap: RoundRecap,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = roundLabel,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = recapChoicesLine(recap),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-        Text(
-            text = recapOutcomeLabel(recap),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = recapOutcomeColor(recap),
-        )
-    }
-}
-
-private fun formatChoice(choice: String?): String =
-    choice?.let { Move.fromString(it)?.label ?: it.lowercase() } ?: "—"
-
-private fun formatChoices(myChoice: String?, opponentChoice: String?): String =
-    "${formatChoice(myChoice)} vs ${formatChoice(opponentChoice)}"
-
-private fun recapChoicesLine(recap: RoundRecap): String = when {
-    recap.isDraw && recap.myChoice == null && recap.opponentChoice == null ->
-        "No picks — round replayed"
-    recap.isDraw -> "${formatChoices(recap.myChoice, recap.opponentChoice)} — same move"
-    else -> formatChoices(recap.myChoice, recap.opponentChoice)
-}
-
-private fun recapOutcomeLabel(recap: RoundRecap): String = when {
-    recap.isDraw || recap.won == null -> "Draw"
-    recap.opponentTimedOut -> "Win (timeout)"
-    recap.iTimedOut -> "Loss (timeout)"
-    recap.won -> "Win"
-    else -> "Loss"
-}
-
-@Composable
-private fun recapOutcomeColor(recap: RoundRecap): androidx.compose.ui.graphics.Color = when {
-    recap.isDraw || recap.won == null -> MaterialTheme.colorScheme.tertiary
-    recap.won -> MaterialTheme.colorScheme.primary
-    else -> MaterialTheme.colorScheme.error
-}

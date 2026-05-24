@@ -20,6 +20,7 @@ import com.rpsonline.app.ui.game.GameScreen
 import com.rpsonline.app.ui.home.HomeScreen
 import com.rpsonline.app.ui.leaderboard.LeaderboardScreen
 import com.rpsonline.app.ui.matchmaking.MatchmakingScreen
+import com.rpsonline.app.ui.profile.ProfileScreen
 import com.rpsonline.app.ui.result.ResultScreen
 
 object Routes {
@@ -29,6 +30,7 @@ object Routes {
     const val GAME = "game/{matchId}"
     const val RESULT = "result/{matchId}"
     const val LEADERBOARD = "leaderboard"
+    const val PROFILE = "profile"
 
     fun game(matchId: String) = "game/$matchId"
     fun result(matchId: String) = "result/$matchId"
@@ -88,6 +90,7 @@ fun RpsNavGraph() {
                 HomeScreen(
                     onFindMatch = { navController.navigate(Routes.MATCHMAKING) },
                     onLeaderboard = { navController.navigate(Routes.LEADERBOARD) },
+                    onProfile = { navController.navigate(Routes.PROFILE) },
                 )
             }
         }
@@ -146,6 +149,13 @@ fun RpsNavGraph() {
         composable(Routes.LEADERBOARD) {
             LeaderboardScreen(
                 onBackToHome = { navController.popBackStack() },
+                onProfile = { navController.navigate(Routes.PROFILE) },
+            )
+        }
+
+        composable(Routes.PROFILE) {
+            ProfileScreen(
+                onBack = { navController.popBackStack() },
             )
         }
     }
