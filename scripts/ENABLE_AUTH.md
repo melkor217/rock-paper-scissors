@@ -24,7 +24,9 @@ The web client ID in `strings.xml` must stay the **Web client** from Firebase/Go
 
 ## Credential Manager (save password)
 
-Release builds need **Digital Asset Links** so the system can offer to save email/password:
+**Optional.** The game works without Digital Asset Links — matchmaking, rounds, ELO, and all sign-in methods (Google, email/password, guest) are unaffected. Links are only needed if you want release builds to show the system **Save password** dialog after email sign-up or sign-in; without them, sign-in still succeeds and the app silently skips the save prompt.
+
+Release builds need [**Digital Asset Links**](https://developer.android.com/identity/credential-manager/prerequisites#configure-digital-asset-links-for-passwords) to enable that prompt:
 
 1. Enable **GitHub Pages** for this repo: **Settings → Pages → Build from branch → `/docs` → main**.
 2. Confirm `https://melkor217.github.io/rock-paper-scissors/.well-known/assetlinks.json` returns JSON (200).
