@@ -2,6 +2,7 @@ package com.rpsonline.app.data.repository
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -14,10 +15,18 @@ class PresenceRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
     suspend fun touchPresence(uid: String) {
-        firestore.collection(COLLECTION)
-            .document(uid)
-            .set(mapOf("lastSeen" to Timestamp.now()))
-            .await()
+        val now = Timestamp.now()
+        val batch = firestore.batch()
+        batch.set(
+            firestore.collection(COLLECTION).document(uid),
+            mapOf("lastSeen" to now),
+        )
+        batch.set(
+            firestore.collection(USERS_COLLECTION).document(uid),
+            mapOf("lastActive" to now),
+            SetOptions.merge(),
+        )
+        batch.commit().await()
     }
 
     suspend fun clearPresence(uid: String) {
@@ -63,6 +72,7 @@ class PresenceRepository(
 
     companion object {
         const val COLLECTION = "presence"
+        private const val USERS_COLLECTION = "users"
         const val ONLINE_WINDOW_MS = 2 * 60 * 1000L
         const val HEARTBEAT_INTERVAL_MS = 30_000L
         const val PRESENCE_REFRESH_MS = 30_000L

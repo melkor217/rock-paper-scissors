@@ -3,6 +3,11 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { calculateElo, isValidMove, Move, resolveRound } from "./game";
+import {
+  INACTIVE_USER_BATCH_SIZE,
+  INACTIVE_USER_MS,
+  isInactiveUser,
+} from "./cleanupUsers";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -566,5 +571,71 @@ export const cleanupStale = onSchedule(
     batch.update(db.collection("users").doc(match.player2), { activeMatchId: FieldValue.delete() });
     await batch.commit();
   }
+  },
+);
+
+async function deleteInactiveUser(uid: string): Promise<void> {
+  const batch = db.batch();
+  batch.delete(db.collection("users").doc(uid));
+  batch.delete(db.collection("presence").doc(uid));
+  batch.delete(db.collection("queue").doc(uid));
+  await batch.commit();
+
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (error: unknown) {
+    const code = (error as { code?: string }).code;
+    if (code !== "auth/user-not-found") {
+      throw error;
+    }
+  }
+}
+
+async function findInactiveUsers(cutoff: Timestamp, limit: number) {
+  const candidates = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+
+  const byLastActive = await db.collection("users")
+    .where("lastActive", "<", cutoff)
+    .limit(limit)
+    .get();
+  byLastActive.docs.forEach((doc) => candidates.set(doc.id, doc));
+
+  if (candidates.size < limit) {
+    const remaining = limit - candidates.size;
+    const byCreatedAt = await db.collection("users")
+      .where("createdAt", "<", cutoff)
+      .limit(remaining * 3)
+      .get();
+    for (const doc of byCreatedAt.docs) {
+      if (candidates.size >= limit) break;
+      if (doc.get("lastActive")) continue;
+      candidates.set(doc.id, doc);
+    }
+  }
+
+  return [...candidates.values()];
+}
+
+/** Deletes Firestore profiles and Auth accounts for users inactive beyond INACTIVE_USER_MS. */
+export const cleanupInactiveUsers = onSchedule(
+  { schedule: "every 24 hours", region: REGION },
+  async () => {
+    const cutoff = Timestamp.fromMillis(Date.now() - INACTIVE_USER_MS);
+    const inactiveDocs = await findInactiveUsers(cutoff, INACTIVE_USER_BATCH_SIZE);
+
+    for (const doc of inactiveDocs) {
+      const user = {
+        uid: doc.id,
+        lastActive: doc.get("lastActive") as Timestamp | undefined,
+        createdAt: doc.get("createdAt") as Timestamp | undefined,
+        activeMatchId: doc.get("activeMatchId") as string | undefined,
+      };
+      if (!isInactiveUser(user, cutoff)) continue;
+
+      const queueSnap = await db.collection("queue").doc(doc.id).get();
+      if (queueSnap.exists) continue;
+
+      await deleteInactiveUser(doc.id);
+    }
   },
 );

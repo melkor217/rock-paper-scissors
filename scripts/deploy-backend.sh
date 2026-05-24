@@ -11,4 +11,4 @@ firebase deploy --only functions,firestore:indexes
 
 echo ""
 echo "Deployed callables (region us-central1): joinQueue, leaveQueue, submitMove"
-echo "Scheduled: resolveTimedOutRounds, cleanupStale"
+echo "Scheduled: resolveTimedOutRounds, cleanupStale, cleanupInactiveUsers"

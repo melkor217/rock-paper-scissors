@@ -79,6 +79,7 @@ class AuthRepository(
         val docRef = firestore.collection("users").document(uid)
         val snapshot = docRef.get().await()
         if (snapshot.exists()) {
+            docRef.set(mapOf("lastActive" to Timestamp.now()), SetOptions.merge()).await()
             return snapshot.toUserProfile(uid)
         }
 
@@ -98,6 +99,7 @@ class AuthRepository(
                 "wins" to profile.wins,
                 "losses" to profile.losses,
                 "createdAt" to Timestamp.now(),
+                "lastActive" to Timestamp.now(),
             )
         ).await()
         return profile
