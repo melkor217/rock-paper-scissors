@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { calculateElo, resolveRound } from "./game";
+import { calculateElo, moveCountField, resolveRound } from "./game";
 
 describe("resolveRound", () => {
   it("detects ties", () => {
@@ -18,5 +18,13 @@ describe("calculateElo", () => {
     const result = calculateElo(1000, 1000, 1);
     assert.equal(result.deltaA, 16);
     assert.equal(result.deltaB, -16);
+  });
+});
+
+describe("moveCountField", () => {
+  it("maps moves to stat fields", () => {
+    assert.equal(moveCountField("ROCK"), "rockCount");
+    assert.equal(moveCountField("PAPER"), "paperCount");
+    assert.equal(moveCountField("SCISSORS"), "scissorsCount");
   });
 });

@@ -33,3 +33,14 @@ export function calculateElo(
 export function isValidMove(value: string): value is Move {
   return value === "ROCK" || value === "PAPER" || value === "SCISSORS";
 }
+
+export function moveCountField(choice: Move): "rockCount" | "paperCount" | "scissorsCount" {
+  switch (choice) {
+    case "ROCK":
+      return "rockCount";
+    case "PAPER":
+      return "paperCount";
+    case "SCISSORS":
+      return "scissorsCount";
+  }
+}

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
+import com.rpsonline.app.ui.components.MoveStatsLabel
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.findActivity
@@ -157,6 +158,10 @@ fun HomeScreen(
                     text = "Wins: ${profile?.wins ?: 0}  •  Losses: ${profile?.losses ?: 0}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                profile?.let { userProfile ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    MoveStatsLabel(profile = userProfile)
+                }
             }
         }
 

@@ -13,12 +13,15 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId)
-        && request.resource.data.keys().hasAll(['displayName', 'elo', 'wins', 'losses', 'createdAt'])
+        && request.resource.data.keys().hasAll(['displayName', 'elo', 'wins', 'losses', 'rockCount', 'paperCount', 'scissorsCount', 'createdAt'])
         && request.resource.data.elo == 1000
         && request.resource.data.wins == 0
-        && request.resource.data.losses == 0;
+        && request.resource.data.losses == 0
+        && request.resource.data.rockCount == 0
+        && request.resource.data.paperCount == 0
+        && request.resource.data.scissorsCount == 0;
       allow update: if isOwner(userId)
-        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['elo', 'wins', 'losses', 'activeMatchId']);
+        && !request.resource.data.diff(resource.data).changedKeys().hasAny(['elo', 'wins', 'losses', 'activeMatchId', 'rockCount', 'paperCount', 'scissorsCount']);
     }
 
     match /presence/{userId} {

@@ -134,6 +134,9 @@ data class UserProfile(
     val elo: Int = 1000,
     val wins: Int = 0,
     val losses: Int = 0,
+    val rockCount: Int = 0,
+    val paperCount: Int = 0,
+    val scissorsCount: Int = 0,
     val activeMatchId: String? = null,
 )
 

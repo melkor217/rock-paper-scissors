@@ -97,6 +97,9 @@ class AuthRepository(
                 "elo" to profile.elo,
                 "wins" to profile.wins,
                 "losses" to profile.losses,
+                "rockCount" to 0,
+                "paperCount" to 0,
+                "scissorsCount" to 0,
                 "createdAt" to Timestamp.now(),
             )
         ).await()
@@ -129,6 +132,9 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toUserProfile(uid: St
         elo = getLong("elo")?.toInt() ?: 1000,
         wins = getLong("wins")?.toInt() ?: 0,
         losses = getLong("losses")?.toInt() ?: 0,
+        rockCount = getLong("rockCount")?.toInt() ?: 0,
+        paperCount = getLong("paperCount")?.toInt() ?: 0,
+        scissorsCount = getLong("scissorsCount")?.toInt() ?: 0,
         activeMatchId = getString("activeMatchId"),
     )
 }
