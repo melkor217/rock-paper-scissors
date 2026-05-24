@@ -43,6 +43,7 @@ class AuthRepository(
     }
 
     suspend fun signInAnonymously(): UserProfile {
+        discardIncompleteGuestProfile()
         val result = auth.signInAnonymously().await()
         val user = result.user ?: error("Guest sign-in failed")
         val guestName = DisplayNames.guestName(user.uid)
@@ -76,9 +77,14 @@ class AuthRepository(
         displayName: String?,
         photoUrl: String?,
     ): UserProfile {
+        awaitFirestoreAuth()
         val docRef = firestore.collection("users").document(uid)
         val snapshot = docRef.get().await()
         if (snapshot.exists()) {
+            if (!snapshot.isCompleteUserProfile()) {
+                auth.signOut()
+                error("Guest profile was incomplete. Tap Continue as guest again.")
+            }
             return normalizeStoredProfile(docRef, uid, snapshot.getString("displayName"), snapshot.toUserProfile(uid))
         }
 
@@ -93,28 +99,41 @@ class AuthRepository(
         )
         val now = Timestamp.now()
         docRef.set(
-            mapOf(
-                "displayName" to profile.displayName,
-                "photoUrl" to profile.photoUrl,
-                "elo" to profile.elo,
-                "wins" to profile.wins,
-                "losses" to profile.losses,
-                "throwsRock" to profile.throwsRock,
-                "throwsPaper" to profile.throwsPaper,
-                "throwsScissors" to profile.throwsScissors,
-                "createdAt" to now,
-                "lastSeen" to now,
-            )
+            buildMap {
+                put("displayName", profile.displayName)
+                profile.photoUrl?.let { put("photoUrl", it) }
+                put("elo", profile.elo)
+                put("wins", profile.wins)
+                put("losses", profile.losses)
+                put("throwsRock", profile.throwsRock)
+                put("throwsPaper", profile.throwsPaper)
+                put("throwsScissors", profile.throwsScissors)
+                put("createdAt", now)
+                put("lastSeen", now)
+            },
         ).await()
         return profile
     }
 
-    suspend fun loadCurrentUserProfile(): UserProfile? {
-        val uid = currentUserId ?: return null
+    suspend fun loadCurrentUserProfile(): UserProfile? = runCatching {
+        awaitFirestoreAuth()
+        val uid = currentUserId ?: return@runCatching null
         val docRef = firestore.collection("users").document(uid)
         val snapshot = docRef.get().await()
-        if (!snapshot.exists()) return null
-        return normalizeStoredProfile(docRef, uid, snapshot.getString("displayName"), snapshot.toUserProfile(uid))
+        if (!snapshot.exists() || !snapshot.isCompleteUserProfile()) return@runCatching null
+        normalizeStoredProfile(docRef, uid, snapshot.getString("displayName"), snapshot.toUserProfile(uid))
+    }.getOrNull()
+
+    private suspend fun discardIncompleteGuestProfile() {
+        val uid = currentUserId ?: return
+        if (auth.currentUser?.isAnonymous != true) return
+        runCatching {
+            awaitFirestoreAuth()
+            val snapshot = firestore.collection("users").document(uid).get().await()
+            if (snapshot.exists() && !snapshot.isCompleteUserProfile()) {
+                auth.signOut()
+            }
+        }
     }
 
     private suspend fun normalizeStoredProfile(
@@ -125,7 +144,7 @@ class AuthRepository(
     ): UserProfile {
         val resolved = DisplayNames.resolve(storedName, uid)
         if (auth.currentUser?.isAnonymous == true && DisplayNames.isGeneric(storedName)) {
-            docRef.update("displayName", resolved).await()
+            docRef.updateBestEffort(mapOf("displayName" to resolved))
             return profile.copy(displayName = resolved)
         }
         return if (resolved != profile.displayName) profile.copy(displayName = resolved) else profile
@@ -142,6 +161,14 @@ class AuthRepository(
         }
     }
 }
+
+private fun com.google.firebase.firestore.DocumentSnapshot.isCompleteUserProfile(): Boolean =
+    contains("displayName") &&
+        contains("elo") &&
+        contains("createdAt") &&
+        contains("throwsRock") &&
+        contains("throwsPaper") &&
+        contains("throwsScissors")
 
 private fun com.google.firebase.firestore.DocumentSnapshot.toUserProfile(uid: String): UserProfile {
     return UserProfile(

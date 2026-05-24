@@ -21,6 +21,8 @@ interface RoundDoc {
   winner?: string;
   resolvedAt?: Timestamp;
   deadline?: Timestamp;
+  /** Set when throwsRock/Paper/Scissors have been incremented for this round. */
+  throwStatsRecorded?: boolean;
 }
 
 interface MatchDoc {
@@ -47,10 +49,14 @@ const THROW_FIELDS: Record<Move, "throwsRock" | "throwsPaper" | "throwsScissors"
 };
 
 async function recordMoveThrown(uid: string, move: Move): Promise<void> {
-  await db.collection("users").doc(uid).update({
-    [THROW_FIELDS[move]]: FieldValue.increment(1),
-    lastSeen: FieldValue.serverTimestamp(),
-  });
+  try {
+    await db.collection("users").doc(uid).update({
+      [THROW_FIELDS[move]]: FieldValue.increment(1),
+      lastSeen: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Failed to record throw", uid, move, error);
+  }
 }
 
 async function getUserProfile(uid: string) {
@@ -131,6 +137,7 @@ function sanitizeRound(round: RoundDoc): RoundDoc {
   if (round.winner) clean.winner = round.winner;
   if (round.resolvedAt) clean.resolvedAt = round.resolvedAt;
   if (round.deadline) clean.deadline = round.deadline;
+  if (round.throwStatsRecorded) clean.throwStatsRecorded = true;
   return clean;
 }
 
@@ -243,6 +250,7 @@ async function resolveRoundIfReady(
       rounds[roundIndex] = sanitizeRound({
         ...round,
         player1Choice: p1Choice,
+        throwStatsRecorded: true,
         winner: match.player1,
         resolvedAt: now,
       });
@@ -258,6 +266,7 @@ async function resolveRoundIfReady(
       rounds[roundIndex] = sanitizeRound({
         ...round,
         player2Choice: p2Choice,
+        throwStatsRecorded: true,
         winner: match.player2,
         resolvedAt: now,
       });
@@ -298,6 +307,7 @@ async function resolveRoundIfReady(
       resolvedAt: now,
       player1Choice: p1Choice,
       player2Choice: p2Choice,
+      throwStatsRecorded: true,
     });
     await finalizeMatch(
       matchRef,
@@ -313,6 +323,7 @@ async function resolveRoundIfReady(
       resolvedAt: now,
       player1Choice: p1Choice,
       player2Choice: p2Choice,
+      throwStatsRecorded: true,
     });
     await finalizeMatch(
       matchRef,
@@ -329,6 +340,7 @@ async function resolveRoundIfReady(
       ...round,
       player1Choice: p1Choice,
       player2Choice: p2Choice,
+      throwStatsRecorded: true,
       winner: "tie",
       resolvedAt: now,
     });
@@ -347,6 +359,7 @@ async function resolveRoundIfReady(
     ...round,
     player1Choice: p1Choice,
     player2Choice: p2Choice,
+    throwStatsRecorded: true,
     winner,
     resolvedAt: now,
   });
@@ -432,7 +445,7 @@ async function applyPlayerChoice(
   });
 
   if (applied) {
-    await recordMoveThrown(uid, choice);
+    await recordMoveThrown(uid, choice as Move);
   }
 
   const updated = await matchRef.get();

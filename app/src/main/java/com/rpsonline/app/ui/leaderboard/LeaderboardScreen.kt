@@ -15,8 +15,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -27,9 +29,19 @@ import com.rpsonline.app.viewmodel.LeaderboardViewModel
 @Composable
 fun LeaderboardScreen(
     onBackToHome: () -> Unit,
+    onPlayerProfile: (userId: String) -> Unit,
     viewModel: LeaderboardViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.load()
+    }
+
+    LifecycleResumeEffect(Unit) {
+        viewModel.load()
+        onPauseOrDispose { }
+    }
 
     Column(
         modifier = Modifier.rpsScreenPadding(),
@@ -66,20 +78,28 @@ fun LeaderboardScreen(
             else -> {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     itemsIndexed(uiState.entries) { index, entry ->
                         val rank = index + 1
                         val isCurrentUser = entry.uid == uiState.currentUserId
-                        LeaderboardEntryCard(rank = rank, isCurrentUser = isCurrentUser) {
+                        LeaderboardEntryCard(
+                            rank = rank,
+                            isCurrentUser = isCurrentUser,
+                            onClick = { onPlayerProfile(entry.uid) },
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                    .padding(horizontal = 10.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(end = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
                                     Text(
                                         text = buildString {
                                             append("#$rank ${entry.displayName}")
@@ -107,11 +127,21 @@ fun LeaderboardScreen(
                                         }
                                     }
                                 }
-                                Text(
-                                    text = "${entry.elo}",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    ThrowDistributionRadialChart(
+                                        rock = entry.throwsRock,
+                                        paper = entry.throwsPaper,
+                                        scissors = entry.throwsScissors,
+                                    )
+                                    Text(
+                                        text = "${entry.elo}",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                         }
                     }

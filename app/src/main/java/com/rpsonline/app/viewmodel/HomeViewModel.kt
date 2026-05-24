@@ -13,10 +13,13 @@ import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.data.update.AppUpdateInfo
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -44,6 +47,9 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var presenceJob: Job? = null
+    private var profileJob: Job? = null
+
     init {
         viewModelScope.launch {
             presenceRepository.observeOnlineCount().collect { count ->
@@ -52,11 +58,21 @@ class HomeViewModel(
         }
         viewModelScope.launch {
             authRepository.authStateFlow().collect { user ->
+                profileJob?.cancel()
+                profileJob = null
                 if (user == null) {
+                    stopPresenceHeartbeat()
                     _uiState.update {
                         it.copy(isLoading = false, profile = null, onlinePlayerCount = null)
                     }
                 } else {
+                    profileJob = viewModelScope.launch {
+                        userRepository.observeUserProfile(user.uid).collect { profile ->
+                            if (profile != null) {
+                                _uiState.update { it.copy(profile = profile, isLoading = false) }
+                            }
+                        }
+                    }
                     refresh(user)
                 }
             }
@@ -82,18 +98,36 @@ class HomeViewModel(
     private suspend fun refresh(user: FirebaseUser) {
         _uiState.update { it.copy(isLoading = true, error = null) }
         try {
-            val profile = authRepository.ensureUserProfile(
+            authRepository.ensureUserProfile(
                 uid = user.uid,
                 displayName = user.displayName,
                 photoUrl = user.photoUrl?.toString(),
             )
             val leaderboard = userRepository.getLeaderboard(limit = 10)
             _uiState.update {
-                it.copy(isLoading = false, profile = profile, leaderboard = leaderboard)
+                it.copy(isLoading = false, leaderboard = leaderboard)
             }
+            startPresenceHeartbeat(user.uid)
         } catch (e: Exception) {
+            stopPresenceHeartbeat()
             _uiState.update { it.copy(isLoading = false, error = e.message) }
         }
+    }
+
+    private fun startPresenceHeartbeat(uid: String) {
+        presenceJob?.cancel()
+        presenceJob = viewModelScope.launch {
+            presenceRepository.touchPresence(uid)
+            while (isActive) {
+                delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
+                presenceRepository.touchPresence(uid)
+            }
+        }
+    }
+
+    private fun stopPresenceHeartbeat() {
+        presenceJob?.cancel()
+        presenceJob = null
     }
 
     fun checkForUpdate(context: Context) {
@@ -158,8 +192,9 @@ class HomeViewModel(
 
     fun signOut(context: Context) {
         viewModelScope.launch {
+            stopPresenceHeartbeat()
             authRepository.currentUserId?.let { uid ->
-                runCatching { presenceRepository.clearPresence(uid) }
+                presenceRepository.clearPresence(uid)
             }
             authRepository.signOut(context)
             _uiState.update {
@@ -171,5 +206,11 @@ class HomeViewModel(
                 )
             }
         }
+    }
+
+    override fun onCleared() {
+        profileJob?.cancel()
+        stopPresenceHeartbeat()
+        super.onCleared()
     }
 }
