@@ -6,8 +6,8 @@ cd "$(dirname "$0")/.."
 echo "Building functions..."
 npm --prefix functions run build
 
-echo "Deploying Firestore indexes + Cloud Functions to rps-online-9771e..."
-firebase deploy --only functions,firestore:indexes
+echo "Deploying Firestore rules, indexes, and Cloud Functions to rps-online-9771e..."
+firebase deploy --only functions,firestore:rules,firestore:indexes
 
 echo ""
 echo "Deployed callables (region us-central1): joinQueue, leaveQueue, submitMove"
