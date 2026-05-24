@@ -45,5 +45,8 @@ class UserRepository(
             elo = getLong("elo")?.toInt() ?: 1000,
             wins = getLong("wins")?.toInt() ?: 0,
             losses = getLong("losses")?.toInt() ?: 0,
+            throwsRock = getLong("throwsRock")?.toInt() ?: 0,
+            throwsPaper = getLong("throwsPaper")?.toInt() ?: 0,
+            throwsScissors = getLong("throwsScissors")?.toInt() ?: 0,
         )
 }

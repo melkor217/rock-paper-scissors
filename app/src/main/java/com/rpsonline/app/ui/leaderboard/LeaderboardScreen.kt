@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
@@ -79,7 +80,10 @@ fun LeaderboardScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
                                     Text(
                                         text = buildString {
                                             append("#$rank ${entry.displayName}")
@@ -107,6 +111,12 @@ fun LeaderboardScreen(
                                         }
                                     }
                                 }
+                                ThrowDistributionRadialChart(
+                                    rock = entry.throwsRock,
+                                    paper = entry.throwsPaper,
+                                    scissors = entry.throwsScissors,
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Text(
                                     text = "${entry.elo}",
                                     style = MaterialTheme.typography.headlineSmall,
