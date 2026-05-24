@@ -36,6 +36,7 @@ interface MatchDoc {
   winnerId?: string;
   player1EloDelta?: number;
   player2EloDelta?: number;
+  moveStatsRecorded?: boolean;
   createdAt: Timestamp;
   lastActivityAt: Timestamp;
 }
@@ -123,6 +124,26 @@ function incrementMoveStatUpdate(choice: Move): Record<string, FirebaseFirestore
   return { [moveCountField(choice)]: FieldValue.increment(1) };
 }
 
+function applyMoveStatIncrementsForRounds(
+  batch: FirebaseFirestore.WriteBatch,
+  match: MatchDoc,
+): void {
+  for (const round of match.rounds) {
+    if (round.player1Choice && isValidMove(round.player1Choice)) {
+      batch.update(
+        db.collection("users").doc(match.player1),
+        incrementMoveStatUpdate(round.player1Choice),
+      );
+    }
+    if (round.player2Choice && isValidMove(round.player2Choice)) {
+      batch.update(
+        db.collection("users").doc(match.player2),
+        incrementMoveStatUpdate(round.player2Choice),
+      );
+    }
+  }
+}
+
 async function abandonMatch(
   matchRef: FirebaseFirestore.DocumentReference,
   match: MatchDoc,
@@ -180,8 +201,13 @@ async function finalizeMatch(
     rounds: sanitizeRounds(match.rounds),
     player1EloDelta: elo.deltaA,
     player2EloDelta: elo.deltaB,
+    moveStatsRecorded: true,
     lastActivityAt: FieldValue.serverTimestamp(),
   });
+
+  if (!match.moveStatsRecorded) {
+    applyMoveStatIncrementsForRounds(batch, match);
+  }
 
   batch.update(db.collection("users").doc(match.player1), {
     elo: elo.newA,
@@ -393,15 +419,12 @@ async function applyPlayerChoice(
     if (idx < 0) return;
 
     const current = { ...rounds[idx] };
-    let newChoice: Move | null = null;
     if (uid === match.player1) {
       if (current.player1Choice) return;
       current.player1Choice = choice;
-      newChoice = choice;
     } else {
       if (current.player2Choice) return;
       current.player2Choice = choice;
-      newChoice = choice;
     }
 
     rounds[idx] = sanitizeRound(current);
@@ -409,9 +432,6 @@ async function applyPlayerChoice(
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
     });
-    if (newChoice) {
-      tx.update(db.collection("users").doc(uid), incrementMoveStatUpdate(newChoice));
-    }
   });
 
   const updated = await matchRef.get();
@@ -469,18 +489,15 @@ async function mergeChoicesFromSubcollection(
 
     let changed = false;
     const current = { ...rounds[idx] };
-    const newChoices: Array<{ uid: string; choice: Move }> = [];
     for (const doc of choicesSnap.docs) {
       const uid = doc.id;
       const choice = doc.get("choice") as string;
       if (!isValidMove(choice)) continue;
       if (uid === match.player1 && !current.player1Choice) {
         current.player1Choice = choice;
-        newChoices.push({ uid, choice });
         changed = true;
       } else if (uid === match.player2 && !current.player2Choice) {
         current.player2Choice = choice;
-        newChoices.push({ uid, choice });
         changed = true;
       }
     }
@@ -492,9 +509,6 @@ async function mergeChoicesFromSubcollection(
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
     });
-    for (const { uid, choice } of newChoices) {
-      tx.update(db.collection("users").doc(uid), incrementMoveStatUpdate(choice));
-    }
     return { ...match, rounds: sanitizeRounds(rounds) };
   });
 }

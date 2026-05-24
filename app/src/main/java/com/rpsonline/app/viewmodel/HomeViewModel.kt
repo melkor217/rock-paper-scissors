@@ -82,11 +82,12 @@ class HomeViewModel(
     private suspend fun refresh(user: FirebaseUser) {
         _uiState.update { it.copy(isLoading = true, error = null) }
         try {
-            val profile = authRepository.ensureUserProfile(
-                uid = user.uid,
-                displayName = user.displayName,
-                photoUrl = user.photoUrl?.toString(),
-            )
+            val profile = userRepository.getUserProfile(user.uid)
+                ?: authRepository.ensureUserProfile(
+                    uid = user.uid,
+                    displayName = user.displayName,
+                    photoUrl = user.photoUrl?.toString(),
+                )
             val leaderboard = userRepository.getLeaderboard(limit = 10)
             _uiState.update {
                 it.copy(isLoading = false, profile = profile, leaderboard = leaderboard)
