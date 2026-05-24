@@ -44,8 +44,9 @@ fun RpsPerWinLabel(
     ) {
         Text(
             text = formatThrowsPerWin(throwsPerWin),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
         Row(
             horizontalArrangement = Arrangement.spacedBy(1.dp),
@@ -53,27 +54,28 @@ fun RpsPerWinLabel(
         ) {
             Icon(
                 imageVector = Icons.Default.Landscape,
-                contentDescription = "Rock",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(10.dp),
             )
             Icon(
                 imageVector = Icons.Default.Description,
-                contentDescription = "Paper",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(10.dp),
             )
             Icon(
                 imageVector = Icons.Default.ContentCut,
-                contentDescription = "Scissors",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(10.dp),
             )
         }
         Text(
             text = "/Win",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }
