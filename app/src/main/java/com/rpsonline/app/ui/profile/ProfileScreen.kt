@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,10 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
+import com.rpsonline.app.ui.components.ThrowCountRow
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.leaderboard.leaderboardSpectrumColor
 import com.rpsonline.app.viewmodel.ProfileViewModel
@@ -38,18 +40,19 @@ private val MatchDateFormat = DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm"
 
 @Composable
 fun ProfileScreen(
+    userId: String,
     onBack: () -> Unit,
     viewModel: ProfileViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.load()
+    LaunchedEffect(userId) {
+        viewModel.load(userId)
     }
 
     Column(modifier = Modifier.rpsScreenPadding()) {
         Text(
-            text = "Profile",
+            text = uiState.profile?.displayName ?: "Profile",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -96,7 +99,11 @@ fun ProfileScreen(
                     }
                     item {
                         Text(
-                            text = "Last 10 matches",
+                            text = if (uiState.isOwnProfile) {
+                                "Last 10 matches"
+                            } else {
+                                "Matches you played together"
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onBackground,
                         )
@@ -104,17 +111,21 @@ fun ProfileScreen(
                     if (uiState.matchHistory.isEmpty()) {
                         item {
                             Text(
-                                text = "No completed matches yet.",
+                                text = if (uiState.isOwnProfile) {
+                                    "No completed matches yet."
+                                } else {
+                                    "No shared matches yet."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     } else {
-                        itemsIndexed(uiState.matchHistory) { index, entry ->
-                            MatchHistoryCard(
-                                entry = entry,
-                                matchLabel = "Match ${index + 1}",
-                            )
+                        items(
+                            items = uiState.matchHistory,
+                            key = { it.matchId },
+                        ) { entry ->
+                            MatchHistoryCard(entry = entry)
                         }
                     }
                 }
@@ -175,10 +186,10 @@ private fun ProfileStatsCard(
                     color = leaderboardSpectrumColor(winRate.toFloat()),
                 )
             }
-            Text(
-                text = "Throws — Rock: $throwsRock  Paper: $throwsPaper  Scissors: $throwsScissors",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ThrowCountRow(
+                rock = throwsRock,
+                paper = throwsPaper,
+                scissors = throwsScissors,
             )
         }
     }
@@ -187,7 +198,6 @@ private fun ProfileStatsCard(
 @Composable
 private fun MatchHistoryCard(
     entry: MatchHistoryEntry,
-    matchLabel: String,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -208,9 +218,11 @@ private fun MatchHistoryCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = matchLabel,
+                        text = formatCompactMatchLabel(entry.matchId),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = "vs ${entry.opponentName}",
@@ -253,6 +265,13 @@ private fun MatchHistoryCard(
             )
         }
     }
+}
+
+private const val CompactMatchIdLength = 8
+
+private fun formatCompactMatchLabel(matchId: String): String {
+    val compact = matchId.take(CompactMatchIdLength)
+    return "Match#$compact"
 }
 
 private fun formatMatchDate(epochMs: Long): String {

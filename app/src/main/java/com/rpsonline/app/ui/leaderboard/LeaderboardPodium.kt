@@ -107,6 +107,7 @@ private fun DrawScope.drawInwardPodiumGlow(glowColor: Color, cornerRadius: Float
 @Composable
 fun LeaderboardEntryCard(
     rank: Int,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isCurrentUser: Boolean = false,
     content: @Composable () -> Unit,
@@ -126,6 +127,7 @@ fun LeaderboardEntryCard(
     val cornerRadius = 12.dp
 
     Card(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = shape,
         border = border,

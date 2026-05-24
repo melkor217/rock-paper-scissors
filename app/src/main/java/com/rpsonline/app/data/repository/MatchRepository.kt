@@ -171,6 +171,18 @@ class MatchRepository(
             .sortedByDescending { it.lastActivityAt }
             .take(limit)
     }
+
+    /** Matches the signed-in [viewerId] can read that also involve [opponentId]. */
+    suspend fun getRecentSharedMatches(
+        viewerId: String,
+        opponentId: String,
+        limit: Int = 10,
+    ): List<Match> {
+        val poolSize = (limit * 3).coerceAtLeast(15)
+        return getRecentMatchesForUser(viewerId, limit = poolSize)
+            .filter { it.player1 == opponentId || it.player2 == opponentId }
+            .take(limit)
+    }
 }
 
 @Suppress("UNCHECKED_CAST")

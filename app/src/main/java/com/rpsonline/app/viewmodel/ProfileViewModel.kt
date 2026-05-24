@@ -18,6 +18,7 @@ data class ProfileUiState(
     val isLoading: Boolean = true,
     val profile: UserProfile? = null,
     val matchHistory: List<MatchHistoryEntry> = emptyList(),
+    val isOwnProfile: Boolean = true,
     val error: String? = null,
 )
 
@@ -30,25 +31,31 @@ class ProfileViewModel(
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    init {
-        load()
-    }
-
-    fun load() {
+    fun load(userId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val uid = authRepository.currentUserId
+                val viewerId = authRepository.currentUserId
                     ?: throw IllegalStateException("Not signed in")
-                val profile = userRepository.getUserProfile(uid)
-                    ?: authRepository.loadCurrentUserProfile()
-                val matches = matchRepository.getRecentMatchesForUser(uid, limit = 10)
-                val history = matches.map { it.toHistoryEntry(uid) }
+                val profile = userRepository.getUserProfile(userId)
+                    ?: throw IllegalStateException("Player not found")
+                val isOwnProfile = userId == viewerId
+                val matches = if (isOwnProfile) {
+                    matchRepository.getRecentMatchesForUser(viewerId, limit = 10)
+                } else {
+                    matchRepository.getRecentSharedMatches(
+                        viewerId = viewerId,
+                        opponentId = userId,
+                        limit = 10,
+                    )
+                }
+                val history = matches.map { it.toHistoryEntry(viewerId) }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         profile = profile,
                         matchHistory = history,
+                        isOwnProfile = isOwnProfile,
                     )
                 }
             } catch (e: Exception) {

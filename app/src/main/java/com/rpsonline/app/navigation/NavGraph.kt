@@ -30,10 +30,11 @@ object Routes {
     const val GAME = "game/{matchId}"
     const val RESULT = "result/{matchId}"
     const val LEADERBOARD = "leaderboard"
-    const val PROFILE = "profile"
+    const val PROFILE = "profile/{userId}"
 
     fun game(matchId: String) = "game/$matchId"
     fun result(matchId: String) = "result/$matchId"
+    fun profile(userId: String) = "profile/$userId"
 }
 
 @Composable
@@ -90,7 +91,11 @@ fun RpsNavGraph() {
                 HomeScreen(
                     onFindMatch = { navController.navigate(Routes.MATCHMAKING) },
                     onLeaderboard = { navController.navigate(Routes.LEADERBOARD) },
-                    onProfile = { navController.navigate(Routes.PROFILE) },
+                    onProfile = {
+                        authRepository.currentUserId?.let { uid ->
+                            navController.navigate(Routes.profile(uid))
+                        }
+                    },
                 )
             }
         }
@@ -149,12 +154,19 @@ fun RpsNavGraph() {
         composable(Routes.LEADERBOARD) {
             LeaderboardScreen(
                 onBackToHome = { navController.popBackStack() },
-                onProfile = { navController.navigate(Routes.PROFILE) },
+                onPlayerProfile = { userId ->
+                    navController.navigate(Routes.profile(userId))
+                },
             )
         }
 
-        composable(Routes.PROFILE) {
+        composable(
+            route = Routes.PROFILE,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
             ProfileScreen(
+                userId = userId,
                 onBack = { navController.popBackStack() },
             )
         }

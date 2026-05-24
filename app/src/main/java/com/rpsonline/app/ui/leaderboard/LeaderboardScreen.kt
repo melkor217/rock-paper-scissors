@@ -28,7 +28,7 @@ import com.rpsonline.app.viewmodel.LeaderboardViewModel
 @Composable
 fun LeaderboardScreen(
     onBackToHome: () -> Unit,
-    onProfile: () -> Unit,
+    onPlayerProfile: (userId: String) -> Unit,
     viewModel: LeaderboardViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -77,7 +77,11 @@ fun LeaderboardScreen(
                     itemsIndexed(uiState.entries) { index, entry ->
                         val rank = index + 1
                         val isCurrentUser = entry.uid == uiState.currentUserId
-                        LeaderboardEntryCard(rank = rank, isCurrentUser = isCurrentUser) {
+                        LeaderboardEntryCard(
+                            rank = rank,
+                            isCurrentUser = isCurrentUser,
+                            onClick = { onPlayerProfile(entry.uid) },
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -139,13 +143,6 @@ fun LeaderboardScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onProfile,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Profile")
-        }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedButton(
             onClick = onBackToHome,
