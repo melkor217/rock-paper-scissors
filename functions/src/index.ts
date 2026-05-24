@@ -40,6 +40,19 @@ interface MatchDoc {
   lastActivityAt: Timestamp;
 }
 
+const THROW_FIELDS: Record<Move, "throwsRock" | "throwsPaper" | "throwsScissors"> = {
+  ROCK: "throwsRock",
+  PAPER: "throwsPaper",
+  SCISSORS: "throwsScissors",
+};
+
+async function recordMoveThrown(uid: string, move: Move): Promise<void> {
+  await db.collection("users").doc(uid).update({
+    [THROW_FIELDS[move]]: FieldValue.increment(1),
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+}
+
 async function getUserProfile(uid: string) {
   const snap = await db.collection("users").doc(uid).get();
   if (!snap.exists) {
@@ -81,8 +94,14 @@ async function createMatch(playerA: string, playerB: string): Promise<string> {
   batch.set(matchRef, match);
   batch.delete(db.collection("queue").doc(playerA));
   batch.delete(db.collection("queue").doc(playerB));
-  batch.update(db.collection("users").doc(playerA), { activeMatchId: matchRef.id });
-  batch.update(db.collection("users").doc(playerB), { activeMatchId: matchRef.id });
+  batch.update(db.collection("users").doc(playerA), {
+    activeMatchId: matchRef.id,
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+  batch.update(db.collection("users").doc(playerB), {
+    activeMatchId: matchRef.id,
+    lastSeen: FieldValue.serverTimestamp(),
+  });
   await batch.commit();
   return matchRef.id;
 }
@@ -184,12 +203,14 @@ async function finalizeMatch(
     wins: FieldValue.increment(winnerId === match.player1 ? 1 : 0),
     losses: FieldValue.increment(winnerId === match.player1 ? 0 : 1),
     activeMatchId: FieldValue.delete(),
+    lastSeen: FieldValue.serverTimestamp(),
   });
   batch.update(db.collection("users").doc(match.player2), {
     elo: elo.newB,
     wins: FieldValue.increment(winnerId === match.player2 ? 1 : 0),
     losses: FieldValue.increment(winnerId === match.player2 ? 0 : 1),
     activeMatchId: FieldValue.delete(),
+    lastSeen: FieldValue.serverTimestamp(),
   });
   await batch.commit();
 }
@@ -349,6 +370,10 @@ export const onQueueEntry = onDocumentCreated(
     const data = event.data?.data();
     if (!data) return;
 
+    await db.collection("users").doc(uid).update({
+      lastSeen: FieldValue.serverTimestamp(),
+    });
+
     const profile = await getUserProfile(uid);
     if (profile.activeMatchId) {
       const active = await db.collection("matches").doc(profile.activeMatchId).get();
@@ -373,6 +398,7 @@ async function applyPlayerChoice(
 
   const matchRef = db.collection("matches").doc(matchId);
 
+  let applied = false;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(matchRef);
     if (!snap.exists) return;
@@ -391,18 +417,23 @@ async function applyPlayerChoice(
     const current = { ...rounds[idx] };
     if (uid === match.player1) {
       if (current.player1Choice) return;
-      current.player1Choice = choice;
+      current.player1Choice = choice as Move;
     } else {
       if (current.player2Choice) return;
-      current.player2Choice = choice;
+      current.player2Choice = choice as Move;
     }
 
+    applied = true;
     rounds[idx] = sanitizeRound(current);
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
     });
   });
+
+  if (applied) {
+    await recordMoveThrown(uid, choice);
+  }
 
   const updated = await matchRef.get();
   if (updated.exists) {
@@ -443,21 +474,25 @@ async function mergeChoicesFromSubcollection(
     return snap.exists ? (snap.data() as MatchDoc) : null;
   }
 
-  return db.runTransaction(async (tx) => {
+  const outcome = await db.runTransaction(async (tx) => {
     const snap = await tx.get(matchRef);
     if (!snap.exists) return null;
 
     const match = snap.data() as MatchDoc;
-    if (match.status !== "active") return match;
+    if (match.status !== "active") {
+      return { match, recorded: [] as Array<{ uid: string; move: Move }> };
+    }
 
     const round = getOpenRound(match);
-    if (!round || round.roundNumber !== roundNumber) return match;
+    if (!round || round.roundNumber !== roundNumber) {
+      return { match, recorded: [] as Array<{ uid: string; move: Move }> };
+    }
 
     const rounds = [...match.rounds];
     const idx = rounds.findIndex((r) => r.roundNumber === round.roundNumber && !r.resolvedAt);
-    if (idx < 0) return match;
+    if (idx < 0) return { match, recorded: [] as Array<{ uid: string; move: Move }> };
 
-    let changed = false;
+    const recorded: Array<{ uid: string; move: Move }> = [];
     const current = { ...rounds[idx] };
     for (const doc of choicesSnap.docs) {
       const uid = doc.id;
@@ -465,22 +500,28 @@ async function mergeChoicesFromSubcollection(
       if (!isValidMove(choice)) continue;
       if (uid === match.player1 && !current.player1Choice) {
         current.player1Choice = choice;
-        changed = true;
+        recorded.push({ uid, move: choice });
       } else if (uid === match.player2 && !current.player2Choice) {
         current.player2Choice = choice;
-        changed = true;
+        recorded.push({ uid, move: choice });
       }
     }
 
-    if (!changed) return match;
+    if (recorded.length === 0) return { match, recorded };
 
     rounds[idx] = sanitizeRound(current);
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
     });
-    return { ...match, rounds: sanitizeRounds(rounds) };
+    return { match: { ...match, rounds: sanitizeRounds(rounds) }, recorded };
   });
+
+  if (!outcome) return null;
+  for (const { uid, move } of outcome.recorded) {
+    await recordMoveThrown(uid, move);
+  }
+  return outcome.match;
 }
 
 /** Client writes when the round timer hits zero; resolves immediately (scheduler is backup). */

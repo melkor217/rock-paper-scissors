@@ -64,6 +64,7 @@ class HomeViewModel(
     }
 
     fun onHomeVisible(context: Context) {
+        refresh()
         val repo = AppUpdateRepository(context.applicationContext)
         _uiState.update { it.copy(versionName = repo.currentVersionName()) }
         if (repo.updatesEnabled()) {

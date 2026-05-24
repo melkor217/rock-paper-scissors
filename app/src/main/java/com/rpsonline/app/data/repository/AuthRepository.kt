@@ -90,10 +90,8 @@ class AuthRepository(
             uid = uid,
             displayName = defaultName,
             photoUrl = photoUrl,
-            elo = 1000,
-            wins = 0,
-            losses = 0,
         )
+        val now = Timestamp.now()
         docRef.set(
             mapOf(
                 "displayName" to profile.displayName,
@@ -101,7 +99,11 @@ class AuthRepository(
                 "elo" to profile.elo,
                 "wins" to profile.wins,
                 "losses" to profile.losses,
-                "createdAt" to Timestamp.now(),
+                "throwsRock" to profile.throwsRock,
+                "throwsPaper" to profile.throwsPaper,
+                "throwsScissors" to profile.throwsScissors,
+                "createdAt" to now,
+                "lastSeen" to now,
             )
         ).await()
         return profile
@@ -149,6 +151,9 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toUserProfile(uid: St
         elo = getLong("elo")?.toInt() ?: 1000,
         wins = getLong("wins")?.toInt() ?: 0,
         losses = getLong("losses")?.toInt() ?: 0,
+        throwsRock = getLong("throwsRock")?.toInt() ?: 0,
+        throwsPaper = getLong("throwsPaper")?.toInt() ?: 0,
+        throwsScissors = getLong("throwsScissors")?.toInt() ?: 0,
         activeMatchId = getString("activeMatchId"),
     )
 }

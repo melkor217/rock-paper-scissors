@@ -21,6 +21,9 @@ class UserRepository(
             elo = snapshot.getLong("elo")?.toInt() ?: 1000,
             wins = snapshot.getLong("wins")?.toInt() ?: 0,
             losses = snapshot.getLong("losses")?.toInt() ?: 0,
+            throwsRock = snapshot.getLong("throwsRock")?.toInt() ?: 0,
+            throwsPaper = snapshot.getLong("throwsPaper")?.toInt() ?: 0,
+            throwsScissors = snapshot.getLong("throwsScissors")?.toInt() ?: 0,
             activeMatchId = snapshot.getString("activeMatchId"),
         )
     }

@@ -158,6 +158,10 @@ fun HomeScreen(
                     text = "Wins: ${profile?.wins ?: 0}  •  Losses: ${profile?.losses ?: 0}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Text(
+                    text = "Throws — Rock: ${profile?.throwsRock ?: 0}  Paper: ${profile?.throwsPaper ?: 0}  Scissors: ${profile?.throwsScissors ?: 0}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
