@@ -55,11 +55,11 @@ private data class RadialChartLayout(
 
 private fun radialChartLayout(chartSizePx: Float, iconSizePx: Float, barStrokePx: Float): RadialChartLayout {
     val half = chartSizePx / 2f
-    val iconOrbit = half * 0.78f
+    val iconOrbit = half * 0.9f
     val iconInnerEdge = iconOrbit - iconSizePx / 2f
-    val barGap = iconSizePx * 0.4f + barStrokePx / 2f
+    val barGap = iconSizePx * 0.28f + barStrokePx / 2f
     val barMaxRadius = iconInnerEdge - barGap
-    val innerRadius = barMaxRadius * 0.14f
+    val innerRadius = barMaxRadius * 0.08f
     return RadialChartLayout(
         iconOrbitPx = iconOrbit,
         innerRadiusPx = innerRadius,
@@ -75,7 +75,7 @@ fun ThrowDistributionRadialChart(
     paper: Int,
     scissors: Int,
     modifier: Modifier = Modifier,
-    size: Dp = 52.dp,
+    size: Dp = 64.dp,
 ) {
     val counts = intArrayOf(rock, paper, scissors)
     val totalThrows = counts.sum()
@@ -83,7 +83,7 @@ fun ThrowDistributionRadialChart(
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)
     val iconTint = MaterialTheme.colorScheme.onSurfaceVariant
     val density = LocalDensity.current
-    val iconSize = 11.dp
+    val iconSize = 8.dp
     val barStroke = 2.5.dp
     val iconSizePx = with(density) { iconSize.toPx() }
     val chartSizePx = with(density) { size.toPx() }

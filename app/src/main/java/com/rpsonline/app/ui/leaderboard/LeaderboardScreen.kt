@@ -71,7 +71,7 @@ fun LeaderboardScreen(
             else -> {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     itemsIndexed(uiState.entries) { index, entry ->
                         val rank = index + 1
@@ -80,13 +80,13 @@ fun LeaderboardScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                                    .padding(horizontal = 10.dp, vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .padding(end = 8.dp),
+                                        .padding(end = 4.dp),
                                     verticalArrangement = Arrangement.spacedBy(2.dp),
                                 ) {
                                     Text(
@@ -118,7 +118,7 @@ fun LeaderboardScreen(
                                 }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 ) {
                                     ThrowDistributionRadialChart(
                                         rock = entry.throwsRock,
