@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -53,6 +54,12 @@ private data class RadialChartLayout(
     val barStrokePx: Float,
 )
 
+private fun axisPoint(center: Offset, angleRad: Float, radius: Float): Offset =
+    Offset(
+        x = center.x + cos(angleRad) * radius,
+        y = center.y + sin(angleRad) * radius,
+    )
+
 private fun radialChartLayout(chartSizePx: Float, iconSizePx: Float, barStrokePx: Float): RadialChartLayout {
     val half = chartSizePx / 2f
     val iconOrbit = half * 0.9f
@@ -81,6 +88,8 @@ fun ThrowDistributionRadialChart(
     val totalThrows = counts.sum()
     val maxCount = max(counts.max(), 1)
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)
+    val triangleFill = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
+    val triangleStroke = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
     val iconTint = MaterialTheme.colorScheme.onSurfaceVariant
     val density = LocalDensity.current
     val iconSize = 8.dp
@@ -122,25 +131,33 @@ fun ThrowDistributionRadialChart(
                 )
             }
 
-            counts.forEachIndexed { index, count ->
-                val angleRad = MoveAxes[index].angleDeg * (PI.toFloat() / 180f)
-                val dirX = cos(angleRad)
-                val dirY = sin(angleRad)
-                val barLength = layout.barSpanPx * (count.toFloat() / maxCount)
-                if (barLength <= 0f) return@forEachIndexed
+            val barEnds = MoveAxes.mapIndexed { index, axis ->
+                val angleRad = axis.angleDeg * (PI.toFloat() / 180f)
+                val barLength = layout.barSpanPx * (counts[index].toFloat() / maxCount)
+                axisPoint(center, angleRad, layout.innerRadiusPx + barLength)
+            }
 
-                val start = Offset(
-                    x = center.x + dirX * layout.innerRadiusPx,
-                    y = center.y + dirY * layout.innerRadiusPx,
-                )
-                val end = Offset(
-                    x = center.x + dirX * (layout.innerRadiusPx + barLength),
-                    y = center.y + dirY * (layout.innerRadiusPx + barLength),
-                )
+            val triangle = Path().apply {
+                moveTo(barEnds[0].x, barEnds[0].y)
+                lineTo(barEnds[1].x, barEnds[1].y)
+                lineTo(barEnds[2].x, barEnds[2].y)
+                close()
+            }
+            drawPath(path = triangle, color = triangleFill)
+            drawPath(
+                path = triangle,
+                color = triangleStroke,
+                style = Stroke(width = 1f),
+            )
+
+            counts.forEachIndexed { index, count ->
+                if (count <= 0) return@forEachIndexed
+                val angleRad = MoveAxes[index].angleDeg * (PI.toFloat() / 180f)
+                val start = axisPoint(center, angleRad, layout.innerRadiusPx)
                 drawLine(
                     color = barColors[index],
                     start = start,
-                    end = end,
+                    end = barEnds[index],
                     strokeWidth = layout.barStrokePx,
                     cap = StrokeCap.Round,
                 )
