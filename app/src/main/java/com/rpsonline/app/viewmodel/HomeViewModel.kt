@@ -48,6 +48,7 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var presenceJob: Job? = null
+    private var profileJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -57,11 +58,21 @@ class HomeViewModel(
         }
         viewModelScope.launch {
             authRepository.authStateFlow().collect { user ->
+                profileJob?.cancel()
+                profileJob = null
                 if (user == null) {
+                    stopPresenceHeartbeat()
                     _uiState.update {
                         it.copy(isLoading = false, profile = null, onlinePlayerCount = null)
                     }
                 } else {
+                    profileJob = viewModelScope.launch {
+                        userRepository.observeUserProfile(user.uid).collect { profile ->
+                            if (profile != null) {
+                                _uiState.update { it.copy(profile = profile, isLoading = false) }
+                            }
+                        }
+                    }
                     refresh(user)
                 }
             }
@@ -87,14 +98,14 @@ class HomeViewModel(
     private suspend fun refresh(user: FirebaseUser) {
         _uiState.update { it.copy(isLoading = true, error = null) }
         try {
-            val profile = authRepository.ensureUserProfile(
+            authRepository.ensureUserProfile(
                 uid = user.uid,
                 displayName = user.displayName,
                 photoUrl = user.photoUrl?.toString(),
             )
             val leaderboard = userRepository.getLeaderboard(limit = 10)
             _uiState.update {
-                it.copy(isLoading = false, profile = profile, leaderboard = leaderboard)
+                it.copy(isLoading = false, leaderboard = leaderboard)
             }
             startPresenceHeartbeat(user.uid)
         } catch (e: Exception) {
@@ -198,6 +209,7 @@ class HomeViewModel(
     }
 
     override fun onCleared() {
+        profileJob?.cancel()
         stopPresenceHeartbeat()
         super.onCleared()
     }

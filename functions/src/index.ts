@@ -49,25 +49,14 @@ const THROW_FIELDS: Record<Move, "throwsRock" | "throwsPaper" | "throwsScissors"
 };
 
 async function recordMoveThrown(uid: string, move: Move): Promise<void> {
-  await db.collection("users").doc(uid).update({
-    [THROW_FIELDS[move]]: FieldValue.increment(1),
-    lastSeen: FieldValue.serverTimestamp(),
-  });
-}
-
-/** Record throw stats once per round when choices are resolved (same lifecycle as W/L). */
-async function recordThrowsForRoundOnce(match: MatchDoc, round: RoundDoc): Promise<void> {
-  if (round.throwStatsRecorded) return;
-
-  const tasks: Promise<void>[] = [];
-  if (round.player1Choice) {
-    tasks.push(recordMoveThrown(match.player1, round.player1Choice));
+  try {
+    await db.collection("users").doc(uid).update({
+      [THROW_FIELDS[move]]: FieldValue.increment(1),
+      lastSeen: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Failed to record throw", uid, move, error);
   }
-  if (round.player2Choice) {
-    tasks.push(recordMoveThrown(match.player2, round.player2Choice));
-  }
-  if (tasks.length === 0) return;
-  await Promise.all(tasks);
 }
 
 async function getUserProfile(uid: string) {
@@ -254,12 +243,10 @@ async function resolveRoundIfReady(
 
   // Both players submitted — resolve normally.
   if (p1Choice && p2Choice) {
-    await recordThrowsForRoundOnce(match, round);
     // fall through to winner resolution below
   } else if (deadlinePassed) {
     // Late player forfeits the entire series (not just the round).
     if (p1Choice && !p2Choice) {
-      await recordThrowsForRoundOnce(match, { ...round, player1Choice: p1Choice });
       rounds[roundIndex] = sanitizeRound({
         ...round,
         player1Choice: p1Choice,
@@ -276,7 +263,6 @@ async function resolveRoundIfReady(
       return;
     }
     if (!p1Choice && p2Choice) {
-      await recordThrowsForRoundOnce(match, { ...round, player2Choice: p2Choice });
       rounds[roundIndex] = sanitizeRound({
         ...round,
         player2Choice: p2Choice,
@@ -425,6 +411,7 @@ async function applyPlayerChoice(
 
   const matchRef = db.collection("matches").doc(matchId);
 
+  let applied = false;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(matchRef);
     if (!snap.exists) return;
@@ -449,12 +436,17 @@ async function applyPlayerChoice(
       current.player2Choice = choice as Move;
     }
 
+    applied = true;
     rounds[idx] = sanitizeRound(current);
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
     });
   });
+
+  if (applied) {
+    await recordMoveThrown(uid, choice as Move);
+  }
 
   const updated = await matchRef.get();
   if (updated.exists) {
@@ -539,6 +531,9 @@ async function mergeChoicesFromSubcollection(
   });
 
   if (!outcome) return null;
+  for (const { uid, move } of outcome.recorded) {
+    await recordMoveThrown(uid, move);
+  }
   return outcome.match;
 }
 
