@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
+import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.findActivity
@@ -125,7 +126,7 @@ fun HomeScreen(
 
         val profile = uiState.profile
         Text(
-            text = "Welcome, ${profile?.displayName ?: "Player"}",
+            text = "Welcome, ${profile?.displayName ?: DisplayNames.DEFAULT}",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )

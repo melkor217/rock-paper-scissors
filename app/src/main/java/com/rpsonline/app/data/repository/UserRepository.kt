@@ -5,6 +5,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.data.model.UserProfile
+import com.rpsonline.app.domain.DisplayNames
 import kotlinx.coroutines.tasks.await
 
 class UserRepository(
@@ -15,7 +16,7 @@ class UserRepository(
         if (!snapshot.exists()) return null
         return UserProfile(
             uid = uid,
-            displayName = snapshot.getString("displayName") ?: "Player",
+            displayName = DisplayNames.resolve(snapshot.getString("displayName"), uid),
             photoUrl = snapshot.getString("photoUrl"),
             elo = snapshot.getLong("elo")?.toInt() ?: 1000,
             wins = snapshot.getLong("wins")?.toInt() ?: 0,
@@ -37,7 +38,7 @@ class UserRepository(
     private fun DocumentSnapshot.toLeaderboardEntry(): LeaderboardEntry =
         LeaderboardEntry(
             uid = id,
-            displayName = getString("displayName") ?: "Player",
+            displayName = DisplayNames.resolve(getString("displayName"), id),
             elo = getLong("elo")?.toInt() ?: 1000,
             wins = getLong("wins")?.toInt() ?: 0,
             losses = getLong("losses")?.toInt() ?: 0,
