@@ -19,9 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -35,12 +32,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
+import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.ThrowCountRow
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.leaderboard.RpsPerWinLabel
 import com.rpsonline.app.ui.leaderboard.throwsPerWin
 import com.rpsonline.app.ui.util.findActivity
+import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
 
 @Composable
@@ -49,13 +48,16 @@ fun HomeScreen(
     onLeaderboard: () -> Unit,
     onProfile: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
+    updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val updateState by updateViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val activity = context.findActivity()
 
     LaunchedEffect(Unit) {
-        viewModel.onHomeVisible(context)
+        viewModel.onHomeVisible()
+        updateViewModel.onScreenVisible(context)
     }
 
     LifecycleResumeEffect(Unit) {
@@ -63,63 +65,11 @@ fun HomeScreen(
         onPauseOrDispose { }
     }
 
-    val pendingUpdate = uiState.availableUpdate?.takeIf {
-        it.tag != uiState.dismissedUpdateTag
-    }
-    if (pendingUpdate != null && activity != null && !uiState.isDownloadingUpdate) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissUpdate() },
-            title = { Text("Update available") },
-            text = {
-                Column {
-                    Text("Version ${pendingUpdate.versionLabel} is available on GitHub.")
-                    pendingUpdate.releaseNotes?.let { notes ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = notes.take(500),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.downloadAndInstallUpdate(activity) },
-                ) {
-                    Text("Download & install")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.dismissUpdate() }) {
-                    Text("Later")
-                }
-            },
-        )
-    }
-
-    if (uiState.isDownloadingUpdate) {
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("Downloading update") },
-            text = {
-                Column {
-                    Text("Please keep the app open until the download finishes.")
-                    uiState.updateDownloadProgress?.let { progress ->
-                        Spacer(modifier = Modifier.height(12.dp))
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } ?: CircularProgressIndicator()
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {}, enabled = false) {
-                    Text("Downloading…")
-                }
-            },
-        )
-    }
+    AppUpdateDialogs(
+        updateState = updateState,
+        activity = activity,
+        viewModel = updateViewModel,
+    )
 
     if (!uiState.isLoading && uiState.profile == null) {
         return
@@ -174,16 +124,16 @@ fun HomeScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         HomeAppInfoFooter(
-            versionName = uiState.versionName,
+            versionName = updateState.versionName,
             updatesEnabled = BuildConfig.GITHUB_UPDATES_ENABLED,
-            availableUpdate = uiState.availableUpdate,
-            isCheckingForUpdate = uiState.isCheckingForUpdate,
-            isDownloadingUpdate = uiState.isDownloadingUpdate,
-            updateMessage = uiState.updateMessage,
-            onCheckForUpdate = { viewModel.checkForUpdate(context) },
+            availableUpdate = updateState.availableUpdate,
+            isCheckingForUpdate = updateState.isCheckingForUpdate,
+            isDownloadingUpdate = updateState.isDownloadingUpdate,
+            updateMessage = updateState.updateMessage,
+            onCheckForUpdate = { updateViewModel.checkForUpdate(context) },
             onInstallUpdate = {
-                activity?.let { viewModel.downloadAndInstallUpdate(it) }
-                    ?: viewModel.showUpdatePrompt()
+                activity?.let { updateViewModel.downloadAndInstallUpdate(it) }
+                    ?: updateViewModel.showUpdatePrompt()
             },
         )
         Spacer(modifier = Modifier.height(12.dp))

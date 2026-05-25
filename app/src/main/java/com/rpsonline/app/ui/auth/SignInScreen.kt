@@ -5,6 +5,7 @@ import android.view.inputmethod.EditorInfo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
@@ -38,10 +39,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
+import com.rpsonline.app.BuildConfig
+import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.AutofillTextField
 import com.rpsonline.app.ui.components.excludeFromAutofill
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.home.HomeAppInfoFooter
 import com.rpsonline.app.ui.util.NetworkUtils
+import com.rpsonline.app.ui.util.findActivity
+import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.EmailAuthMode
 import com.rpsonline.app.viewmodel.SignInViewModel
 
@@ -49,9 +55,16 @@ import com.rpsonline.app.viewmodel.SignInViewModel
 fun SignInScreen(
     onSignedIn: () -> Unit,
     viewModel: SignInViewModel = viewModel(),
+    updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val updateState by updateViewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val activity = context.findActivity()
+
+    LaunchedEffect(Unit) {
+        updateViewModel.onScreenVisible(context)
+    }
 
     LaunchedEffect(uiState.profile) {
         if (uiState.profile != null) {
@@ -59,19 +72,31 @@ fun SignInScreen(
         }
     }
 
+    AppUpdateDialogs(
+        updateState = updateState,
+        activity = activity,
+        viewModel = updateViewModel,
+    )
+
     if (uiState.profile != null) {
         return
     }
 
     Column(
         modifier = Modifier
-            .rpsScreenPadding()
-            .verticalScroll(rememberScrollState()),
+            .fillMaxSize()
+            .rpsScreenPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = "RPS Online",
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "RPS Online",
             style = MaterialTheme.typography.headlineLarge,
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -113,6 +138,22 @@ fun SignInScreen(
                 textAlign = TextAlign.Center,
             )
         }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HomeAppInfoFooter(
+            versionName = updateState.versionName,
+            updatesEnabled = BuildConfig.GITHUB_UPDATES_ENABLED,
+            availableUpdate = updateState.availableUpdate,
+            isCheckingForUpdate = updateState.isCheckingForUpdate,
+            isDownloadingUpdate = updateState.isDownloadingUpdate,
+            updateMessage = updateState.updateMessage,
+            onCheckForUpdate = { updateViewModel.checkForUpdate(context) },
+            onInstallUpdate = {
+                activity?.let { updateViewModel.downloadAndInstallUpdate(it) }
+                    ?: updateViewModel.showUpdatePrompt()
+            },
+        )
     }
 }
 
