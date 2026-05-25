@@ -90,3 +90,29 @@ fun rpsPerWinColor(throwsPerWin: Double, darkTheme: Boolean): Color {
 @Composable
 fun rpsPerWinColor(throwsPerWin: Double): Color =
     rpsPerWinColor(throwsPerWin, isSystemInDarkTheme())
+
+/** Default starting rating; maps to the yellow midpoint on the spectrum. */
+private const val EloRatingMin = 800f
+private const val EloRatingMid = 1000f
+private const val EloRatingMax = 1400f
+
+/** Lower ELO → red, ~1000 → yellow, higher ELO → green. */
+fun eloRatingColor(elo: Int, darkTheme: Boolean): Color {
+    val value = elo.toFloat().coerceIn(EloRatingMin, EloRatingMax)
+    val percent = when {
+        value <= EloRatingMid -> {
+            val span = EloRatingMid - EloRatingMin
+            val t = if (span > 0f) (value - EloRatingMin) / span else 0f
+            t * BalancedSharePercent
+        }
+        else -> {
+            val span = EloRatingMax - EloRatingMid
+            val t = if (span > 0f) (value - EloRatingMid) / span else 1f
+            BalancedSharePercent + t * (100f - BalancedSharePercent)
+        }
+    }
+    return leaderboardSpectrumColor(percent, darkTheme)
+}
+
+@Composable
+fun eloRatingColor(elo: Int): Color = eloRatingColor(elo, isSystemInDarkTheme())
