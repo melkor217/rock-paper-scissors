@@ -7,7 +7,7 @@ class EloRatingTest {
     @Test
     fun inferOpponentPreMatchElo_reversesCalculateElo() {
         val myPre = 987
-        val opponentPre = 1030
+        val opponentPre = 1031
         val myDelta = 18
         val score = 1.0
         val inferred = inferOpponentPreMatchElo(myPre, myDelta, score)
