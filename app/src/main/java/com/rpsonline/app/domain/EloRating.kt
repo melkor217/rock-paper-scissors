@@ -51,15 +51,22 @@ fun enrichMatchHistoryWithOpponentElos(
     return matches.map { match ->
         val entry = match.toHistoryEntry(viewerId)
         val myDelta = match.myEloDelta(viewerId)
+        val myPreMatchElo = when {
+            entry.myElo != null -> entry.myElo
+            myDelta != null -> runningMyElo - myDelta
+            else -> null
+        }
         val opponentElo = entry.opponentElo ?: run {
-            if (myDelta == null) return@run null
-            val myPre = runningMyElo - myDelta
+            if (myDelta == null || myPreMatchElo == null) return@run null
             val myScore = match.myScore(viewerId) ?: return@run null
-            inferOpponentPreMatchElo(myPre, myDelta, myScore)
+            inferOpponentPreMatchElo(myPreMatchElo, myDelta, myScore)
         }
         if (myDelta != null) {
             runningMyElo -= myDelta
         }
-        entry.copy(opponentElo = opponentElo ?: entry.opponentElo)
+        entry.copy(
+            myElo = myPreMatchElo,
+            opponentElo = opponentElo ?: entry.opponentElo,
+        )
     }
 }
