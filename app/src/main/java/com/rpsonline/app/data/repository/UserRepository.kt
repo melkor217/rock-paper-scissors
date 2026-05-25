@@ -3,6 +3,7 @@ package com.rpsonline.app.data.repository
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
@@ -15,7 +16,10 @@ class UserRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
     suspend fun getUserProfile(uid: String): UserProfile? {
-        val snapshot = firestore.collection("users").document(uid).get().await()
+        val ref = firestore.collection("users").document(uid)
+        val cached = runCatching { ref.get(Source.CACHE).await() }.getOrNull()
+        if (cached?.exists() == true) return cached.toUserProfile(uid)
+        val snapshot = runCatching { ref.get().await() }.getOrNull() ?: return null
         if (!snapshot.exists()) return null
         return snapshot.toUserProfile(uid)
     }

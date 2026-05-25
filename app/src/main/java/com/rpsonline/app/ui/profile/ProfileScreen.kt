@@ -28,11 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
-import com.rpsonline.app.ui.components.ThrowCountRow
+import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.leaderboard.RpsPerWinLabel
-import com.rpsonline.app.ui.leaderboard.leaderboardSpectrumColor
-import com.rpsonline.app.ui.leaderboard.throwsPerWin
+import com.rpsonline.app.ui.leaderboard.PlayerThrowStatsColumn
+import com.rpsonline.app.ui.leaderboard.hasThrowStats
 import com.rpsonline.app.viewmodel.ProfileViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -94,7 +93,6 @@ fun ProfileScreen(
                             elo = profile?.elo ?: 1000,
                             wins = profile?.wins ?: 0,
                             losses = profile?.losses ?: 0,
-                            throwsPerWin = profile?.throwsPerWin(),
                             throwsRock = profile?.throwsRock ?: 0,
                             throwsPaper = profile?.throwsPaper ?: 0,
                             throwsScissors = profile?.throwsScissors ?: 0,
@@ -150,51 +148,60 @@ private fun ProfileStatsCard(
     elo: Int,
     wins: Int,
     losses: Int,
-    throwsPerWin: Double?,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
 ) {
+    val statStyle = MaterialTheme.typography.bodyMedium
+    val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = "ELO $elo",
-                style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = "Wins $wins · Losses $losses",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            val games = wins + losses
-            if (games > 0) {
-                val winRate = (wins * 100) / games
-                Text(
-                    text = "Win rate $winRate%",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = leaderboardSpectrumColor(winRate.toFloat()),
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "$elo",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "ELO",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                WinLossStatLine(
+                    wins = wins,
+                    losses = losses,
+                    textStyle = statStyle,
                 )
             }
-            throwsPerWin?.let { rpsPerWin ->
-                RpsPerWinLabel(
-                    throwsPerWin = rpsPerWin,
-                    textStyle = MaterialTheme.typography.bodyMedium,
+            if (showThrowStats) {
+                PlayerThrowStatsColumn(
+                    wins = wins,
+                    throwsRock = throwsRock,
+                    throwsPaper = throwsPaper,
+                    throwsScissors = throwsScissors,
+                    modifier = Modifier.weight(1f),
+                    textStyle = statStyle,
                 )
             }
-            ThrowCountRow(
-                rock = throwsRock,
-                paper = throwsPaper,
-                scissors = throwsScissors,
-            )
         }
     }
 }

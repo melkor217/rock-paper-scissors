@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -29,7 +30,7 @@ fun ThrowCountRow(
     modifier: Modifier = Modifier,
     iconSize: Dp = MoveStatIconSize,
     textStyle: TextStyle = MaterialTheme.typography.bodySmall,
-    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(14.dp),
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp),
 ) {
     Row(
         modifier = modifier,
@@ -69,7 +70,7 @@ private fun ThrowCountChip(
     textStyle: TextStyle,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -80,7 +81,7 @@ private fun ThrowCountChip(
         )
         Text(
             text = "$count",
-            style = textStyle,
+            style = textStyle.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

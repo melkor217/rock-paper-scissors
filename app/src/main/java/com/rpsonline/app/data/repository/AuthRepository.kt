@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
 import kotlinx.coroutines.channels.awaitClose
@@ -79,8 +80,8 @@ class AuthRepository(
     ): UserProfile {
         awaitFirestoreAuth()
         val docRef = firestore.collection("users").document(uid)
-        val snapshot = docRef.get().await()
-        if (snapshot.exists()) {
+        val snapshot = loadUserSnapshot(docRef)
+        if (snapshot != null && snapshot.exists()) {
             if (!snapshot.isCompleteUserProfile()) {
                 auth.signOut()
                 error("Guest profile was incomplete. Tap Continue as guest again.")
@@ -119,17 +120,33 @@ class AuthRepository(
         awaitFirestoreAuth()
         val uid = currentUserId ?: return@runCatching null
         val docRef = firestore.collection("users").document(uid)
-        val snapshot = docRef.get().await()
+        val snapshot = loadUserSnapshot(docRef) ?: return@runCatching null
         if (!snapshot.exists() || !snapshot.isCompleteUserProfile()) return@runCatching null
         normalizeStoredProfile(docRef, uid, snapshot.getString("displayName"), snapshot.toUserProfile(uid))
     }.getOrNull()
+
+    fun fallbackProfile(user: FirebaseUser): UserProfile {
+        val uid = user.uid
+        val name = user.displayName?.takeIf { it.isNotBlank() }
+            ?: if (user.isAnonymous) DisplayNames.guestName(uid) else DisplayNames.DEFAULT
+        return UserProfile(uid = uid, displayName = name, photoUrl = user.photoUrl?.toString())
+    }
+
+    private suspend fun loadUserSnapshot(
+        docRef: com.google.firebase.firestore.DocumentReference,
+    ): com.google.firebase.firestore.DocumentSnapshot? {
+        val cached = runCatching { docRef.get(Source.CACHE).await() }.getOrNull()
+        if (cached?.exists() == true) return cached
+        return runCatching { docRef.get().await() }.getOrNull() ?: cached
+    }
 
     private suspend fun discardIncompleteGuestProfile() {
         val uid = currentUserId ?: return
         if (auth.currentUser?.isAnonymous != true) return
         runCatching {
             awaitFirestoreAuth()
-            val snapshot = firestore.collection("users").document(uid).get().await()
+            val snapshot = loadUserSnapshot(firestore.collection("users").document(uid))
+                ?: return@runCatching
             if (snapshot.exists() && !snapshot.isCompleteUserProfile()) {
                 auth.signOut()
             }

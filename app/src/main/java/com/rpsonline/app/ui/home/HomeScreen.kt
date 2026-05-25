@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
@@ -34,10 +35,10 @@ import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
-import com.rpsonline.app.ui.components.ThrowCountRow
+import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.leaderboard.RpsPerWinLabel
-import com.rpsonline.app.ui.leaderboard.throwsPerWin
+import com.rpsonline.app.ui.leaderboard.PlayerThrowStatsColumn
+import com.rpsonline.app.ui.leaderboard.hasThrowStats
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
@@ -71,10 +72,6 @@ fun HomeScreen(
         viewModel = updateViewModel,
     )
 
-    if (!uiState.isLoading && uiState.profile == null) {
-        return
-    }
-
     Column(
         modifier = Modifier.rpsScreenPadding(),
     ) {
@@ -85,6 +82,29 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 CircularProgressIndicator()
+            }
+            return
+        }
+
+        if (uiState.profile == null) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = uiState.error ?: "Could not load your profile.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(onClick = { viewModel.refresh() }) {
+                    Text("Retry")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(onClick = { viewModel.signOut(context) }) {
+                    Text("Sign Out")
+                }
             }
             return
         }
@@ -154,8 +174,10 @@ private fun HomeProfileSummaryCard(
     val elo = profile?.elo ?: 1000
     val wins = profile?.wins ?: 0
     val losses = profile?.losses ?: 0
-    val games = wins + losses
-    val winRate = games.takeIf { it > 0 }?.let { (wins * 100) / it }
+    val throwsRock = profile?.throwsRock ?: 0
+    val throwsPaper = profile?.throwsPaper ?: 0
+    val throwsScissors = profile?.throwsScissors ?: 0
+    val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
 
     Card(
         onClick = onClick,
@@ -211,32 +233,20 @@ private fun HomeProfileSummaryCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Text(
-                        text = buildString {
-                            append("W $wins · L $losses")
-                            winRate?.let { append(" · $it%") }
-                        },
-                        style = statStyle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    WinLossStatLine(
+                        wins = wins,
+                        losses = losses,
+                        textStyle = statStyle,
                     )
                 }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    profile?.throwsPerWin()?.let { throwsPerWin ->
-                        RpsPerWinLabel(
-                            throwsPerWin = throwsPerWin,
-                            textStyle = statStyle,
-                        )
-                    }
-                    ThrowCountRow(
-                        rock = profile?.throwsRock ?: 0,
-                        paper = profile?.throwsPaper ?: 0,
-                        scissors = profile?.throwsScissors ?: 0,
-                        modifier = Modifier.fillMaxWidth(),
+                if (showThrowStats) {
+                    PlayerThrowStatsColumn(
+                        wins = wins,
+                        throwsRock = throwsRock,
+                        throwsPaper = throwsPaper,
+                        throwsScissors = throwsScissors,
+                        modifier = Modifier.weight(1f),
                         textStyle = statStyle,
-                        horizontalArrangement = Arrangement.SpaceBetween,
                     )
                 }
             }

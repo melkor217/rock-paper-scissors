@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.LeaderboardEntry
+import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
 
@@ -142,10 +143,6 @@ private fun LeaderboardEntryContent(
             if (isCurrentUser) append(" · You")
         }
     }
-    val winRate = entry.winRatePercent()
-    val winRateColor = remember(winRate, darkTheme) {
-        winRate?.let { leaderboardSpectrumColor(it.toFloat(), darkTheme) }
-    }
     val rankLabelColor = remember(rank, isCurrentUser, darkTheme) {
         when {
             isCurrentUser -> Color.Unspecified
@@ -182,22 +179,11 @@ private fun LeaderboardEntryContent(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "W ${entry.wins} / L ${entry.losses}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-                if (winRate != null && winRateColor != null) {
-                    Text(
-                        text = " · $winRate%",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = winRateColor,
-                        maxLines = 1,
-                    )
-                }
-            }
+            WinLossStatLine(
+                wins = entry.wins,
+                losses = entry.losses,
+                textStyle = MaterialTheme.typography.bodySmall,
+            )
             if (throwsPerWin != null && rpsPerWinColor != null) {
                 RpsPerWinLabel(
                     throwsPerWin = throwsPerWin,
