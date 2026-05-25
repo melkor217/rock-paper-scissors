@@ -15,10 +15,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +30,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
+
+private const val LeaderboardEntryContentType = 0
 
 @Composable
 fun LeaderboardScreen(
@@ -78,20 +83,17 @@ fun LeaderboardScreen(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    itemsIndexed(uiState.entries) { index, entry ->
-                        val rank = index + 1
-                        val isCurrentUser = entry.uid == uiState.currentUserId
-                        LeaderboardEntryCard(
-                            rank = rank,
-                            isCurrentUser = isCurrentUser,
+                    itemsIndexed(
+                        items = uiState.entries,
+                        key = { _, entry -> entry.uid },
+                        contentType = { _, _ -> LeaderboardEntryContentType },
+                    ) { index, entry ->
+                        LeaderboardListItem(
+                            rank = index + 1,
+                            entry = entry,
+                            isCurrentUser = entry.uid == uiState.currentUserId,
                             onClick = { onPlayerProfile(entry.uid) },
-                        ) {
-                            LeaderboardEntryContent(
-                                rank = rank,
-                                entry = entry,
-                                isCurrentUser = isCurrentUser,
-                            )
-                        }
+                        )
                     }
                 }
             }
@@ -108,11 +110,53 @@ fun LeaderboardScreen(
 }
 
 @Composable
+private fun LeaderboardListItem(
+    rank: Int,
+    entry: LeaderboardEntry,
+    isCurrentUser: Boolean,
+    onClick: () -> Unit,
+) {
+    LeaderboardEntryCard(
+        rank = rank,
+        isCurrentUser = isCurrentUser,
+        onClick = onClick,
+    ) {
+        LeaderboardEntryContent(
+            rank = rank,
+            entry = entry,
+            isCurrentUser = isCurrentUser,
+        )
+    }
+}
+
+@Composable
 private fun LeaderboardEntryContent(
     rank: Int,
     entry: LeaderboardEntry,
     isCurrentUser: Boolean,
 ) {
+    val darkTheme = isSystemInDarkTheme()
+    val nameLine = remember(rank, entry.displayName, isCurrentUser) {
+        buildString {
+            append("#$rank ${entry.displayName}")
+            if (isCurrentUser) append(" · You")
+        }
+    }
+    val winRate = entry.winRatePercent()
+    val winRateColor = remember(winRate, darkTheme) {
+        winRate?.let { leaderboardSpectrumColor(it.toFloat(), darkTheme) }
+    }
+    val rankLabelColor = remember(rank, isCurrentUser, darkTheme) {
+        when {
+            isCurrentUser -> Color.Unspecified
+            else -> leaderboardRankLabelColor(rank, darkTheme)
+        }
+    }
+    val throwsPerWin = entry.throwsPerWin()
+    val rpsPerWinColor = remember(throwsPerWin, darkTheme) {
+        throwsPerWin?.let { rpsPerWinColor(it, darkTheme) }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -126,15 +170,14 @@ private fun LeaderboardEntryContent(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
-                text = buildString {
-                    append("#$rank ${entry.displayName}")
-                    if (isCurrentUser) append(" · You")
-                },
+                text = nameLine,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (isCurrentUser) {
                     MaterialTheme.colorScheme.primary
+                } else if (rankLabelColor == Color.Unspecified) {
+                    MaterialTheme.colorScheme.onSurface
                 } else {
-                    leaderboardRankLabelColor(rank)
+                    rankLabelColor
                 },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -146,17 +189,20 @@ private fun LeaderboardEntryContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
-                entry.winRatePercent()?.let { winRate ->
+                if (winRate != null && winRateColor != null) {
                     Text(
                         text = " · $winRate%",
                         style = MaterialTheme.typography.bodySmall,
-                        color = leaderboardWinRateColor(winRate),
+                        color = winRateColor,
                         maxLines = 1,
                     )
                 }
             }
-            entry.throwsPerWin()?.let { throwsPerWin ->
-                RpsPerWinLabel(throwsPerWin = throwsPerWin)
+            if (throwsPerWin != null && rpsPerWinColor != null) {
+                RpsPerWinLabel(
+                    throwsPerWin = throwsPerWin,
+                    color = rpsPerWinColor,
+                )
             }
         }
         Row(

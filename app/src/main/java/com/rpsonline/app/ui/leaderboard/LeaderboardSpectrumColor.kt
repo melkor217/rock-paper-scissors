@@ -27,12 +27,10 @@ private fun lerpHue(from: Float, to: Float, fraction: Float): Float {
  * Smooth red → yellow → green spectrum.
  * [percent] is 0–100; ~33% is yellow. Low shares stay red; high shares lean green.
  */
-@Composable
-fun leaderboardSpectrumColor(percent: Float): Color {
+fun leaderboardSpectrumColor(percent: Float, darkTheme: Boolean): Color {
     val p = percent.coerceIn(0f, 100f)
-    val dark = isSystemInDarkTheme()
-    val baseSaturation = if (dark) 0.9f else 0.52f
-    val baseLightness = if (dark) 0.52f else 0.4f
+    val baseSaturation = if (darkTheme) 0.9f else 0.52f
+    val baseLightness = if (darkTheme) 0.52f else 0.4f
 
     val hue = when {
         p <= BalancedSharePercent -> {
@@ -46,7 +44,7 @@ fun leaderboardSpectrumColor(percent: Float): Color {
         }
     }
 
-    val saturation = if (dark) {
+    val saturation = if (darkTheme) {
         when {
             hue <= 25f -> baseSaturation.coerceAtLeast(0.97f)
             hue in 45f..150f -> (baseSaturation + 0.04f).coerceAtMost(1f)
@@ -63,13 +61,16 @@ fun leaderboardSpectrumColor(percent: Float): Color {
     return Color.hsl(hue, saturation, baseLightness)
 }
 
+@Composable
+fun leaderboardSpectrumColor(percent: Float): Color =
+    leaderboardSpectrumColor(percent, isSystemInDarkTheme())
+
 /** Fewer throws per win is better; 2 green → 7.5 yellow → 13 red. */
 private const val RpsPerWinBest = 2f
 private const val RpsPerWinMid = 7.5f
 private const val RpsPerWinWorst = 13f
 
-@Composable
-fun rpsPerWinColor(throwsPerWin: Double): Color {
+fun rpsPerWinColor(throwsPerWin: Double, darkTheme: Boolean): Color {
     val value = throwsPerWin.toFloat().coerceIn(RpsPerWinBest, RpsPerWinWorst)
     val percent = when {
         value <= RpsPerWinMid -> {
@@ -83,5 +84,9 @@ fun rpsPerWinColor(throwsPerWin: Double): Color {
             BalancedSharePercent * (1f - t)
         }
     }
-    return leaderboardSpectrumColor(percent)
+    return leaderboardSpectrumColor(percent, darkTheme)
 }
+
+@Composable
+fun rpsPerWinColor(throwsPerWin: Double): Color =
+    rpsPerWinColor(throwsPerWin, isSystemInDarkTheme())

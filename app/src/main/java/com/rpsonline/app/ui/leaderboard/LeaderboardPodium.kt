@@ -27,10 +27,7 @@ private data class PodiumStyle(
     val rankLabelColor: Color,
 )
 
-@Composable
-private fun podiumStyleForRank(rank: Int): PodiumStyle? {
-    val dark = isSystemInDarkTheme()
-    return when (rank) {
+private fun podiumStyleForRank(rank: Int, dark: Boolean): PodiumStyle? = when (rank) {
         1 -> PodiumStyle(
             borderColor = if (dark) Color(0xFFFFD54F).copy(alpha = 0.45f) else Color(0xFFC9A227).copy(alpha = 0.35f),
             glowColor = if (dark) Color(0xFFFFCA28) else Color(0xFFC9A227),
@@ -51,7 +48,10 @@ private fun podiumStyleForRank(rank: Int): PodiumStyle? {
         )
         else -> null
     }
-}
+
+@Composable
+private fun podiumStyleForRank(rank: Int): PodiumStyle? =
+    podiumStyleForRank(rank, isSystemInDarkTheme())
 
 private fun DrawScope.drawInwardPodiumGlow(
     glowColor: Color,
@@ -61,46 +61,17 @@ private fun DrawScope.drawInwardPodiumGlow(
     val center = Offset(size.width / 2f, size.height / 2f)
     val radius = max(size.width, size.height) * 0.72f
     val corner = CornerRadius(cornerRadius, cornerRadius)
+    val edgeAlpha = glowColor.copy(alpha = edgeStrength)
 
     drawRoundRect(
         brush = Brush.radialGradient(
             colorStops = arrayOf(
                 0.0f to Color.Transparent,
-                0.42f to glowColor.copy(alpha = 0.02f),
-                0.72f to glowColor.copy(alpha = 0.08f),
-                1.0f to glowColor.copy(alpha = 0.16f),
+                0.5f to glowColor.copy(alpha = 0.04f),
+                1.0f to edgeAlpha,
             ),
             center = center,
             radius = radius,
-        ),
-        size = size,
-        cornerRadius = corner,
-    )
-
-    drawRoundRect(
-        brush = Brush.horizontalGradient(
-            colorStops = arrayOf(
-                0.0f to glowColor.copy(alpha = edgeStrength),
-                0.22f to Color.Transparent,
-                0.78f to Color.Transparent,
-                1.0f to glowColor.copy(alpha = edgeStrength),
-            ),
-            startX = 0f,
-            endX = size.width,
-        ),
-        size = size,
-        cornerRadius = corner,
-    )
-    drawRoundRect(
-        brush = Brush.verticalGradient(
-            colorStops = arrayOf(
-                0.0f to glowColor.copy(alpha = edgeStrength * 0.85f),
-                0.28f to Color.Transparent,
-                0.72f to Color.Transparent,
-                1.0f to glowColor.copy(alpha = edgeStrength * 0.85f),
-            ),
-            startY = 0f,
-            endY = size.height,
         ),
         size = size,
         cornerRadius = corner,
@@ -161,6 +132,12 @@ fun LeaderboardEntryCard(
     }
 }
 
+fun leaderboardRankLabelColor(rank: Int, darkTheme: Boolean): Color =
+    podiumStyleForRank(rank, darkTheme)?.rankLabelColor ?: Color.Unspecified
+
 @Composable
-fun leaderboardRankLabelColor(rank: Int): Color =
-    podiumStyleForRank(rank)?.rankLabelColor ?: MaterialTheme.colorScheme.onSurface
+fun leaderboardRankLabelColor(rank: Int): Color {
+    val fallback = MaterialTheme.colorScheme.onSurface
+    val color = leaderboardRankLabelColor(rank, isSystemInDarkTheme())
+    return if (color == Color.Unspecified) fallback else color
+}
