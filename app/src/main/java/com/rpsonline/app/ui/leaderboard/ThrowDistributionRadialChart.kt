@@ -88,16 +88,16 @@ fun ThrowDistributionRadialChart(
     val totalThrows = counts.sum()
     val maxCount = max(counts.max(), 1)
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)
-    val triangleFill = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
-    val triangleStroke = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
+    val triangleFill = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.14f)
+    val triangleStroke = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
     val iconTint = MaterialTheme.colorScheme.onSurfaceVariant
     val density = LocalDensity.current
     val iconSize = 8.dp
-    val barStroke = 2.5.dp
+    val axisStroke = 1.5.dp
     val iconSizePx = with(density) { iconSize.toPx() }
     val chartSizePx = with(density) { size.toPx() }
-    val barStrokePx = with(density) { barStroke.toPx() }
-    val layout = radialChartLayout(chartSizePx, iconSizePx, barStrokePx)
+    val axisStrokePx = with(density) { axisStroke.toPx() }
+    val layout = radialChartLayout(chartSizePx, iconSizePx, axisStrokePx)
     val neutralBar = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
     val barColors = counts.map { count ->
         if (totalThrows <= 0 || count <= 0) {
@@ -147,7 +147,7 @@ fun ThrowDistributionRadialChart(
             drawPath(
                 path = triangle,
                 color = triangleStroke,
-                style = Stroke(width = 1f),
+                style = Stroke(width = axisStrokePx),
             )
 
             counts.forEachIndexed { index, count ->
