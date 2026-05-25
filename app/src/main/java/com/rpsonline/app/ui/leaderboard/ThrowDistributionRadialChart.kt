@@ -11,9 +11,13 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -23,12 +27,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
-import kotlin.math.roundToInt
 import kotlin.math.sin
 
 private data class MoveAxis(
@@ -43,7 +45,9 @@ private val MoveAxes = listOf(
     MoveAxis(Icons.Default.ContentCut, "Scissors", 150f),
 )
 
-private const val GridRings = 4
+private const val GridRings = 3
+
+private data class ChartIconPlacement(val x: Dp, val y: Dp)
 
 /** Shared radii/strokes so bars, grid, and icons stay aligned. */
 private data class RadialChartLayout(
@@ -87,29 +91,43 @@ fun ThrowDistributionRadialChart(
     val counts = intArrayOf(rock, paper, scissors)
     val totalThrows = counts.sum()
     val maxCount = max(counts.max(), 1)
-    val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f)
-    val triangleFill = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f)
-    val triangleStroke = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
-    val iconTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val gridColor = remember(onSurfaceVariant) { onSurfaceVariant.copy(alpha = 0.18f) }
+    val triangleFill = remember(onSurfaceVariant) { onSurfaceVariant.copy(alpha = 0.14f) }
+    val triangleStroke = remember(onSurfaceVariant) { onSurfaceVariant.copy(alpha = 0.45f) }
+    val iconTint = onSurfaceVariant
     val density = LocalDensity.current
     val iconSize = 8.dp
-    val barStroke = 2.5.dp
+    val axisStroke = 1.5.dp
+    val darkTheme = isSystemInDarkTheme()
     val iconSizePx = with(density) { iconSize.toPx() }
     val chartSizePx = with(density) { size.toPx() }
-    val barStrokePx = with(density) { barStroke.toPx() }
-    val layout = radialChartLayout(chartSizePx, iconSizePx, barStrokePx)
-    val neutralBar = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-    val barColors = counts.map { count ->
-        if (totalThrows <= 0 || count <= 0) {
-            neutralBar
-        } else {
-            leaderboardSpectrumColor(count * 100f / totalThrows)
+    val axisStrokePx = with(density) { axisStroke.toPx() }
+    val layout = remember(chartSizePx, iconSizePx, axisStrokePx) {
+        radialChartLayout(chartSizePx, iconSizePx, axisStrokePx)
+    }
+    val neutralBar = remember(onSurfaceVariant) { onSurfaceVariant.copy(alpha = 0.35f) }
+    val barColors = remember(rock, paper, scissors, darkTheme, neutralBar) {
+        counts.map { count ->
+            if (totalThrows <= 0 || count <= 0) {
+                neutralBar
+            } else {
+                leaderboardSpectrumColor(count * 100f / totalThrows, darkTheme)
+            }
+        }
+    }
+    val iconPlacements = remember(layout.iconOrbitPx, density) {
+        MoveAxes.map { axis ->
+            val angleRad = axis.angleDeg * (PI.toFloat() / 180f)
+            ChartIconPlacement(
+                x = with(density) { (cos(angleRad) * layout.iconOrbitPx).toDp() },
+                y = with(density) { (sin(angleRad) * layout.iconOrbitPx).toDp() },
+            )
         }
     }
 
-    val description = buildString {
-        append("Throws: rock $rock, paper $paper, scissors $scissors")
-        append(". Bar length by most-used move; color by share (33% yellow).")
+    val description = remember(rock, paper, scissors) {
+        "Throws: rock $rock, paper $paper, scissors $scissors. Bar length by most-used move."
     }
 
     Box(
@@ -118,7 +136,11 @@ fun ThrowDistributionRadialChart(
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+        ) {
             val center = Offset(this.size.width / 2f, this.size.height / 2f)
 
             for (ring in 1..GridRings) {
@@ -147,7 +169,7 @@ fun ThrowDistributionRadialChart(
             drawPath(
                 path = triangle,
                 color = triangleStroke,
-                style = Stroke(width = 1f),
+                style = Stroke(width = axisStrokePx),
             )
 
             counts.forEachIndexed { index, count ->
@@ -164,20 +186,15 @@ fun ThrowDistributionRadialChart(
             }
         }
 
-        MoveAxes.forEach { axis ->
-            val angleRad = axis.angleDeg * (PI.toFloat() / 180f)
+        MoveAxes.forEachIndexed { index, axis ->
+            val placement = iconPlacements[index]
             Icon(
                 imageVector = axis.icon,
                 contentDescription = axis.label,
                 tint = iconTint,
                 modifier = Modifier
                     .size(iconSize)
-                    .offset {
-                        IntOffset(
-                            (cos(angleRad) * layout.iconOrbitPx).roundToInt(),
-                            (sin(angleRad) * layout.iconOrbitPx).roundToInt(),
-                        )
-                    },
+                    .offset(x = placement.x, y = placement.y),
             )
         }
     }

@@ -8,6 +8,7 @@ import com.rpsonline.app.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -28,13 +29,18 @@ class LeaderboardViewModel(
     )
     val uiState: StateFlow<LeaderboardUiState> = _uiState.asStateFlow()
 
-    init {
-        load()
-    }
+    private var loadJob: Job? = null
 
     fun load() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            val showFullScreenLoading = _uiState.value.entries.isEmpty()
+            _uiState.update {
+                it.copy(
+                    isLoading = showFullScreenLoading,
+                    error = null,
+                )
+            }
             try {
                 val userId = authRepository.currentUserId
                 val entries = userRepository.getLeaderboard(limit = 50)
@@ -46,7 +52,12 @@ class LeaderboardViewModel(
                     )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message,
+                    )
+                }
             }
         }
     }

@@ -29,6 +29,7 @@ enum class EmailAuthMode {
 
 data class SignInUiState(
     val isLoading: Boolean = false,
+    val isRestoringSession: Boolean = false,
     val profile: UserProfile? = null,
     val error: String? = null,
     val email: String = "",
@@ -48,16 +49,37 @@ class SignInViewModel(
         viewModelScope.launch {
             authRepository.authStateFlow().collect { user ->
                 if (user != null) {
+                    _uiState.update {
+                        it.copy(isLoading = true, isRestoringSession = true, error = null)
+                    }
                     try {
                         val profile = authRepository.loadCurrentUserProfile()
                         _uiState.update {
-                            it.copy(profile = profile, isLoading = false, error = null)
+                            it.copy(
+                                profile = profile,
+                                isLoading = false,
+                                isRestoringSession = false,
+                                error = null,
+                            )
                         }
                     } catch (e: Exception) {
-                        _uiState.update { it.copy(error = e.toAuthMessage(), isLoading = false) }
+                        _uiState.update {
+                            it.copy(
+                                error = e.toAuthMessage(),
+                                isLoading = false,
+                                isRestoringSession = false,
+                            )
+                        }
                     }
                 } else {
-                    _uiState.update { it.copy(profile = null, isLoading = false, error = null) }
+                    _uiState.update {
+                        it.copy(
+                            profile = null,
+                            isLoading = false,
+                            isRestoringSession = false,
+                            error = null,
+                        )
+                    }
                 }
             }
         }
@@ -81,7 +103,7 @@ class SignInViewModel(
 
     fun signInWithGoogle(context: Context) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
             try {
                 val webClientId = context.getString(R.string.default_web_client_id)
                 require(!webClientId.startsWith("REPLACE")) {
@@ -101,7 +123,7 @@ class SignInViewModel(
 
     fun signInAnonymously() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
             try {
                 val profile = authRepository.signInAnonymously()
                 _uiState.update { it.copy(isLoading = false, profile = profile) }
@@ -126,7 +148,7 @@ class SignInViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
             try {
                 val profile = when (state.emailMode) {
                     EmailAuthMode.SIGN_IN -> authRepository.signInWithEmail(email, password)

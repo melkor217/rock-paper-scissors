@@ -5,7 +5,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseUser
-import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AppUpdateRepository
 import com.rpsonline.app.data.repository.AuthRepository
@@ -27,7 +26,6 @@ data class HomeUiState(
     val isLoading: Boolean = true,
     val profile: UserProfile? = null,
     val onlinePlayerCount: Int? = null,
-    val leaderboard: List<LeaderboardEntry> = emptyList(),
     val error: String? = null,
     val versionName: String = "",
     val availableUpdate: AppUpdateInfo? = null,
@@ -103,10 +101,7 @@ class HomeViewModel(
                 displayName = user.displayName,
                 photoUrl = user.photoUrl?.toString(),
             )
-            val leaderboard = userRepository.getLeaderboard(limit = 10)
-            _uiState.update {
-                it.copy(isLoading = false, leaderboard = leaderboard)
-            }
+            _uiState.update { it.copy(isLoading = false) }
             startPresenceHeartbeat(user.uid)
         } catch (e: Exception) {
             stopPresenceHeartbeat()
@@ -202,7 +197,6 @@ class HomeViewModel(
                     isLoading = false,
                     profile = null,
                     onlinePlayerCount = null,
-                    leaderboard = emptyList(),
                 )
             }
         }

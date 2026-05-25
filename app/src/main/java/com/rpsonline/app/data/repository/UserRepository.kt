@@ -36,11 +36,14 @@ class UserRepository(
     suspend fun getLeaderboard(limit: Long = 50): List<LeaderboardEntry> {
         val snapshot = firestore.collection("users")
             .orderBy("elo", Query.Direction.DESCENDING)
-            .limit(limit)
+            .limit(limit * 4)
             .get()
             .await()
 
-        return snapshot.documents.map { doc -> doc.toLeaderboardEntry() }
+        return snapshot.documents
+            .map { doc -> doc.toLeaderboardEntry() }
+            .filter { it.wins + it.losses > 0 }
+            .take(limit.toInt())
     }
 
     private fun DocumentSnapshot.toLeaderboardEntry(): LeaderboardEntry =
