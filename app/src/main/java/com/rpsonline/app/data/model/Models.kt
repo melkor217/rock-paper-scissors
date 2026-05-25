@@ -56,6 +56,12 @@ data class Match(
     fun opponentName(userId: String): String =
         if (userId == player1) player2Name else player1Name
 
+    fun myName(userId: String): String =
+        if (userId == player1) player1Name else player2Name
+
+    fun opponentId(userId: String): String =
+        if (userId == player1) player2 else player1
+
     fun myWins(userId: String): Int =
         if (userId == player1) player1Wins else player2Wins
 
@@ -170,6 +176,7 @@ data class MatchResult(
 
 data class MatchHistoryEntry(
     val matchId: String,
+    val myDisplayName: String,
     val opponentName: String,
     val myElo: Int? = null,
     val opponentElo: Int? = null,
@@ -196,6 +203,7 @@ fun Match.toHistoryEntry(userId: String): MatchHistoryEntry {
     }
     return MatchHistoryEntry(
         matchId = id,
+        myDisplayName = myName(userId),
         opponentName = opponentName(userId),
         myElo = myElo(userId),
         opponentElo = opponentElo(userId),

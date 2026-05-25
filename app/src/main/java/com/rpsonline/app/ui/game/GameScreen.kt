@@ -83,6 +83,21 @@ fun GameScreen(
             return
         }
 
+        if (uiState.showPreGameCountdown) {
+            PreGameCountdownScreen(
+                secondsRemaining = uiState.preGameCountdownSeconds,
+                myDisplayName = "You",
+                opponentDisplayName = match.opponentName(userId),
+                myProfile = uiState.myProfile,
+                opponentProfile = uiState.opponentProfile,
+                myElo = match.myElo(userId),
+                opponentElo = match.opponentElo(userId),
+                onSkip = viewModel::skipPreGameCountdown,
+                modifier = Modifier.weight(1f),
+            )
+            return
+        }
+
         val currentRound = match.currentRoundData()
         val drawReplay = match.pendingDrawReplay()
         val pendingOutcome = match.pendingRoundOutcome()

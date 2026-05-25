@@ -17,9 +17,9 @@ class UserRepository(
 ) {
     suspend fun getUserProfile(uid: String): UserProfile? {
         val ref = firestore.collection("users").document(uid)
-        val cached = runCatching { ref.get(Source.CACHE).await() }.getOrNull()
-        if (cached?.exists() == true) return cached.toUserProfile(uid)
-        val snapshot = runCatching { ref.get().await() }.getOrNull() ?: return null
+        val snapshot = runCatching { ref.get(Source.SERVER).await() }.getOrNull()
+            ?: runCatching { ref.get(Source.CACHE).await() }.getOrNull()
+            ?: return null
         if (!snapshot.exists()) return null
         return snapshot.toUserProfile(uid)
     }
@@ -54,12 +54,12 @@ class UserRepository(
         LeaderboardEntry(
             uid = id,
             displayName = DisplayNames.resolve(getString("displayName"), id),
-            elo = getLong("elo")?.toInt() ?: 1000,
-            wins = getLong("wins")?.toInt() ?: 0,
-            losses = getLong("losses")?.toInt() ?: 0,
-            throwsRock = getLong("throwsRock")?.toInt() ?: 0,
-            throwsPaper = getLong("throwsPaper")?.toInt() ?: 0,
-            throwsScissors = getLong("throwsScissors")?.toInt() ?: 0,
+            elo = getIntField("elo") ?: 1000,
+            wins = getIntField("wins") ?: 0,
+            losses = getIntField("losses") ?: 0,
+            throwsRock = getIntField("throwsRock") ?: 0,
+            throwsPaper = getIntField("throwsPaper") ?: 0,
+            throwsScissors = getIntField("throwsScissors") ?: 0,
         )
 }
 
@@ -68,11 +68,11 @@ private fun DocumentSnapshot.toUserProfile(uid: String): UserProfile =
         uid = uid,
         displayName = DisplayNames.resolve(getString("displayName"), uid),
         photoUrl = getString("photoUrl"),
-        elo = getLong("elo")?.toInt() ?: 1000,
-        wins = getLong("wins")?.toInt() ?: 0,
-        losses = getLong("losses")?.toInt() ?: 0,
-        throwsRock = getLong("throwsRock")?.toInt() ?: 0,
-        throwsPaper = getLong("throwsPaper")?.toInt() ?: 0,
-        throwsScissors = getLong("throwsScissors")?.toInt() ?: 0,
+        elo = getIntField("elo") ?: 1000,
+        wins = getIntField("wins") ?: 0,
+        losses = getIntField("losses") ?: 0,
+        throwsRock = getIntField("throwsRock") ?: 0,
+        throwsPaper = getIntField("throwsPaper") ?: 0,
+        throwsScissors = getIntField("throwsScissors") ?: 0,
         activeMatchId = getString("activeMatchId"),
     )

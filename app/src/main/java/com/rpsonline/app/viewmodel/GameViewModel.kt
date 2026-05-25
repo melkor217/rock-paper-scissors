@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
+import com.rpsonline.app.data.repository.UserRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,9 +17,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+private const val PRE_GAME_COUNTDOWN_SECONDS = 2
+
 data class GameUiState(
     val match: Match? = null,
     val userId: String? = null,
+    val myProfile: UserProfile? = null,
+    val opponentProfile: UserProfile? = null,
+    val showPreGameCountdown: Boolean = false,
+    val preGameCountdownSeconds: Double = PRE_GAME_COUNTDOWN_SECONDS.toDouble(),
     val hasSubmittedMove: Boolean = false,
     val isSubmitting: Boolean = false,
     val error: String? = null,
@@ -30,6 +38,7 @@ class GameViewModel(
     private val matchId: String,
     private val matchRepository: MatchRepository = MatchRepository(),
     private val authRepository: AuthRepository = AuthRepository(),
+    private val userRepository: UserRepository = UserRepository(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GameUiState(userId = authRepository.currentUserId))
@@ -37,6 +46,8 @@ class GameViewModel(
 
     private var observeJob: Job? = null
     private var countdownJob: Job? = null
+    private var preGameCountdownJob: Job? = null
+    private var preGameCountdownStarted = false
     private var countdownDeadlineMs: Long? = null
     private var timeoutRequestedForRound: Int? = null
     private var lockedMoveRound: Int? = null
@@ -97,7 +108,62 @@ class GameViewModel(
                     timeoutRequestedForRound = null
                 }
                 syncCountdown(match)
+                maybeStartPreGameCountdown(match, userId)
             }
+        }
+    }
+
+    private fun maybeStartPreGameCountdown(match: Match?, userId: String?) {
+        if (preGameCountdownStarted || match == null || userId == null) return
+        if (match.status != MatchStatus.ACTIVE) return
+        preGameCountdownStarted = true
+        viewModelScope.launch {
+            val opponentId = match.opponentId(userId)
+            val myProfile = userRepository.getUserProfile(userId)
+            val opponentProfile = userRepository.getUserProfile(opponentId)
+            _uiState.update {
+                it.copy(
+                    myProfile = myProfile,
+                    opponentProfile = opponentProfile,
+                )
+            }
+            startPreGameCountdown()
+        }
+    }
+
+    private fun startPreGameCountdown() {
+        preGameCountdownJob?.cancel()
+        preGameCountdownJob = viewModelScope.launch {
+            val endMs = System.currentTimeMillis() + PRE_GAME_COUNTDOWN_SECONDS * 1_000L
+            _uiState.update {
+                it.copy(
+                    showPreGameCountdown = true,
+                    preGameCountdownSeconds = PRE_GAME_COUNTDOWN_SECONDS.toDouble(),
+                )
+            }
+            while (true) {
+                val remainingMs = endMs - System.currentTimeMillis()
+                if (remainingMs <= 0) break
+                _uiState.update { it.copy(preGameCountdownSeconds = remainingMs / 1_000.0) }
+                if (!_uiState.value.showPreGameCountdown) return@launch
+                delay(100)
+            }
+            _uiState.update {
+                it.copy(
+                    showPreGameCountdown = false,
+                    preGameCountdownSeconds = 0.0,
+                )
+            }
+        }
+    }
+
+    fun skipPreGameCountdown() {
+        preGameCountdownJob?.cancel()
+        _uiState.update {
+            it.copy(
+                showPreGameCountdown = false,
+                preGameCountdownSeconds = 0.0,
+            )
         }
     }
 
@@ -206,9 +272,7 @@ class GameViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, error = null) }
             try {
-                val roundNumber = state.match?.openRound()?.roundNumber
-                    ?: state.match?.currentRound
-                    ?: return@launch
+                val roundNumber = state.match?.currentRound ?: return@launch
                 matchRepository.submitMove(matchId, move, roundNumber)
                 lockedMoveRound = roundNumber
                 _uiState.update {
@@ -225,6 +289,7 @@ class GameViewModel(
     override fun onCleared() {
         observeJob?.cancel()
         countdownJob?.cancel()
+        preGameCountdownJob?.cancel()
         resolvingRetryJob?.cancel()
         super.onCleared()
     }

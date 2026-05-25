@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun MatchEloMatchupLine(
+    myDisplayName: String,
     opponentName: String,
     myElo: Int?,
     opponentElo: Int?,
@@ -27,7 +28,14 @@ fun MatchEloMatchupLine(
     ) {
         if (myElo != null) {
             Text(
-                text = "you ",
+                text = myDisplayName,
+                style = labelStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Text(
+                text = " ",
                 style = labelStyle,
             )
             EloRatingText(
@@ -49,7 +57,7 @@ fun MatchEloMatchupLine(
             style = labelStyle,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = if (myElo != null) Modifier else Modifier.weight(1f, fill = false),
         )
         opponentElo?.let { elo ->
             Text(
