@@ -26,17 +26,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Match
+import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.opponentEloAtMatch
-import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.MatchRecapCard
+import com.rpsonline.app.ui.components.PlayerStatsWidget
 import com.rpsonline.app.ui.components.rpsScreenPadding
 
 @Composable
@@ -44,12 +48,14 @@ fun ResultScreen(
     matchId: String,
     onPlayAgain: () -> Unit,
     onHome: () -> Unit,
+    onOpponentProfile: (String) -> Unit,
 ) {
     val authRepository = remember { AuthRepository() }
     val matchRepository = remember { MatchRepository() }
     val userRepository = remember { UserRepository() }
     var match by remember { mutableStateOf<Match?>(null) }
     var myCurrentElo by remember { mutableStateOf<Int?>(null) }
+    var opponentProfile by remember { mutableStateOf<UserProfile?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(matchId) {
@@ -57,6 +63,19 @@ fun ResultScreen(
         match = matchRepository.getMatch(matchId)
         myCurrentElo = userId?.let { userRepository.getUserProfile(it)?.elo }
         isLoading = false
+        val opponentId = userId?.let { uid -> match?.opponentId(uid) } ?: return@LaunchedEffect
+
+        launch {
+            userRepository.observeUserProfile(opponentId).collectLatest { profile ->
+                opponentProfile = profile
+            }
+        }
+
+        // Cloud Functions may finish incrementing throw stats after the result screen opens.
+        repeat(8) {
+            delay(2_000)
+            userRepository.getUserProfile(opponentId)?.let { opponentProfile = it }
+        }
     }
 
     val scrollState = rememberScrollState()
@@ -86,6 +105,7 @@ fun ResultScreen(
             myWins == opponentWins
         val eloDelta = userId?.let { currentMatch.myEloDelta(it) } ?: 0
         val opponentName = userId?.let { currentMatch.opponentName(it) } ?: "Opponent"
+        val opponentId = userId?.let { currentMatch.opponentId(it) }
         val opponentElo = userId?.let { uid ->
             myCurrentElo?.let { currentMatch.opponentEloAtMatch(uid, it) }
         }
@@ -147,12 +167,6 @@ fun ResultScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        OpponentSummaryLine(
-            opponentName = opponentName,
-            opponentElo = opponentElo,
-        )
-
         Spacer(modifier = Modifier.height(12.dp))
 
         FinalScoreCard(
@@ -160,6 +174,16 @@ fun ResultScreen(
             opponentWins = opponentWins,
             eloDelta = eloDelta,
         )
+
+        if (opponentId != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            PlayerStatsWidget(
+                displayName = opponentProfile?.displayName ?: opponentName,
+                profile = opponentProfile,
+                eloOverride = opponentElo,
+                onClick = { onOpponentProfile(opponentId) },
+            )
+        }
 
         if (recaps.isNotEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
@@ -180,38 +204,6 @@ fun ResultScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Home")
-        }
-    }
-}
-
-@Composable
-private fun OpponentSummaryLine(
-    opponentName: String,
-    opponentElo: Int?,
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "vs $opponentName",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            opponentElo?.let { elo ->
-                Text(
-                    text = " · ",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                EloRatingText(
-                    elo = elo,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
         }
     }
 }
@@ -248,4 +240,3 @@ private fun FinalScoreCard(
         }
     }
 }
-

@@ -51,13 +51,24 @@ const THROW_FIELDS: Record<Move, "throwsRock" | "throwsPaper" | "throwsScissors"
 };
 
 async function recordMoveThrown(uid: string, move: Move): Promise<void> {
-  try {
-    await db.collection("users").doc(uid).update({
-      [THROW_FIELDS[move]]: FieldValue.increment(1),
-      lastSeen: FieldValue.serverTimestamp(),
-    });
-  } catch (error) {
-    console.error("Failed to record throw", uid, move, error);
+  await db.collection("users").doc(uid).update({
+    [THROW_FIELDS[move]]: FieldValue.increment(1),
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+}
+
+/** Record R/P/S counts once per resolved round (guarded by throwStatsRecorded). */
+async function recordRoundMoveThrows(match: MatchDoc, round: RoundDoc): Promise<void> {
+  if (round.throwStatsRecorded) return;
+  const tasks: Promise<void>[] = [];
+  if (round.player1Choice) {
+    tasks.push(recordMoveThrown(match.player1, round.player1Choice));
+  }
+  if (round.player2Choice) {
+    tasks.push(recordMoveThrown(match.player2, round.player2Choice));
+  }
+  if (tasks.length > 0) {
+    await Promise.all(tasks);
   }
 }
 
@@ -253,6 +264,7 @@ async function resolveRoundIfReady(
   } else if (deadlinePassed) {
     // Late player forfeits the entire series (not just the round).
     if (p1Choice && !p2Choice) {
+      await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice });
       rounds[roundIndex] = sanitizeRound({
         ...round,
         player1Choice: p1Choice,
@@ -269,6 +281,7 @@ async function resolveRoundIfReady(
       return;
     }
     if (!p1Choice && p2Choice) {
+      await recordRoundMoveThrows(match, { ...round, player2Choice: p2Choice });
       rounds[roundIndex] = sanitizeRound({
         ...round,
         player2Choice: p2Choice,
@@ -290,6 +303,8 @@ async function resolveRoundIfReady(
   } else {
     return;
   }
+
+  await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice, player2Choice: p2Choice });
 
   let winner: string;
   const result = resolveRound(p1Choice!, p2Choice!);
@@ -417,7 +432,6 @@ async function applyPlayerChoice(
 
   const matchRef = db.collection("matches").doc(matchId);
 
-  let applied = false;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(matchRef);
     if (!snap.exists) return;
@@ -426,11 +440,8 @@ async function applyPlayerChoice(
     if (match.status !== "active") return;
     if (uid !== match.player1 && uid !== match.player2) return;
 
-    const round = getOpenRound(match);
-    if (!round || round.roundNumber !== roundNumber) return;
-
     const rounds = [...match.rounds];
-    const idx = rounds.findIndex((r) => r.roundNumber === round.roundNumber && !r.resolvedAt);
+    const idx = rounds.findIndex((r) => r.roundNumber === roundNumber && !r.resolvedAt);
     if (idx < 0) return;
 
     const current = { ...rounds[idx] };
@@ -442,17 +453,12 @@ async function applyPlayerChoice(
       current.player2Choice = choice as Move;
     }
 
-    applied = true;
     rounds[idx] = sanitizeRound(current);
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
     });
   });
-
-  if (applied) {
-    await recordMoveThrown(uid, choice as Move);
-  }
 
   const updated = await matchRef.get();
   if (updated.exists) {
@@ -502,13 +508,8 @@ async function mergeChoicesFromSubcollection(
       return { match, recorded: [] as Array<{ uid: string; move: Move }> };
     }
 
-    const round = getOpenRound(match);
-    if (!round || round.roundNumber !== roundNumber) {
-      return { match, recorded: [] as Array<{ uid: string; move: Move }> };
-    }
-
     const rounds = [...match.rounds];
-    const idx = rounds.findIndex((r) => r.roundNumber === round.roundNumber && !r.resolvedAt);
+    const idx = rounds.findIndex((r) => r.roundNumber === roundNumber && !r.resolvedAt);
     if (idx < 0) return { match, recorded: [] as Array<{ uid: string; move: Move }> };
 
     const recorded: Array<{ uid: string; move: Move }> = [];
@@ -536,11 +537,7 @@ async function mergeChoicesFromSubcollection(
     return { match: { ...match, rounds: sanitizeRounds(rounds) }, recorded };
   });
 
-  if (!outcome) return null;
-  for (const { uid, move } of outcome.recorded) {
-    await recordMoveThrown(uid, move);
-  }
-  return outcome.match;
+  return outcome?.match ?? null;
 }
 
 /** Client writes when the round timer hits zero; resolves immediately (scheduler is backup). */

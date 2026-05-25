@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -33,10 +34,19 @@ class ProfileViewModel(
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     private var loadJob: Job? = null
+    private var profileJob: Job? = null
     private var loadedUserId: String? = null
 
     fun load(userId: String) {
         loadJob?.cancel()
+        profileJob?.cancel()
+        profileJob = viewModelScope.launch {
+            userRepository.observeUserProfile(userId).collect { profile ->
+                if (profile != null) {
+                    _uiState.update { it.copy(profile = profile, isLoading = false, error = null) }
+                }
+            }
+        }
         loadJob = viewModelScope.launch {
             val switchingPlayer = loadedUserId != null && loadedUserId != userId
             val showFullScreenLoading = _uiState.value.profile == null || switchingPlayer
@@ -93,5 +103,11 @@ class ProfileViewModel(
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        loadJob?.cancel()
+        profileJob?.cancel()
+        super.onCleared()
     }
 }

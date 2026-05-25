@@ -73,6 +73,12 @@ class HomeViewModel(
     }
 
     fun onHomeVisible() {
+        viewModelScope.launch {
+            val uid = authRepository.currentUserId ?: return@launch
+            userRepository.getUserProfile(uid)?.let { profile ->
+                _uiState.update { it.copy(profile = profile) }
+            }
+        }
         refresh()
     }
 

@@ -130,6 +130,9 @@ fun RpsNavGraph() {
                         popUpTo(Routes.HOME) { inclusive = true }
                     }
                 },
+                onOpponentProfile = { userId ->
+                    navController.navigate(Routes.profile(userId))
+                },
             )
         }
 

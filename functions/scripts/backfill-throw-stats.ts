@@ -11,7 +11,7 @@ import * as admin from "firebase-admin";
 import { FieldPath } from "firebase-admin/firestore";
 import * as fs from "fs";
 import * as path from "path";
-import type { Move } from "../src/game";
+type Move = "ROCK" | "PAPER" | "SCISSORS";
 
 const MATCHES_COLLECTION = "matches";
 const USERS_COLLECTION = "users";

@@ -192,12 +192,12 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toUserProfile(uid: St
         uid = uid,
         displayName = DisplayNames.resolve(getString("displayName"), uid),
         photoUrl = getString("photoUrl"),
-        elo = getLong("elo")?.toInt() ?: 1000,
-        wins = getLong("wins")?.toInt() ?: 0,
-        losses = getLong("losses")?.toInt() ?: 0,
-        throwsRock = getLong("throwsRock")?.toInt() ?: 0,
-        throwsPaper = getLong("throwsPaper")?.toInt() ?: 0,
-        throwsScissors = getLong("throwsScissors")?.toInt() ?: 0,
+        elo = getIntField("elo") ?: 1000,
+        wins = getIntField("wins") ?: 0,
+        losses = getIntField("losses") ?: 0,
+        throwsRock = getIntField("throwsRock") ?: 0,
+        throwsPaper = getIntField("throwsPaper") ?: 0,
+        throwsScissors = getIntField("throwsScissors") ?: 0,
         activeMatchId = getString("activeMatchId"),
     )
 }

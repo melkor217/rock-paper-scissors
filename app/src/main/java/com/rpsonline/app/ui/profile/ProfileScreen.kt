@@ -235,6 +235,7 @@ private fun MatchHistoryCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                     MatchEloMatchupLine(
+                        myDisplayName = entry.myDisplayName,
                         opponentName = entry.opponentName,
                         myElo = entry.myElo,
                         opponentElo = entry.opponentElo,
