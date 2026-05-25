@@ -39,6 +39,7 @@ import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.opponentEloAtMatch
+import com.rpsonline.app.ui.components.MatchEloChangeLabel
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.PlayerStatsWidget
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -172,6 +173,7 @@ fun ResultScreen(
         FinalScoreCard(
             myWins = myWins,
             opponentWins = opponentWins,
+            postMatchElo = myCurrentElo,
             eloDelta = eloDelta,
         )
 
@@ -212,6 +214,7 @@ fun ResultScreen(
 private fun FinalScoreCard(
     myWins: Int,
     opponentWins: Int,
+    postMatchElo: Int?,
     eloDelta: Int,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -227,15 +230,9 @@ private fun FinalScoreCard(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = "ELO ${if (eloDelta >= 0) "+" else ""}$eloDelta",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = when {
-                    eloDelta > 0 -> MaterialTheme.colorScheme.primary
-                    eloDelta < 0 -> MaterialTheme.colorScheme.error
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
+            MatchEloChangeLabel(
+                postMatchElo = postMatchElo,
+                eloDelta = eloDelta,
             )
         }
     }
