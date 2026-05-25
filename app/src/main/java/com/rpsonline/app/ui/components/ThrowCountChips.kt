@@ -14,7 +14,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/** Shared rock/paper/scissors icon size for compact stat rows. */
+val MoveStatIconSize = 14.dp
 
 @Composable
 fun ThrowCountRow(
@@ -22,15 +27,36 @@ fun ThrowCountRow(
     paper: Int,
     scissors: Int,
     modifier: Modifier = Modifier,
+    iconSize: Dp = MoveStatIconSize,
+    textStyle: TextStyle = MaterialTheme.typography.bodySmall,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(14.dp),
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = horizontalArrangement,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ThrowCountChip(icon = Icons.Default.Landscape, label = "Rock", count = rock)
-        ThrowCountChip(icon = Icons.Default.Description, label = "Paper", count = paper)
-        ThrowCountChip(icon = Icons.Default.ContentCut, label = "Scissors", count = scissors)
+        ThrowCountChip(
+            icon = Icons.Default.Landscape,
+            label = "Rock",
+            count = rock,
+            iconSize = iconSize,
+            textStyle = textStyle,
+        )
+        ThrowCountChip(
+            icon = Icons.Default.Description,
+            label = "Paper",
+            count = paper,
+            iconSize = iconSize,
+            textStyle = textStyle,
+        )
+        ThrowCountChip(
+            icon = Icons.Default.ContentCut,
+            label = "Scissors",
+            count = scissors,
+            iconSize = iconSize,
+            textStyle = textStyle,
+        )
     }
 }
 
@@ -39,6 +65,8 @@ private fun ThrowCountChip(
     icon: ImageVector,
     label: String,
     count: Int,
+    iconSize: Dp,
+    textStyle: TextStyle,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -48,11 +76,11 @@ private fun ThrowCountChip(
             imageVector = icon,
             contentDescription = label,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(iconSize),
         )
         Text(
             text = "$count",
-            style = MaterialTheme.typography.bodySmall,
+            style = textStyle,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

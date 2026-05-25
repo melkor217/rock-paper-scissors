@@ -38,6 +38,8 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.ThrowCountRow
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.leaderboard.RpsPerWinLabel
+import com.rpsonline.app.ui.leaderboard.throwsPerWin
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.HomeViewModel
 
@@ -212,58 +214,82 @@ private fun HomeProfileSummaryCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Profile",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Bottom,
-                ) {
-                    Text(
-                        text = "$elo",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "ELO",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 2.dp),
-                    )
-                }
-                Text(
-                    text = buildString {
-                        append("W $wins · L $losses")
-                        winRate?.let { append(" · $it%") }
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                ThrowCountRow(
-                    rock = profile?.throwsRock ?: 0,
-                    paper = profile?.throwsPaper ?: 0,
-                    scissors = profile?.throwsScissors ?: 0,
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Open profile",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp),
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Open profile",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(28.dp),
-            )
+            val statStyle = MaterialTheme.typography.bodyMedium
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "$elo",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "ELO",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = buildString {
+                            append("W $wins · L $losses")
+                            winRate?.let { append(" · $it%") }
+                        },
+                        style = statStyle,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    profile?.throwsPerWin()?.let { throwsPerWin ->
+                        RpsPerWinLabel(
+                            throwsPerWin = throwsPerWin,
+                            textStyle = statStyle,
+                        )
+                    }
+                    ThrowCountRow(
+                        rock = profile?.throwsRock ?: 0,
+                        paper = profile?.throwsPaper ?: 0,
+                        scissors = profile?.throwsScissors ?: 0,
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = statStyle,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    )
+                }
+            }
         }
     }
 }

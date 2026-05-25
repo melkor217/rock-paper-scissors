@@ -17,7 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -31,7 +30,9 @@ import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.ThrowCountRow
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.leaderboard.RpsPerWinLabel
 import com.rpsonline.app.ui.leaderboard.leaderboardSpectrumColor
+import com.rpsonline.app.ui.leaderboard.throwsPerWin
 import com.rpsonline.app.viewmodel.ProfileViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -46,10 +47,6 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(userId) {
-        viewModel.load(userId)
-    }
 
     LifecycleResumeEffect(userId) {
         viewModel.load(userId)
@@ -94,10 +91,10 @@ fun ProfileScreen(
                 ) {
                     item {
                         ProfileStatsCard(
-                            displayName = profile?.displayName ?: "Player",
                             elo = profile?.elo ?: 1000,
                             wins = profile?.wins ?: 0,
                             losses = profile?.losses ?: 0,
+                            throwsPerWin = profile?.throwsPerWin(),
                             throwsRock = profile?.throwsRock ?: 0,
                             throwsPaper = profile?.throwsPaper ?: 0,
                             throwsScissors = profile?.throwsScissors ?: 0,
@@ -150,10 +147,10 @@ fun ProfileScreen(
 
 @Composable
 private fun ProfileStatsCard(
-    displayName: String,
     elo: Int,
     wins: Int,
     losses: Int,
+    throwsPerWin: Double?,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
@@ -168,11 +165,6 @@ private fun ProfileStatsCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                text = displayName,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
             Text(
                 text = "ELO $elo",
                 style = MaterialTheme.typography.displaySmall,
@@ -190,6 +182,12 @@ private fun ProfileStatsCard(
                     text = "Win rate $winRate%",
                     style = MaterialTheme.typography.bodyMedium,
                     color = leaderboardSpectrumColor(winRate.toFloat()),
+                )
+            }
+            throwsPerWin?.let { rpsPerWin ->
+                RpsPerWinLabel(
+                    throwsPerWin = rpsPerWin,
+                    textStyle = MaterialTheme.typography.bodyMedium,
                 )
             }
             ThrowCountRow(

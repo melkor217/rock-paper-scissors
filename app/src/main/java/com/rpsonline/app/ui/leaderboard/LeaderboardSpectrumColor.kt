@@ -31,8 +31,8 @@ private fun lerpHue(from: Float, to: Float, fraction: Float): Float {
 fun leaderboardSpectrumColor(percent: Float): Color {
     val p = percent.coerceIn(0f, 100f)
     val dark = isSystemInDarkTheme()
-    val baseSaturation = if (dark) 0.9f else 0.96f
-    val baseLightness = if (dark) 0.52f else 0.38f
+    val baseSaturation = if (dark) 0.9f else 0.52f
+    val baseLightness = if (dark) 0.52f else 0.4f
 
     val hue = when {
         p <= BalancedSharePercent -> {
@@ -46,11 +46,42 @@ fun leaderboardSpectrumColor(percent: Float): Color {
         }
     }
 
-    val saturation = when {
-        hue <= 25f -> baseSaturation.coerceAtLeast(0.97f)
-        hue in 45f..150f -> (baseSaturation + 0.04f).coerceAtMost(1f)
-        else -> baseSaturation
+    val saturation = if (dark) {
+        when {
+            hue <= 25f -> baseSaturation.coerceAtLeast(0.97f)
+            hue in 45f..150f -> (baseSaturation + 0.04f).coerceAtMost(1f)
+            else -> baseSaturation
+        }
+    } else {
+        when {
+            hue <= 25f -> (baseSaturation + 0.06f).coerceAtMost(0.58f)
+            hue in 45f..150f -> (baseSaturation + 0.1f).coerceAtMost(0.62f)
+            else -> baseSaturation
+        }
     }
 
     return Color.hsl(hue, saturation, baseLightness)
+}
+
+/** Fewer throws per win is better; 2 green → 7.5 yellow → 13 red. */
+private const val RpsPerWinBest = 2f
+private const val RpsPerWinMid = 7.5f
+private const val RpsPerWinWorst = 13f
+
+@Composable
+fun rpsPerWinColor(throwsPerWin: Double): Color {
+    val value = throwsPerWin.toFloat().coerceIn(RpsPerWinBest, RpsPerWinWorst)
+    val percent = when {
+        value <= RpsPerWinMid -> {
+            val span = RpsPerWinMid - RpsPerWinBest
+            val t = if (span > 0f) (value - RpsPerWinBest) / span else 0f
+            (1f - t) * 100f + t * BalancedSharePercent
+        }
+        else -> {
+            val span = RpsPerWinWorst - RpsPerWinMid
+            val t = if (span > 0f) (value - RpsPerWinMid) / span else 1f
+            BalancedSharePercent * (1f - t)
+        }
+    }
+    return leaderboardSpectrumColor(percent)
 }

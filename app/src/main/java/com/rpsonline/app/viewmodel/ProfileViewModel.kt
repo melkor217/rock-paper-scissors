@@ -11,6 +11,7 @@ import com.rpsonline.app.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -31,9 +32,29 @@ class ProfileViewModel(
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
+    private var loadJob: Job? = null
+    private var loadedUserId: String? = null
+
     fun load(userId: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            val switchingPlayer = loadedUserId != null && loadedUserId != userId
+            val showFullScreenLoading = _uiState.value.profile == null || switchingPlayer
+            if (switchingPlayer) {
+                _uiState.update {
+                    ProfileUiState(
+                        isLoading = true,
+                        isOwnProfile = userId == authRepository.currentUserId,
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = showFullScreenLoading,
+                        error = null,
+                    )
+                }
+            }
             try {
                 val viewerId = authRepository.currentUserId
                     ?: throw IllegalStateException("Not signed in")
@@ -50,6 +71,7 @@ class ProfileViewModel(
                     )
                 }
                 val history = matches.map { it.toHistoryEntry(viewerId) }
+                loadedUserId = userId
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -60,7 +82,10 @@ class ProfileViewModel(
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = e.message ?: "Failed to load profile")
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to load profile",
+                    )
                 }
             }
         }

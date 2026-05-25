@@ -32,28 +32,32 @@ private fun podiumStyleForRank(rank: Int): PodiumStyle? {
     val dark = isSystemInDarkTheme()
     return when (rank) {
         1 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFFFD54F).copy(alpha = 0.45f) else Color(0xFFFFB300).copy(alpha = 0.5f),
-            glowColor = if (dark) Color(0xFFFFCA28) else Color(0xFFFFA000),
-            containerTint = if (dark) Color(0xFF5D4037) else Color(0xFFFFF8E1),
-            rankLabelColor = if (dark) Color(0xFFFFE082).copy(alpha = 0.85f) else Color(0xFFF57F17).copy(alpha = 0.9f),
+            borderColor = if (dark) Color(0xFFFFD54F).copy(alpha = 0.45f) else Color(0xFFC9A227).copy(alpha = 0.35f),
+            glowColor = if (dark) Color(0xFFFFCA28) else Color(0xFFC9A227),
+            containerTint = if (dark) Color(0xFF5D4037) else Color(0xFFF5F0E6),
+            rankLabelColor = if (dark) Color(0xFFFFE082).copy(alpha = 0.85f) else Color(0xFF8A6F1F),
         )
         2 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFE0E0E0).copy(alpha = 0.4f) else Color(0xFF90A4AE).copy(alpha = 0.45f),
-            glowColor = if (dark) Color(0xFFB0BEC5) else Color(0xFF78909C),
-            containerTint = if (dark) Color(0xFF37474F) else Color(0xFFECEFF1),
-            rankLabelColor = if (dark) Color(0xFFECEFF1).copy(alpha = 0.9f) else Color(0xFF546E7A),
+            borderColor = if (dark) Color(0xFFE0E0E0).copy(alpha = 0.4f) else Color(0xFF90A4AE).copy(alpha = 0.32f),
+            glowColor = if (dark) Color(0xFFB0BEC5) else Color(0xFF90A4AE),
+            containerTint = if (dark) Color(0xFF37474F) else Color(0xFFEEF1F2),
+            rankLabelColor = if (dark) Color(0xFFECEFF1).copy(alpha = 0.9f) else Color(0xFF5C6B73),
         )
         3 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFFFAB91).copy(alpha = 0.45f) else Color(0xFF8D6E63).copy(alpha = 0.5f),
-            glowColor = if (dark) Color(0xFFFF8A65) else Color(0xFFA1887F),
-            containerTint = if (dark) Color(0xFF4E342E) else Color(0xFFEFEBE9),
-            rankLabelColor = if (dark) Color(0xFFFFCCBC).copy(alpha = 0.85f) else Color(0xFF6D4C41),
+            borderColor = if (dark) Color(0xFFFFAB91).copy(alpha = 0.45f) else Color(0xFF9A7B6F).copy(alpha = 0.35f),
+            glowColor = if (dark) Color(0xFFFF8A65) else Color(0xFF9A7B6F),
+            containerTint = if (dark) Color(0xFF4E342E) else Color(0xFFF3EEEB),
+            rankLabelColor = if (dark) Color(0xFFFFCCBC).copy(alpha = 0.85f) else Color(0xFF6B5348),
         )
         else -> null
     }
 }
 
-private fun DrawScope.drawInwardPodiumGlow(glowColor: Color, cornerRadius: Float) {
+private fun DrawScope.drawInwardPodiumGlow(
+    glowColor: Color,
+    cornerRadius: Float,
+    edgeStrength: Float,
+) {
     val center = Offset(size.width / 2f, size.height / 2f)
     val radius = max(size.width, size.height) * 0.72f
     val corner = CornerRadius(cornerRadius, cornerRadius)
@@ -73,7 +77,6 @@ private fun DrawScope.drawInwardPodiumGlow(glowColor: Color, cornerRadius: Float
         cornerRadius = corner,
     )
 
-    val edgeStrength = 0.12f
     drawRoundRect(
         brush = Brush.horizontalGradient(
             colorStops = arrayOf(
@@ -125,6 +128,7 @@ fun LeaderboardEntryCard(
         else -> null
     }
     val cornerRadius = 12.dp
+    val glowEdgeStrength = if (isSystemInDarkTheme()) 0.12f else 0.07f
 
     Card(
         onClick = onClick,
@@ -144,6 +148,7 @@ fun LeaderboardEntryCard(
                             drawInwardPodiumGlow(
                                 glowColor = podium.glowColor,
                                 cornerRadius = cornerRadius.toPx(),
+                                edgeStrength = glowEdgeStrength,
                             )
                         }
                     } else {
