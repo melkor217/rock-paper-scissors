@@ -33,32 +33,34 @@ class GitHubReleaseClient(
         }
     }
 
-    private fun parseRelease(json: String): AppUpdateInfo? = try {
-        val root = JSONObject(json)
-        val tag = root.optString("tag_name")
-        if (tag.isBlank()) return null
+    private fun parseRelease(json: String): AppUpdateInfo? {
+        return try {
+            val root = JSONObject(json)
+            val tag = root.optString("tag_name")
+            if (tag.isBlank()) return null
 
-        val assets = root.optJSONArray("assets") ?: return null
-        var apkUrl: String? = null
-        for (i in 0 until assets.length()) {
-            val asset = assets.getJSONObject(i)
-            val name = asset.optString("name")
-            if (name.endsWith(".apk")) {
-                apkUrl = asset.optString("browser_download_url")
-                break
+            val assets = root.optJSONArray("assets") ?: return null
+            var apkUrl: String? = null
+            for (i in 0 until assets.length()) {
+                val asset = assets.getJSONObject(i)
+                val name = asset.optString("name")
+                if (name.endsWith(".apk")) {
+                    apkUrl = asset.optString("browser_download_url")
+                    break
+                }
             }
-        }
-        val url = apkUrl?.takeIf { it.isNotBlank() } ?: return null
+            val url = apkUrl?.takeIf { it.isNotBlank() } ?: return null
 
-        val notes = root.optString("body").takeIf { it.isNotBlank() }
-        AppUpdateInfo(
-            tag = tag,
-            versionCode = versionCodeFromTag(tag),
-            versionLabel = versionLabelFromTag(tag),
-            apkUrl = url,
-            releaseNotes = notes,
-        )
-    } catch (_: Exception) {
-        null
+            val notes = root.optString("body").takeIf { it.isNotBlank() }
+            AppUpdateInfo(
+                tag = tag,
+                versionCode = versionCodeFromTag(tag),
+                versionLabel = versionLabelFromTag(tag),
+                apkUrl = url,
+                releaseNotes = notes,
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 }
