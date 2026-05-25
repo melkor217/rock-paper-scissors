@@ -23,8 +23,8 @@ fun DrawRoundBanner(
         subtitle = when {
             compact && isReplay -> "Replay this round."
             compact -> "No point awarded."
-            isReplay -> "Same move — replay this round. Score unchanged."
-            else -> "Same move — no point awarded."
+            isReplay -> "Replay this round. Score unchanged."
+            else -> "No point awarded."
         },
         myChoice = myChoice,
         opponentChoice = opponentChoice,

@@ -68,6 +68,9 @@ data class Match(
     fun opponentElo(userId: String): Int? =
         if (userId == player1) player2Elo else player1Elo
 
+    fun myElo(userId: String): Int? =
+        if (userId == player1) player1Elo else player2Elo
+
     fun currentRoundData(): RoundResult? =
         rounds.filter { it.resolvedAt == null }.lastOrNull()
             ?: rounds.find { it.roundNumber == currentRound }
@@ -168,6 +171,7 @@ data class MatchResult(
 data class MatchHistoryEntry(
     val matchId: String,
     val opponentName: String,
+    val myElo: Int? = null,
     val opponentElo: Int? = null,
     val myWins: Int,
     val opponentWins: Int,
@@ -193,6 +197,7 @@ fun Match.toHistoryEntry(userId: String): MatchHistoryEntry {
     return MatchHistoryEntry(
         matchId = id,
         opponentName = opponentName(userId),
+        myElo = myElo(userId),
         opponentElo = opponentElo(userId),
         myWins = myWins,
         opponentWins = opponentWins,

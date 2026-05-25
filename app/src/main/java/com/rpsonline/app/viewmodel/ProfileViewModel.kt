@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.data.model.UserProfile
-import com.rpsonline.app.data.model.toHistoryEntry
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
+import com.rpsonline.app.domain.enrichMatchHistoryWithOpponentElos
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,7 +70,11 @@ class ProfileViewModel(
                         limit = 10,
                     )
                 }
-                val history = matches.map { it.toHistoryEntry(viewerId) }
+                val history = enrichMatchHistoryWithOpponentElos(
+                    viewerId = viewerId,
+                    myCurrentElo = profile.elo,
+                    matches = matches,
+                )
                 loadedUserId = userId
                 _uiState.update {
                     it.copy(

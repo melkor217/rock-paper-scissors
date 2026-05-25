@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.EloRatingText
+import com.rpsonline.app.ui.components.MatchEloMatchupLine
 import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.leaderboard.PlayerThrowStatsColumn
@@ -232,31 +234,11 @@ private fun MatchHistoryCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "vs ${entry.opponentName}",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        entry.opponentElo?.let { elo ->
-                            Text(
-                                text = " · ",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            EloRatingText(
-                                elo = elo,
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                            )
-                        }
-                    }
+                    MatchEloMatchupLine(
+                        opponentName = entry.opponentName,
+                        myElo = entry.myElo,
+                        opponentElo = entry.opponentElo,
+                    )
                     Text(
                         text = formatMatchDate(entry.lastActivityAt),
                         style = MaterialTheme.typography.bodySmall,
@@ -320,7 +302,7 @@ private fun matchOutcomeLabel(entry: MatchHistoryEntry): String = when {
 @Composable
 private fun matchOutcomeColor(entry: MatchHistoryEntry): androidx.compose.ui.graphics.Color = when {
     entry.isAbandoned -> MaterialTheme.colorScheme.onSurfaceVariant
-    entry.isDraw -> MaterialTheme.colorScheme.tertiary
+    entry.isDraw -> Color.Black
     entry.won == true -> MaterialTheme.colorScheme.primary
     entry.won == false -> MaterialTheme.colorScheme.error
     else -> MaterialTheme.colorScheme.onSurfaceVariant
