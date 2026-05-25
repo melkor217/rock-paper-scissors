@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.repository.AppUpdateRepository
+import com.rpsonline.app.data.repository.UpdateCheckOutcome
 import com.rpsonline.app.data.update.AppUpdateInfo
 import com.rpsonline.app.ui.util.NetworkUtils
 import kotlinx.coroutines.Dispatchers
@@ -33,8 +34,12 @@ class AppUpdateViewModel : ViewModel() {
     fun onScreenVisible(context: Context) {
         val repo = AppUpdateRepository(context.applicationContext)
         _uiState.update { it.copy(versionName = repo.currentVersionName()) }
-        if (repo.updatesEnabled() && NetworkUtils.isOnline(context)) {
-            checkForUpdate(repo)
+        if (
+            repo.updatesEnabled() &&
+            NetworkUtils.isOnline(context) &&
+            !repo.shouldSkipAutoUpdateCheck()
+        ) {
+            checkForUpdate(repo, isAutoCheck = true)
         }
     }
 
@@ -48,21 +53,36 @@ class AppUpdateViewModel : ViewModel() {
             }
             return
         }
-        checkForUpdate(AppUpdateRepository(context.applicationContext))
+        checkForUpdate(AppUpdateRepository(context.applicationContext), isAutoCheck = false)
     }
 
-    private fun checkForUpdate(repo: AppUpdateRepository) {
+    private fun checkForUpdate(repo: AppUpdateRepository, isAutoCheck: Boolean) {
         viewModelScope.launch {
             _uiState.update { it.copy(isCheckingForUpdate = true, updateMessage = null) }
-            val update = withContext(Dispatchers.IO) { repo.fetchUpdateIfAvailable() }
+            val outcome = withContext(Dispatchers.IO) {
+                try {
+                    repo.checkForUpdate()
+                } catch (_: Exception) {
+                    UpdateCheckOutcome.CheckFailed
+                }
+            }
+            if (isAutoCheck && outcome !is UpdateCheckOutcome.UpdateAvailable) {
+                repo.recordAutoCheckWithNoUpdate()
+            }
             _uiState.update {
                 it.copy(
                     isCheckingForUpdate = false,
-                    availableUpdate = update,
-                    updateMessage = when {
-                        update != null -> null
-                        repo.updatesEnabled() -> "You're on the latest version."
-                        else -> null
+                    availableUpdate = (outcome as? UpdateCheckOutcome.UpdateAvailable)?.update,
+                    updateMessage = if (isAutoCheck) {
+                        null
+                    } else {
+                        when (outcome) {
+                            is UpdateCheckOutcome.UpdateAvailable -> null
+                            UpdateCheckOutcome.UpToDate ->
+                                if (repo.updatesEnabled()) "You're on the latest version." else null
+                            UpdateCheckOutcome.CheckFailed ->
+                                "Couldn't check for updates. Try again later."
+                        }
                     },
                 )
             }
