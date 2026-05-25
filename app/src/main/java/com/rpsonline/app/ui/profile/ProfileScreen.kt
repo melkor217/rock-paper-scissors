@@ -30,8 +30,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.EloRatingText
+import com.rpsonline.app.ui.components.MatchEloChangeLabel
 import com.rpsonline.app.ui.components.MatchEloMatchupLine
 import com.rpsonline.app.ui.components.WinLossStatLine
+import com.rpsonline.app.ui.components.postMatchElo
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.leaderboard.PlayerThrowStatsColumn
 import com.rpsonline.app.ui.leaderboard.hasThrowStats
@@ -257,17 +259,11 @@ private fun MatchHistoryCard(
                         text = "${entry.myWins} – ${entry.opponentWins}",
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    entry.eloDelta?.let { delta ->
-                        Text(
-                            text = "ELO ${if (delta >= 0) "+" else ""}$delta",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = when {
-                                delta > 0 -> MaterialTheme.colorScheme.primary
-                                delta < 0 -> MaterialTheme.colorScheme.error
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
-                    }
+                    MatchEloChangeLabel(
+                        postMatchElo = postMatchElo(entry.myElo, entry.eloDelta),
+                        eloDelta = entry.eloDelta,
+                        textStyle = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
             MatchRecapCard(
