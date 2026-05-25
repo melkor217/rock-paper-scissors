@@ -14,8 +14,8 @@ class GitHubReleaseClient(
         val url = URL("https://api.github.com/repos/$owner/$repo/releases/latest")
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
-            connectTimeout = 15_000
-            readTimeout = 15_000
+            connectTimeout = 5_000
+            readTimeout = 5_000
             setRequestProperty("Accept", "application/vnd.github+json")
             setRequestProperty("User-Agent", "RpsOnline-Android")
         }

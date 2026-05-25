@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.repository.AppUpdateRepository
 import com.rpsonline.app.data.update.AppUpdateInfo
+import com.rpsonline.app.ui.util.NetworkUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,12 +33,21 @@ class AppUpdateViewModel : ViewModel() {
     fun onScreenVisible(context: Context) {
         val repo = AppUpdateRepository(context.applicationContext)
         _uiState.update { it.copy(versionName = repo.currentVersionName()) }
-        if (repo.updatesEnabled()) {
+        if (repo.updatesEnabled() && NetworkUtils.isOnline(context)) {
             checkForUpdate(repo)
         }
     }
 
     fun checkForUpdate(context: Context) {
+        if (!NetworkUtils.isOnline(context)) {
+            _uiState.update {
+                it.copy(
+                    isCheckingForUpdate = false,
+                    updateMessage = "No internet connection. Connect to check for updates.",
+                )
+            }
+            return
+        }
         checkForUpdate(AppUpdateRepository(context.applicationContext))
     }
 

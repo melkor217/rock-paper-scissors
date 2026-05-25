@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
@@ -71,10 +72,6 @@ fun HomeScreen(
         viewModel = updateViewModel,
     )
 
-    if (!uiState.isLoading && uiState.profile == null) {
-        return
-    }
-
     Column(
         modifier = Modifier.rpsScreenPadding(),
     ) {
@@ -85,6 +82,29 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 CircularProgressIndicator()
+            }
+            return
+        }
+
+        if (uiState.profile == null) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = uiState.error ?: "Could not load your profile.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(onClick = { viewModel.refresh() }) {
+                    Text("Retry")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(onClick = { viewModel.signOut(context) }) {
+                    Text("Sign Out")
+                }
             }
             return
         }

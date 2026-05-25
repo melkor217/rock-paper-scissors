@@ -9,7 +9,9 @@ import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,10 +54,15 @@ class HomeViewModel(
                         it.copy(isLoading = false, profile = null, onlinePlayerCount = null)
                     }
                 } else {
+                    if (_uiState.value.profile == null) {
+                        _uiState.update {
+                            it.copy(profile = authRepository.fallbackProfile(user), isLoading = false)
+                        }
+                    }
                     profileJob = viewModelScope.launch {
                         userRepository.observeUserProfile(user.uid).collect { profile ->
                             if (profile != null) {
-                                _uiState.update { it.copy(profile = profile, isLoading = false) }
+                                _uiState.update { it.copy(profile = profile, isLoading = false, error = null) }
                             }
                         }
                     }
@@ -77,18 +84,40 @@ class HomeViewModel(
     }
 
     private suspend fun refresh(user: FirebaseUser) {
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        val hadProfile = _uiState.value.profile != null
+        if (!hadProfile) {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+        }
         try {
-            authRepository.ensureUserProfile(
-                uid = user.uid,
-                displayName = user.displayName,
-                photoUrl = user.photoUrl?.toString(),
-            )
-            _uiState.update { it.copy(isLoading = false) }
+            withTimeout(10_000) {
+                authRepository.ensureUserProfile(
+                    uid = user.uid,
+                    displayName = user.displayName,
+                    photoUrl = user.photoUrl?.toString(),
+                )
+            }
+            _uiState.update { it.copy(isLoading = false, error = null) }
             startPresenceHeartbeat(user.uid)
+        } catch (e: TimeoutCancellationException) {
+            stopPresenceHeartbeat()
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = if (it.profile == null) {
+                        "No internet connection. Connect to sync your profile."
+                    } else {
+                        null
+                    },
+                )
+            }
         } catch (e: Exception) {
             stopPresenceHeartbeat()
-            _uiState.update { it.copy(isLoading = false, error = e.message) }
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = e.message ?: if (!hadProfile) "Could not load profile." else null,
+                )
+            }
         }
     }
 

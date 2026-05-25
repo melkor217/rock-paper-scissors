@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 
 enum class EmailAuthMode {
     SIGN_IN,
@@ -53,13 +55,27 @@ class SignInViewModel(
                         it.copy(isLoading = true, isRestoringSession = true, error = null)
                     }
                     try {
-                        val profile = authRepository.loadCurrentUserProfile()
+                        val profile = withTimeout(10_000) {
+                            authRepository.loadCurrentUserProfile()
+                        }
                         _uiState.update {
                             it.copy(
                                 profile = profile,
                                 isLoading = false,
                                 isRestoringSession = false,
-                                error = null,
+                                error = if (profile == null) {
+                                    "No internet connection. Connect to restore your session, or sign in again."
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    } catch (e: TimeoutCancellationException) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                isRestoringSession = false,
+                                error = "No internet connection. Connect to restore your session, or sign in again.",
                             )
                         }
                     } catch (e: Exception) {
