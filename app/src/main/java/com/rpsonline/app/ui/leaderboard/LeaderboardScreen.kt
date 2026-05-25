@@ -15,7 +15,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.rpsonline.app.ui.theme.isRpsDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,7 +54,7 @@ fun LeaderboardScreen(
         Text(
             text = "Leaderboard",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -137,7 +137,7 @@ private fun LeaderboardEntryContent(
     entry: LeaderboardEntry,
     isCurrentUser: Boolean,
 ) {
-    val darkTheme = isSystemInDarkTheme()
+    val darkTheme = isRpsDarkTheme()
     val nameLine = remember(rank, entry.displayName, isCurrentUser) {
         buildString {
             append("#$rank ${entry.displayName}")

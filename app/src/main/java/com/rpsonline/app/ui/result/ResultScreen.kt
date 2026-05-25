@@ -13,8 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import com.rpsonline.app.ui.components.RpsCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -120,11 +119,10 @@ fun ResultScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
         if (isDraw) {
-            Card(
+            RpsCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                ),
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.94f),
+                borderColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.55f),
             ) {
                 Column(
                     modifier = Modifier
@@ -217,7 +215,7 @@ private fun FinalScoreCard(
     postMatchElo: Int?,
     eloDelta: Int,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    RpsCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

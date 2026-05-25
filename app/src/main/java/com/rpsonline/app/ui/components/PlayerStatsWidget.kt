@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,15 +37,10 @@ fun PlayerStatsWidget(
     val throwsScissors = profile?.throwsScissors ?: 0
     val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
     val statStyle = MaterialTheme.typography.bodySmall
-    val cardColors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    )
-
     if (onClick != null) {
-        Card(
+        RpsCard(
             onClick = onClick,
             modifier = modifier.fillMaxWidth(),
-            colors = cardColors,
         ) {
             PlayerStatsWidgetBody(
                 displayName = displayName,
@@ -63,10 +56,7 @@ fun PlayerStatsWidget(
             )
         }
     } else {
-        Card(
-            modifier = modifier.fillMaxWidth(),
-            colors = cardColors,
-        ) {
+        RpsCard(modifier = modifier.fillMaxWidth()) {
             PlayerStatsWidgetBody(
                 displayName = displayName,
                 elo = elo,

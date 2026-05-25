@@ -9,9 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/** Edge-to-edge safe area: status bar, display cutout (camera), and nav bar. */
+/** Edge-to-edge safe area; extra top inset for the global appearance button. */
 @Composable
 fun Modifier.rpsScreenPadding(): Modifier =
     fillMaxSize()
         .windowInsetsPadding(WindowInsets.safeDrawing)
-        .padding(24.dp)
+        .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 52.dp)

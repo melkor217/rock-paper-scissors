@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,13 +20,13 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
+import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.MatchEloChangeLabel
 import com.rpsonline.app.ui.components.MatchEloMatchupLine
@@ -61,7 +59,7 @@ fun ProfileScreen(
         Text(
             text = uiState.profile?.displayName ?: "Profile",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -160,12 +158,7 @@ private fun ProfileStatsCard(
     val statStyle = MaterialTheme.typography.bodyMedium
     val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
+    RpsCard(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -211,12 +204,7 @@ private fun ProfileStatsCard(
 private fun MatchHistoryCard(
     entry: MatchHistoryEntry,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
+    RpsCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -299,7 +287,7 @@ private fun matchOutcomeLabel(entry: MatchHistoryEntry): String = when {
 @Composable
 private fun matchOutcomeColor(entry: MatchHistoryEntry): androidx.compose.ui.graphics.Color = when {
     entry.isAbandoned -> MaterialTheme.colorScheme.onSurfaceVariant
-    entry.isDraw -> Color.Black
+    entry.isDraw -> MaterialTheme.colorScheme.tertiary
     entry.won == true -> MaterialTheme.colorScheme.primary
     entry.won == false -> MaterialTheme.colorScheme.error
     else -> MaterialTheme.colorScheme.onSurfaceVariant

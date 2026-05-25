@@ -1,18 +1,18 @@
 package com.rpsonline.app.ui.leaderboard
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import com.rpsonline.app.ui.theme.isRpsDarkTheme
 import androidx.compose.ui.graphics.Color
 import kotlin.math.pow
 
-/** Even split for rock / paper / scissors — anchor for the mid (yellow-green) point. */
+/** Even split for rock / paper / scissors — anchor for the mid (yellow) point. */
 private const val BalancedSharePercent = 33.333f
 
-private const val RedHue = 6f
+/** Neon spectrum: magenta (bad) → yellow (mid) → cyan (good). */
+private const val MagentaHue = 320f
 private const val YellowHue = 52f
-private const val GreenHue = 136f
+private const val CyanHue = 186f
 
-/** Below ~33%: stay red longer before easing to yellow. Above: shift to green quickly. */
 private const val LowSegmentGamma = 1.4f
 private const val HighSegmentGamma = 0.68f
 
@@ -24,36 +24,36 @@ private fun lerpHue(from: Float, to: Float, fraction: Float): Float {
 }
 
 /**
- * Smooth red → yellow → green spectrum.
- * [percent] is 0–100; ~33% is yellow. Low shares stay red; high shares lean green.
+ * Smooth magenta → yellow → cyan neon spectrum.
+ * [percent] is 0–100; ~33% is yellow. Low shares stay magenta; high shares lean cyan.
  */
 fun leaderboardSpectrumColor(percent: Float, darkTheme: Boolean): Color {
     val p = percent.coerceIn(0f, 100f)
-    val baseSaturation = if (darkTheme) 0.9f else 0.52f
-    val baseLightness = if (darkTheme) 0.52f else 0.4f
+    val baseSaturation = if (darkTheme) 0.95f else 0.72f
+    val baseLightness = if (darkTheme) 0.58f else 0.42f
 
     val hue = when {
         p <= BalancedSharePercent -> {
             val t = if (BalancedSharePercent > 0f) p / BalancedSharePercent else 0f
-            lerpHue(RedHue, YellowHue, t.pow(LowSegmentGamma))
+            lerpHue(MagentaHue, YellowHue, t.pow(LowSegmentGamma))
         }
         else -> {
             val span = 100f - BalancedSharePercent
             val t = if (span > 0f) (p - BalancedSharePercent) / span else 1f
-            lerpHue(YellowHue, GreenHue, t.pow(HighSegmentGamma))
+            lerpHue(YellowHue, CyanHue, t.pow(HighSegmentGamma))
         }
     }
 
     val saturation = if (darkTheme) {
         when {
-            hue <= 25f -> baseSaturation.coerceAtLeast(0.97f)
-            hue in 45f..150f -> (baseSaturation + 0.04f).coerceAtMost(1f)
+            hue >= 300f || hue <= 20f -> baseSaturation.coerceAtLeast(0.98f)
+            hue in 45f..200f -> (baseSaturation + 0.02f).coerceAtMost(1f)
             else -> baseSaturation
         }
     } else {
         when {
-            hue <= 25f -> (baseSaturation + 0.06f).coerceAtMost(0.58f)
-            hue in 45f..150f -> (baseSaturation + 0.1f).coerceAtMost(0.62f)
+            hue >= 300f || hue <= 20f -> (baseSaturation + 0.04f).coerceAtMost(0.78f)
+            hue in 45f..200f -> (baseSaturation + 0.06f).coerceAtMost(0.8f)
             else -> baseSaturation
         }
     }
@@ -63,9 +63,9 @@ fun leaderboardSpectrumColor(percent: Float, darkTheme: Boolean): Color {
 
 @Composable
 fun leaderboardSpectrumColor(percent: Float): Color =
-    leaderboardSpectrumColor(percent, isSystemInDarkTheme())
+    leaderboardSpectrumColor(percent, isRpsDarkTheme())
 
-/** Fewer throws per win is better; 2 green → 7.5 yellow → 13 red. */
+/** Fewer throws per win is better; 2 cyan → 7.5 yellow → 13 magenta. */
 private const val RpsPerWinBest = 2f
 private const val RpsPerWinMid = 7.5f
 private const val RpsPerWinWorst = 13f
@@ -89,14 +89,13 @@ fun rpsPerWinColor(throwsPerWin: Double, darkTheme: Boolean): Color {
 
 @Composable
 fun rpsPerWinColor(throwsPerWin: Double): Color =
-    rpsPerWinColor(throwsPerWin, isSystemInDarkTheme())
+    rpsPerWinColor(throwsPerWin, isRpsDarkTheme())
 
-/** Default starting rating; maps to the yellow midpoint on the spectrum. */
 private const val EloRatingMin = 800f
 private const val EloRatingMid = 1000f
 private const val EloRatingMax = 1400f
 
-/** Lower ELO → red, ~1000 → yellow, higher ELO → green. */
+/** Lower ELO → magenta, ~1000 → yellow, higher ELO → cyan. */
 fun eloRatingColor(elo: Int, darkTheme: Boolean): Color {
     val value = elo.toFloat().coerceIn(EloRatingMin, EloRatingMax)
     val percent = when {
@@ -115,4 +114,4 @@ fun eloRatingColor(elo: Int, darkTheme: Boolean): Color {
 }
 
 @Composable
-fun eloRatingColor(elo: Int): Color = eloRatingColor(elo, isSystemInDarkTheme())
+fun eloRatingColor(elo: Int): Color = eloRatingColor(elo, isRpsDarkTheme())

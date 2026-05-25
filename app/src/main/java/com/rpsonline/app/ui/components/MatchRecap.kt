@@ -10,8 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Landscape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +37,7 @@ private enum class RecapSideOutcome {
 private fun recapSideColor(outcome: RecapSideOutcome): Color = when (outcome) {
     RecapSideOutcome.Won -> MaterialTheme.colorScheme.primary
     RecapSideOutcome.Lost -> MaterialTheme.colorScheme.error
-    RecapSideOutcome.Draw -> Color.Black
+    RecapSideOutcome.Draw -> MaterialTheme.colorScheme.tertiary
 }
 
 private fun mySideOutcome(recap: RoundRecap): RecapSideOutcome = when {
@@ -62,12 +60,7 @@ fun MatchRecapCard(
 ) {
     if (recaps.isEmpty()) return
     val displayRecaps = recaps.asReversed()
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
-    ) {
+    RpsCard(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -162,7 +155,7 @@ private fun recapChoicesSeparator(recap: RoundRecap): String = when {
 
 @Composable
 private fun recapSeparatorColor(recap: RoundRecap): Color = when {
-    recap.isDraw || recap.won == null -> Color.Black
+    recap.isDraw || recap.won == null -> MaterialTheme.colorScheme.tertiary
     recap.won -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error
 }
@@ -210,7 +203,7 @@ fun recapOutcomeLabel(recap: RoundRecap): String = when {
 
 @Composable
 fun recapOutcomeColor(recap: RoundRecap): Color = when {
-    recap.isDraw || recap.won == null -> Color.Black
+    recap.isDraw || recap.won == null -> MaterialTheme.colorScheme.tertiary
     recap.won -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error
 }

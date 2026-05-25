@@ -97,8 +97,9 @@ fun SignInScreen(
         ) {
             Text(
                 text = "RPS Online",
-            style = MaterialTheme.typography.headlineLarge,
-        )
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Ranked rock-paper-scissors.\nBest of 3. ELO matchmaking.",
