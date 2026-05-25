@@ -26,7 +26,7 @@ import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.ui.components.MoveStatIconSize
 import com.rpsonline.app.ui.components.ThrowCountRow
-import kotlin.math.roundToInt
+import java.util.Locale
 
 private fun throwsPerWin(
     wins: Int,
@@ -49,14 +49,8 @@ fun LeaderboardEntry.throwsPerWin(): Double? =
 fun UserProfile.throwsPerWin(): Double? =
     throwsPerWin(wins, throwsRock, throwsPaper, throwsScissors)
 
-fun formatThrowsPerWin(value: Double): String {
-    val rounded = (value * 10).roundToInt() / 10.0
-    return if (rounded == rounded.toLong().toDouble()) {
-        rounded.toLong().toString()
-    } else {
-        rounded.toString()
-    }
-}
+fun formatThrowsPerWin(value: Double): String =
+    String.format(Locale.US, "%.1f", value)
 
 @Composable
 fun RpsPerWinLabel(

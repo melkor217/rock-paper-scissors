@@ -38,6 +38,8 @@ interface MatchDoc {
   winnerId?: string;
   player1EloDelta?: number;
   player2EloDelta?: number;
+  player1Elo?: number;
+  player2Elo?: number;
   createdAt: Timestamp;
   lastActivityAt: Timestamp;
 }
@@ -87,6 +89,8 @@ async function createMatch(playerA: string, playerB: string): Promise<string> {
     player2: playerB,
     player1Name: userA.displayName,
     player2Name: userB.displayName,
+    player1Elo: userA.elo,
+    player2Elo: userB.elo,
     status: "active",
     currentRound: 1,
     player1Wins: 0,
@@ -200,6 +204,8 @@ async function finalizeMatch(
     player1Wins,
     player2Wins,
     rounds: sanitizeRounds(match.rounds),
+    player1Elo: p1Elo,
+    player2Elo: p2Elo,
     player1EloDelta: elo.deltaA,
     player2EloDelta: elo.deltaB,
     lastActivityAt: FieldValue.serverTimestamp(),

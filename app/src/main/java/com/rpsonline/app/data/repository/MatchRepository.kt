@@ -213,6 +213,8 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
         winnerId = getString("winnerId"),
         player1EloDelta = getLong("player1EloDelta")?.toInt(),
         player2EloDelta = getLong("player2EloDelta")?.toInt(),
+        player1Elo = getLong("player1Elo")?.toInt(),
+        player2Elo = getLong("player2Elo")?.toInt(),
         createdAt = getTimestamp("createdAt")?.toDate()?.time ?: 0L,
         lastActivityAt = getTimestamp("lastActivityAt")?.toDate()?.time ?: 0L,
     )

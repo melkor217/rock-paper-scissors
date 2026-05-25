@@ -34,6 +34,7 @@ import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.AppUpdateDialogs
+import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -115,10 +116,6 @@ fun HomeScreen(
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
-        uiState.onlinePlayerCount?.let { count ->
-            Spacer(modifier = Modifier.height(4.dp))
-            PlayersOnlineLabel(count = count)
-        }
         Spacer(modifier = Modifier.height(12.dp))
 
         HomeProfileSummaryCard(
@@ -127,6 +124,14 @@ fun HomeScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+        uiState.onlinePlayerCount?.let { count ->
+            PlayersOnlineLabel(
+                count = count,
+                modifier = Modifier.fillMaxWidth(),
+                emphasized = true,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+        }
         Button(
             onClick = onFindMatch,
             modifier = Modifier.fillMaxWidth(),
@@ -222,11 +227,7 @@ private fun HomeProfileSummaryCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = "$elo",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
+                        EloRatingText(elo = elo)
                         Text(
                             text = "ELO",
                             style = MaterialTheme.typography.labelLarge,

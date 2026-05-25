@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.LeaderboardEntry
+import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
@@ -201,10 +202,9 @@ private fun LeaderboardEntryContent(
                 scissors = entry.throwsScissors,
                 size = 56.dp,
             )
-            Text(
-                text = "${entry.elo}",
+            EloRatingText(
+                elo = entry.elo,
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.widthIn(min = 40.dp),
             )
         }
