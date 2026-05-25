@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,10 +21,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.ui.components.PlayerStatsWidget
+import java.util.Locale
 
 @Composable
 fun PreGameCountdownScreen(
-    secondsRemaining: Int,
+    secondsRemaining: Double,
     myDisplayName: String,
     opponentDisplayName: String,
     myProfile: UserProfile?,
@@ -47,7 +49,7 @@ fun PreGameCountdownScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = secondsRemaining.coerceAtLeast(0).toString(),
+            text = String.format(Locale.US, "%.1f", secondsRemaining.coerceAtLeast(0.0)),
             style = MaterialTheme.typography.displayLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -70,12 +72,15 @@ fun PreGameCountdownScreen(
         }
         Button(
             onClick = onSkip,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 56.dp),
         ) {
             Text(
                 text = "To battle!",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(vertical = 4.dp),
             )
         }
         Spacer(modifier = Modifier.height(4.dp))

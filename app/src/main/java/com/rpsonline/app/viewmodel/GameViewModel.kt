@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val PRE_GAME_COUNTDOWN_SECONDS = 3
+private const val PRE_GAME_COUNTDOWN_SECONDS = 2
 
 data class GameUiState(
     val match: Match? = null,
@@ -25,7 +25,7 @@ data class GameUiState(
     val myProfile: UserProfile? = null,
     val opponentProfile: UserProfile? = null,
     val showPreGameCountdown: Boolean = false,
-    val preGameCountdownSeconds: Int = PRE_GAME_COUNTDOWN_SECONDS,
+    val preGameCountdownSeconds: Double = PRE_GAME_COUNTDOWN_SECONDS.toDouble(),
     val hasSubmittedMove: Boolean = false,
     val isSubmitting: Boolean = false,
     val error: String? = null,
@@ -134,21 +134,24 @@ class GameViewModel(
     private fun startPreGameCountdown() {
         preGameCountdownJob?.cancel()
         preGameCountdownJob = viewModelScope.launch {
+            val endMs = System.currentTimeMillis() + PRE_GAME_COUNTDOWN_SECONDS * 1_000L
             _uiState.update {
                 it.copy(
                     showPreGameCountdown = true,
-                    preGameCountdownSeconds = PRE_GAME_COUNTDOWN_SECONDS,
+                    preGameCountdownSeconds = PRE_GAME_COUNTDOWN_SECONDS.toDouble(),
                 )
             }
-            for (seconds in PRE_GAME_COUNTDOWN_SECONDS downTo 1) {
-                _uiState.update { it.copy(preGameCountdownSeconds = seconds) }
-                delay(1_000)
+            while (true) {
+                val remainingMs = endMs - System.currentTimeMillis()
+                if (remainingMs <= 0) break
+                _uiState.update { it.copy(preGameCountdownSeconds = remainingMs / 1_000.0) }
                 if (!_uiState.value.showPreGameCountdown) return@launch
+                delay(100)
             }
             _uiState.update {
                 it.copy(
                     showPreGameCountdown = false,
-                    preGameCountdownSeconds = 0,
+                    preGameCountdownSeconds = 0.0,
                 )
             }
         }
@@ -159,7 +162,7 @@ class GameViewModel(
         _uiState.update {
             it.copy(
                 showPreGameCountdown = false,
-                preGameCountdownSeconds = 0,
+                preGameCountdownSeconds = 0.0,
             )
         }
     }
