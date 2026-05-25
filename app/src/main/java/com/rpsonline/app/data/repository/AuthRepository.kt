@@ -8,7 +8,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.UserProfile
@@ -82,7 +81,7 @@ class AuthRepository(
         awaitFirestoreAuth()
         val docRef = firestore.collection("users").document(uid)
         val snapshot = loadUserSnapshot(docRef)
-        if (snapshot.exists()) {
+        if (snapshot != null && snapshot.exists()) {
             if (!snapshot.isCompleteUserProfile()) {
                 auth.signOut()
                 error("Guest profile was incomplete. Tap Continue as guest again.")
