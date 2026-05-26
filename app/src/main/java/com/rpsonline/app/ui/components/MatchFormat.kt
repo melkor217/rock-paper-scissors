@@ -1,5 +1,7 @@
 package com.rpsonline.app.ui.components
 
+import com.rpsonline.app.domain.MatchMode
+
 /** Shared match score format (e.g. `2–1`). */
 fun formatMatchScore(myWins: Int, opponentWins: Int): String = "$myWins–$opponentWins"
 
@@ -24,3 +26,12 @@ fun postMatchElo(preMatchElo: Int?, eloDelta: Int?): Int? {
     if (preMatchElo == null || eloDelta == null) return null
     return preMatchElo + eloDelta
 }
+
+fun formatMatchMode(mode: MatchMode): String = mode.label
+
+/** e.g. `Best of 5 (first to 3)`. */
+fun formatMatchSeriesDetail(mode: MatchMode): String =
+    "${mode.label} (first to ${mode.winsToFinish})"
+
+fun formatMatchModes(modes: Set<MatchMode>): String =
+    modes.sortedBy { it.ordinal }.joinToString(" / ") { it.label }

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { calculateElo, resolveRound } from "./game";
+import { calculateElo, parseMatchMode, parseMatchModes, pickSharedMatchMode, resolveRound, winsToFinish } from "./game";
 
 describe("resolveRound", () => {
   it("detects ties", () => {
@@ -18,5 +18,34 @@ describe("calculateElo", () => {
     const result = calculateElo(1000, 1000, 1);
     assert.equal(result.deltaA, 16);
     assert.equal(result.deltaB, -16);
+  });
+});
+
+describe("match modes", () => {
+  it("defaults unknown values to BO3", () => {
+    assert.equal(parseMatchMode(undefined), "BO3");
+    assert.equal(parseMatchMode("BO5"), "BO5");
+  });
+
+  it("maps wins to finish by mode", () => {
+    assert.equal(winsToFinish("BO3"), 2);
+    assert.equal(winsToFinish("BO5"), 3);
+  });
+
+  it("parses multiple queue modes with legacy fallback", () => {
+    assert.deepEqual(parseMatchModes(["BO5", "BO3"]), ["BO5", "BO3"]);
+    assert.deepEqual(parseMatchModes(undefined, "BO5"), ["BO5"]);
+    assert.deepEqual(parseMatchModes([], "BO3"), ["BO3"]);
+  });
+
+  it("picks a single shared mode when only one overlaps", () => {
+    assert.equal(pickSharedMatchMode(["BO3", "BO5"], ["BO5"]), "BO5");
+    assert.equal(pickSharedMatchMode(["BO3"], ["BO5"]), null);
+  });
+
+  it("picks randomly among shared modes when both accept both", () => {
+    const both = ["BO3", "BO5"] as const;
+    assert.equal(pickSharedMatchMode([...both], [...both], () => 0), "BO3");
+    assert.equal(pickSharedMatchMode([...both], [...both], () => 0.99), "BO5");
   });
 });

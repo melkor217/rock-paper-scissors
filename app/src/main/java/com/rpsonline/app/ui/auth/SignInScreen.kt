@@ -103,7 +103,7 @@ fun SignInScreen(
             )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Ranked rock-paper-scissors.\nBest of 3. ELO matchmaking.",
+            text = "Ranked rock-paper-scissors.\nBest of 3 or 5. ELO matchmaking.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,

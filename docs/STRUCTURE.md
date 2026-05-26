@@ -91,11 +91,14 @@ These values must match between client and server:
 
 | Constant | App (`GameRules`) | Server (`functions/src/index.ts` / `game.ts`) |
 |----------|-------------------|-----------------------------------------------|
-| Wins to finish | `WINS_TO_FINISH = 2` | `WINS_TO_FINISH = 2` |
+| Wins to finish | `MatchMode.winsToFinish` (BO3=2, BO5=3) | `winsToFinish(mode)` in `game.ts` |
+| Match format | `matchModes` on queue + match docs | Same; queue pairs overlapping `matchModes` (random BO3/BO5 when both players accept both) |
 | Round timeout | `ROUND_TIMEOUT_SECONDS = 60` | `ROUND_TIMEOUT_MS = 60_000` |
 | Move resolution | `resolveRound()` | `resolveRound()` in `game.ts` |
 
 After changing rules, update both sides and redeploy functions.
+
+**Deploy order:** when adding or changing match formats, deploy Cloud Functions and `firestore.rules` before (or with) an app release that writes `matchModes` on `queue/{uid}`. Until functions are updated, new clients still queue but pairing falls back to BO3-only behavior on the server.
 
 ## Related docs
 

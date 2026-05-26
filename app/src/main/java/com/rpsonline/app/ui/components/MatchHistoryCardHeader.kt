@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.MatchHistoryEntry
+import com.rpsonline.app.domain.MatchMode
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -58,7 +59,7 @@ fun MatchHistoryCardHeader(
                     contentAlignment = Alignment.TopStart,
                 ) {
                     Text(
-                        text = formatCompactMatchLabel(entry.matchId),
+                        text = formatCompactMatchLabel(entry.matchId, entry.matchMode),
                         style = MaterialTheme.typography.labelSmall,
                         color = mutedColor,
                         maxLines = 1,
@@ -244,8 +245,8 @@ private fun MatchResultCenter(
     }
 }
 
-private fun formatCompactMatchLabel(matchId: String): String =
-    "#${matchId.take(CompactMatchIdLength)}"
+private fun formatCompactMatchLabel(matchId: String, matchMode: MatchMode): String =
+    "${matchMode.name} #${matchId.take(CompactMatchIdLength)}"
 
 @Composable
 private fun MatchDateLabel(

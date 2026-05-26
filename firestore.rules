@@ -10,6 +10,32 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function validQueueMatchModes(modes) {
+      return modes is list
+        && modes.size() >= 1
+        && modes.size() <= 2
+        && (modes.size() == 1
+            ? (modes[0] == 'BO3' || modes[0] == 'BO5')
+            : ((modes[0] == 'BO3' || modes[0] == 'BO5')
+               && (modes[1] == 'BO3' || modes[1] == 'BO5')
+               && modes[0] != modes[1]));
+    }
+
+    function validQueueMatchModeField(data) {
+      return !('matchModes' in data) && !('matchMode' in data)
+        || ('matchModes' in data && validQueueMatchModes(data.matchModes))
+        || ('matchMode' in data && (data.matchMode == 'BO3' || data.matchMode == 'BO5'));
+    }
+
+    /** Legacy clients omit matchModes; Cloud Functions default to BO3. */
+    function validQueueWrite() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['joinedAt', 'elo', 'displayName'])
+        && data.elo is number
+        && data.displayName is string
+        && validQueueMatchModeField(data);
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId)
@@ -43,7 +69,8 @@ service cloud.firestore {
 
     match /queue/{userId} {
       allow read: if isOwner(userId);
-      allow create, update, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && validQueueWrite();
+      allow delete: if isOwner(userId);
     }
 
     match /matches/{matchId} {

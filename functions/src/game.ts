@@ -1,5 +1,36 @@
 export type Move = "ROCK" | "PAPER" | "SCISSORS";
 
+export type MatchMode = "BO3" | "BO5";
+
+export function parseMatchMode(value: unknown): MatchMode {
+  return value === "BO5" ? "BO5" : "BO3";
+}
+
+export function winsToFinish(mode: MatchMode): number {
+  return mode === "BO5" ? 3 : 2;
+}
+
+export function parseMatchModes(value: unknown, legacyMode?: unknown): MatchMode[] {
+  if (Array.isArray(value)) {
+    const modes = value.filter((entry): entry is MatchMode => entry === "BO3" || entry === "BO5");
+    if (modes.length > 0) return modes;
+  }
+  return [parseMatchMode(legacyMode)];
+}
+
+const SHARED_MODE_ORDER: MatchMode[] = ["BO3", "BO5"];
+
+/** Picks uniformly at random among formats both players queued for. */
+export function pickSharedMatchMode(
+  modesA: MatchMode[],
+  modesB: MatchMode[],
+  random: () => number = Math.random,
+): MatchMode | null {
+  const shared = SHARED_MODE_ORDER.filter((mode) => modesA.includes(mode) && modesB.includes(mode));
+  if (shared.length === 0) return null;
+  return shared[Math.floor(random() * shared.length)];
+}
+
 export function resolveRound(p1: Move, p2: Move): "player1" | "player2" | "tie" {
   if (p1 === p2) return "tie";
   if (
