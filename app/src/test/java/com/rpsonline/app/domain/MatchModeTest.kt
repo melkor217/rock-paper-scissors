@@ -52,13 +52,13 @@ class MatchModeTest {
     }
 
     @Test
-    fun toggleInSelection_deselectingOnlyMode_selectsTheOther() {
+    fun toggleInSelection_deselectingOnlyMode_selectsAllOthers() {
         assertEquals(
-            setOf(MatchMode.BO5),
+            setOf(MatchMode.BO5, MatchMode.BO10),
             MatchMode.toggleInSelection(setOf(MatchMode.BO3), MatchMode.BO3),
         )
         assertEquals(
-            setOf(MatchMode.BO3),
+            setOf(MatchMode.BO3, MatchMode.BO10),
             MatchMode.toggleInSelection(setOf(MatchMode.BO5), MatchMode.BO5),
         )
     }
