@@ -10,8 +10,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.domain.GameRules
 
 fun formatClockSeconds(totalSeconds: Int): String {
     val safe = totalSeconds.coerceAtLeast(0)
@@ -20,37 +20,37 @@ fun formatClockSeconds(totalSeconds: Int): String {
     return "%d:%02d".format(minutes, seconds)
 }
 
+private fun clockLabel(base: String): String = base
+
 @Composable
 fun MatchClockDisplay(
     secondsRemaining: Int,
     label: String,
-    isLow: Boolean,
+    isRunning: Boolean,
     compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val color = if (isLow) {
-        MaterialTheme.colorScheme.error
+    val initialClockSeconds = (GameRules.INITIAL_CLOCK_MS / 1000L).toFloat()
+    val labelColor = if (isRunning) {
+        MaterialTheme.colorScheme.onSurfaceVariant
     } else {
-        MaterialTheme.colorScheme.onBackground
+        MaterialTheme.colorScheme.outline
     }
+
     Column(
         modifier = modifier.padding(horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = label,
+            text = clockLabel(label),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = labelColor,
         )
-        Text(
-            text = formatClockSeconds(secondsRemaining),
-            style = if (compact) {
-                MaterialTheme.typography.titleLarge
-            } else {
-                MaterialTheme.typography.headlineSmall
-            },
-            fontWeight = FontWeight.Bold,
-            color = color,
+        CircularGameClock(
+            secondsRemaining = secondsRemaining,
+            totalSeconds = initialClockSeconds,
+            isRunning = isRunning,
+            compact = compact,
         )
     }
 }
@@ -59,6 +59,8 @@ fun MatchClockDisplay(
 fun GameTimerRow(
     myClockSeconds: Int,
     opponentClockSeconds: Int,
+    myClockRunning: Boolean,
+    opponentClockRunning: Boolean,
     roundSecondsRemaining: Int?,
     isResolvingTimeout: Boolean,
     hasSubmittedMove: Boolean,
@@ -68,28 +70,31 @@ fun GameTimerRow(
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
         MatchClockDisplay(
             secondsRemaining = myClockSeconds,
             label = "You",
-            isLow = !hasSubmittedMove && myClockSeconds <= 10,
+            isRunning = myClockRunning,
             compact = compact,
             modifier = Modifier.weight(1f),
         )
         if (roundSecondsRemaining != null) {
             RoundCountdown(
                 secondsRemaining = roundSecondsRemaining,
+                label = clockLabel("Round"),
+                isRunning = !isResolvingTimeout,
                 isResolvingTimeout = isResolvingTimeout,
                 hasSubmittedMove = hasSubmittedMove,
+                showFooter = false,
                 compact = compact,
-                modifier = Modifier.weight(1.1f),
+                modifier = Modifier.weight(1f),
             )
         }
         MatchClockDisplay(
             secondsRemaining = opponentClockSeconds,
             label = "Opp",
-            isLow = opponentClockSeconds <= 10,
+            isRunning = opponentClockRunning,
             compact = compact,
             modifier = Modifier.weight(1f),
         )

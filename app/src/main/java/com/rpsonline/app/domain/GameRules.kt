@@ -7,7 +7,7 @@ object GameRules {
     const val ROUND_TIMEOUT_SECONDS = 60
 
     /** Must match Cloud Functions `INITIAL_CLOCK_MS`. */
-    const val INITIAL_CLOCK_MS = 60_000L
+    const val INITIAL_CLOCK_MS = 90_000L
 
     /** Must match Cloud Functions `CLOCK_INCREMENT_MS`. */
     const val CLOCK_INCREMENT_MS = 5_000L

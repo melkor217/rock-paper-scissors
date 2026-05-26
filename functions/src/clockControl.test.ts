@@ -14,12 +14,12 @@ describe("clockControl", () => {
     const t0 = Timestamp.fromMillis(0);
     const t5 = Timestamp.fromMillis(5_000);
     const result = tickClocks(
-      { player1ClockMs: 60_000, player2ClockMs: 60_000, clocksUpdatedAt: t0 },
+      { player1ClockMs: 90_000, player2ClockMs: 90_000, clocksUpdatedAt: t0 },
       { player1Choice: "ROCK" },
       t5,
     );
-    assert.equal(result.player1ClockMs, 60_000);
-    assert.equal(result.player2ClockMs, 55_000);
+    assert.equal(result.player1ClockMs, 90_000);
+    assert.equal(result.player2ClockMs, 85_000);
   });
 
   it("adds increment after each resolved round", () => {

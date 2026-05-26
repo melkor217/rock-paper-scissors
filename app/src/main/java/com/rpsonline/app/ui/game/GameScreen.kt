@@ -75,21 +75,6 @@ fun GameScreen(
             return
         }
 
-        if (uiState.showPreGameCountdown) {
-            PreGameCountdownScreen(
-                secondsRemaining = uiState.preGameCountdownSeconds,
-                myDisplayName = "You",
-                opponentDisplayName = match.opponentName(userId),
-                myProfile = uiState.myProfile,
-                opponentProfile = uiState.opponentProfile,
-                myElo = match.myElo(userId),
-                opponentElo = match.opponentElo(userId),
-                onSkip = viewModel::skipPreGameCountdown,
-                modifier = Modifier.weight(1f),
-            )
-            return
-        }
-
         val currentRound = match.currentRoundData()
         val drawReplay = match.pendingDrawReplay()
         val pendingOutcome = match.pendingRoundOutcome()
@@ -155,9 +140,15 @@ fun GameScreen(
                 uiState.myClockSeconds != null &&
                 uiState.opponentClockSeconds != null
             if (showTimers) {
+                val opponentSubmitted = when (userId) {
+                    match.player1 -> openRound?.player2Choice != null
+                    else -> openRound?.player1Choice != null
+                } == true
                 GameTimerRow(
                     myClockSeconds = uiState.myClockSeconds!!,
                     opponentClockSeconds = uiState.opponentClockSeconds!!,
+                    myClockRunning = !uiState.hasSubmittedMove,
+                    opponentClockRunning = !opponentSubmitted,
                     roundSecondsRemaining = uiState.countdownSeconds,
                     isResolvingTimeout = uiState.isResolvingTimeout,
                     hasSubmittedMove = uiState.hasSubmittedMove,
