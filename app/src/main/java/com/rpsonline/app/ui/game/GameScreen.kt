@@ -198,6 +198,7 @@ fun GameScreen(
                         WinRoundBanner(
                             myChoice = myChoice,
                             opponentChoice = oppChoice,
+                            roundNumber = round.roundNumber,
                             awaitingNextRound = awaitingNextRound,
                             compact = compactLayout,
                             opponentLabel = opponentScoreLabel,
@@ -206,6 +207,7 @@ fun GameScreen(
                         LoseRoundBanner(
                             myChoice = myChoice,
                             opponentChoice = oppChoice,
+                            roundNumber = round.roundNumber,
                             awaitingNextRound = awaitingNextRound,
                             compact = compactLayout,
                             opponentLabel = opponentScoreLabel,

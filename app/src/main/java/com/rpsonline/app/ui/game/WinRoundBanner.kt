@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 fun WinRoundBanner(
     myChoice: String?,
     opponentChoice: String?,
+    roundNumber: Int,
     awaitingNextRound: Boolean,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
@@ -19,7 +20,7 @@ fun WinRoundBanner(
         containerColor = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         icon = Icons.Default.EmojiEvents,
-        headline = if (compact) "You won!" else "You won the round!",
+        headline = "You won Round #$roundNumber",
         subtitle = when {
             compact && awaitingNextRound -> ""
             compact -> "Point scored."

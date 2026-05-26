@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 fun LoseRoundBanner(
     myChoice: String?,
     opponentChoice: String?,
+    roundNumber: Int,
     awaitingNextRound: Boolean,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
@@ -19,7 +20,7 @@ fun LoseRoundBanner(
         containerColor = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
         icon = Icons.Default.HeartBroken,
-        headline = if (compact) "You lost" else "You lost the round",
+        headline = "You lost Round #$roundNumber",
         subtitle = when {
             compact && awaitingNextRound -> ""
             compact -> "Opponent scored."
