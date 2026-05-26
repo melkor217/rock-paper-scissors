@@ -4,9 +4,9 @@ Online rock–paper–scissors for Android. Match with another player in real ti
 
 ## How it works
 
-- **Matchmaking** — queue until an opponent is found; pairing prefers players within **±200 ELO**.
+- **Matchmaking** — on Home, select **Best of 3**, **Best of 5**, or both (saved for next time). Queue until an opponent is found; pairing requires overlapping format and prefers players within **±200 ELO**.
 - **Rounds** — each player picks rock, paper, or scissors within **60 seconds**. Same move is a draw and the round is replayed with no point awarded. A short pre-game countdown runs before the first round.
-- **Match** — choose **BO3** (first to 2) or **BO5** (first to 3); opponents are paired by format and similar ELO.
+- **Match** — **BO3** (first to 2) or **BO5** (first to 3); opponents are paired by overlapping format and similar ELO.
 - **Rating** — ELO updates after each completed match.
 - **Profiles** — ELO, wins/losses, throw breakdown (rock / paper / scissors), and match history with per-round recaps. Your profile shows your last **10** matches; other players’ profiles show matches you played together. Open profiles from Home, the leaderboard, or the result screen.
 - **Leaderboard** — ranked players with win/loss and throw tendencies; tap a row to open their profile.
@@ -52,7 +52,9 @@ Deploy Firestore rules, indexes, and Cloud Functions:
 ./scripts/deploy-backend.sh
 ```
 
-Match rules in the app (`GameRules`) must stay aligned with `functions/` (wins to finish, round timeout). After rule changes, redeploy functions and ship an app update if the client copy changes.
+**Deploy order for match-format changes:** deploy **Cloud Functions and Firestore rules before** (or together with) shipping an app build that writes `matchModes` on the queue. Older functions ignore `matchModes` and treat everyone as BO3 until updated.
+
+Match rules in the app (`MatchMode` / `GameRules`) must stay aligned with `functions/` (wins to finish, round timeout). After rule changes, redeploy functions and ship an app update if the client copy changes.
 
 Run Cloud Functions unit tests:
 

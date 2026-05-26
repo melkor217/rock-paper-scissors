@@ -173,7 +173,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
-                            text = mode.name,
+                            text = mode.label,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )

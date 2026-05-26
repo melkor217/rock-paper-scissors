@@ -29,5 +29,9 @@ fun postMatchElo(preMatchElo: Int?, eloDelta: Int?): Int? {
 
 fun formatMatchMode(mode: MatchMode): String = mode.label
 
+/** e.g. `Best of 5 (first to 3)`. */
+fun formatMatchSeriesDetail(mode: MatchMode): String =
+    "${mode.label} (first to ${mode.winsToFinish})"
+
 fun formatMatchModes(modes: Set<MatchMode>): String =
     modes.sortedBy { it.ordinal }.joinToString(" / ") { it.label }

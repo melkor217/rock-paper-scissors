@@ -37,7 +37,7 @@ import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.domain.GameRules
-import com.rpsonline.app.ui.components.formatMatchMode
+import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -143,7 +143,7 @@ fun GameScreen(
             )
             Spacer(modifier = Modifier.height(if (compactLayout) 4.dp else 8.dp))
             Text(
-                text = "Round ${match.currentRound}  •  ${formatMatchMode(match.matchMode)}",
+                text = "Round ${match.currentRound}  •  ${formatMatchSeriesDetail(match.matchMode)}",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onBackground,
             )

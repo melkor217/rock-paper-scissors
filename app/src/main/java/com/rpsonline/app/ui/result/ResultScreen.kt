@@ -38,8 +38,10 @@ import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.opponentEloAtMatch
+import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.MatchEloChangeLabel
 import com.rpsonline.app.ui.components.formatMatchScore
+import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.PlayerStatsWidget
@@ -48,7 +50,7 @@ import com.rpsonline.app.ui.components.rpsScreenPadding
 @Composable
 fun ResultScreen(
     matchId: String,
-    onPlayAgain: () -> Unit,
+    onPlayAgain: (MatchMode) -> Unit,
     onHome: () -> Unit,
     onOpponentProfile: (String) -> Unit,
 ) {
@@ -162,6 +164,13 @@ fun ResultScreen(
             )
         }
 
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = formatMatchSeriesDetail(currentMatch.matchMode),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
         Spacer(modifier = Modifier.height(12.dp))
 
         FinalScoreCard(
@@ -189,7 +198,7 @@ fun ResultScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
         Button(
-            onClick = onPlayAgain,
+            onClick = { onPlayAgain(currentMatch.matchMode) },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Play Again")

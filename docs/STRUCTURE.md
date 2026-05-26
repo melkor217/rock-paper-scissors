@@ -98,6 +98,8 @@ These values must match between client and server:
 
 After changing rules, update both sides and redeploy functions.
 
+**Deploy order:** when adding or changing match formats, deploy Cloud Functions and `firestore.rules` before (or with) an app release that writes `matchModes` on `queue/{uid}`. Until functions are updated, new clients still queue but pairing falls back to BO3-only behavior on the server.
+
 ## Related docs
 
 - [scripts/ENABLE_AUTH.md](../scripts/ENABLE_AUTH.md) — Firebase Auth providers and SHA-1

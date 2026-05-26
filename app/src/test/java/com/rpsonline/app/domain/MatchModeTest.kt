@@ -9,12 +9,14 @@ class MatchModeTest {
     fun bo3_requiresTwoWins() {
         assertEquals(2, MatchMode.BO3.winsToFinish)
         assertEquals(3, MatchMode.BO3.bestOfRounds)
+        assertEquals("Best of 3", MatchMode.BO3.label)
     }
 
     @Test
     fun bo5_requiresThreeWins() {
         assertEquals(3, MatchMode.BO5.winsToFinish)
         assertEquals(5, MatchMode.BO5.bestOfRounds)
+        assertEquals("Best of 5", MatchMode.BO5.label)
     }
 
     @Test

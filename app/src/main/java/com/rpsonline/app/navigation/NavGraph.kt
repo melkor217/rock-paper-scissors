@@ -11,9 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.rpsonline.app.data.preferences.MatchModePreferences
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.viewmodel.MatchmakingViewModel
@@ -134,12 +132,10 @@ fun RpsNavGraph() {
             arguments = listOf(navArgument("matchId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val matchId = backStackEntry.arguments?.getString("matchId") ?: return@composable
-            val context = LocalContext.current
             ResultScreen(
                 matchId = matchId,
-                onPlayAgain = {
-                    val matchModes = MatchModePreferences(context).get()
-                    navController.navigate(Routes.matchmaking(matchModes)) {
+                onPlayAgain = { matchMode ->
+                    navController.navigate(Routes.matchmaking(setOf(matchMode))) {
                         popUpTo(Routes.HOME)
                     }
                 },

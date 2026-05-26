@@ -6,11 +6,12 @@ package com.rpsonline.app.domain
 enum class MatchMode(
     val winsToFinish: Int,
     val bestOfRounds: Int,
-    val label: String,
 ) {
-    BO3(winsToFinish = 2, bestOfRounds = 3, label = "Best of 3"),
-    BO5(winsToFinish = 3, bestOfRounds = 5, label = "Best of 5"),
+    BO3(winsToFinish = 2, bestOfRounds = 3),
+    BO5(winsToFinish = 3, bestOfRounds = 5),
     ;
+
+    val label: String get() = "Best of $bestOfRounds"
 
     companion object {
         val DEFAULT_SELECTION: Set<MatchMode> = setOf(BO3)
