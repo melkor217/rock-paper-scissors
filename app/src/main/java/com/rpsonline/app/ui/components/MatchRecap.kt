@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Description
@@ -32,11 +32,10 @@ import com.rpsonline.app.data.model.RoundRecap
 
 private val RecapMoveIconSize = 14.dp
 private val RecapCompactBreakpoint = 360.dp
-private val RecapRoundColumnWidthWide = 68.dp
-private val RecapRoundColumnWidthCompact = 28.dp
-private val RecapOutcomeColumnWidthWide = 44.dp
-private val RecapOutcomeColumnWidthCompact = 36.dp
-private val RecapRowColumnSpacing = 2.dp
+/** Minimum width per recap column (~8 characters). */
+private val RecapColumnMinWidthWide = 88.dp
+private val RecapColumnMinWidthCompact = 72.dp
+private val RecapRowColumnSpacing = 6.dp
 
 private enum class RecapSideOutcome {
     Won,
@@ -106,15 +105,10 @@ private fun MatchRecapContent(
             else -> 10.dp
         }
         val verticalPadding = if (embedded) 4.dp else 8.dp
-        val roundColumnWidth = if (compact) {
-            RecapRoundColumnWidthCompact
+        val columnMinWidth = if (compact) {
+            RecapColumnMinWidthCompact
         } else {
-            RecapRoundColumnWidthWide
-        }
-        val outcomeColumnWidth = if (compact) {
-            RecapOutcomeColumnWidthCompact
-        } else {
-            RecapOutcomeColumnWidthWide
+            RecapColumnMinWidthWide
         }
 
         Column(
@@ -136,10 +130,9 @@ private fun MatchRecapContent(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
                 RoundRecapRow(
-                    roundLabel = roundRecapLabel(recap.roundNumber, compact),
+                    roundLabel = roundRecapLabel(recap.roundNumber),
                     recap = recap,
-                    roundColumnWidth = roundColumnWidth,
-                    outcomeColumnWidth = outcomeColumnWidth,
+                    columnMinWidth = columnMinWidth,
                 )
             }
         }
@@ -151,30 +144,38 @@ fun RoundRecapRow(
     roundLabel: String,
     recap: RoundRecap,
     modifier: Modifier = Modifier,
-    roundColumnWidth: Dp = RecapRoundColumnWidthWide,
-    outcomeColumnWidth: Dp = RecapOutcomeColumnWidthWide,
+    columnMinWidth: Dp = RecapColumnMinWidthWide,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(RecapRowColumnSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = roundLabel,
-            modifier = Modifier.width(roundColumnWidth),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Box(
+        RecapRowColumn(
             modifier = Modifier.weight(1f),
+            columnMinWidth = columnMinWidth,
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(
+                text = roundLabel,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Start,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        RecapRowColumn(
+            modifier = Modifier.weight(1f),
+            columnMinWidth = columnMinWidth,
             contentAlignment = Alignment.Center,
         ) {
             RoundChoicesLine(recap = recap)
         }
-        Box(
-            modifier = Modifier.width(outcomeColumnWidth),
+        RecapRowColumn(
+            modifier = Modifier.weight(1f),
+            columnMinWidth = columnMinWidth,
             contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
@@ -188,6 +189,21 @@ fun RoundRecapRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+@Composable
+private fun RecapRowColumn(
+    columnMinWidth: Dp,
+    contentAlignment: Alignment,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = modifier.widthIn(min = columnMinWidth),
+        contentAlignment = contentAlignment,
+    ) {
+        content()
     }
 }
 
@@ -225,8 +241,7 @@ private fun RoundChoicesLine(recap: RoundRecap) {
     }
 }
 
-private fun roundRecapLabel(roundNumber: Int, compact: Boolean): String =
-    if (compact) "R$roundNumber" else "Round#$roundNumber"
+private fun roundRecapLabel(roundNumber: Int): String = "Round#$roundNumber"
 
 private fun recapChoicesSeparator(recap: RoundRecap): String = when {
     recap.isDraw || recap.won == null -> "="
