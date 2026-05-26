@@ -3,7 +3,11 @@ package com.rpsonline.app.ui.matchmaking
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -16,10 +20,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
+import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.formatMatchModes
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.playMatchFoundSound
@@ -50,79 +57,200 @@ fun MatchmakingScreen(
     Column(
         modifier = Modifier.rpsScreenPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
         uiState.onlinePlayerCount?.let { count ->
-            PlayersOnlineLabel(count = count)
-            Spacer(modifier = Modifier.height(16.dp))
+            PlayersOnlineLabel(
+                count = count,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
+
+        Spacer(modifier = Modifier.weight(1f))
+
         when (uiState.status) {
             MatchmakingStatus.SEARCHING -> {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Searching for ${formatMatchModes(matchModes)} opponent…",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                MatchmakingSearchCard(
+                    matchModes = matchModes,
+                    queueElapsedSeconds = uiState.queueElapsedSeconds,
                 )
-                Text(
-                    text = "Matching by similar ELO and format",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+
+            MatchmakingStatus.ERROR -> {
+                MatchmakingMessageCard(
+                    title = "Couldn’t join queue",
+                    body = uiState.error ?: "Matchmaking failed",
+                    isError = true,
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = formatQueueElapsed(uiState.queueElapsedSeconds),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.primary,
+            }
+
+            MatchmakingStatus.MATCHED -> {
+                MatchmakingMessageCard(
+                    title = "Match found",
+                    body = "Starting game…",
                 )
-                Spacer(modifier = Modifier.height(24.dp))
-                OutlinedButton(onClick = {
-                    viewModel.cancelMatchmaking()
-                    onCancel()
-                }) {
+            }
+
+            MatchmakingStatus.IDLE -> {
+                MatchmakingMessageCard(
+                    title = "Preparing",
+                    body = "Setting up matchmaking…",
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        when (uiState.status) {
+            MatchmakingStatus.SEARCHING -> {
+                OutlinedButton(
+                    onClick = {
+                        viewModel.cancelMatchmaking()
+                        onCancel()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text("Cancel")
                 }
             }
 
             MatchmakingStatus.ERROR -> {
-                Text(
-                    text = uiState.error ?: "Matchmaking failed",
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { viewModel.startMatchmaking() }) {
-                    Text("Retry")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(onClick = onCancel) {
-                    Text("Back")
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = { viewModel.startMatchmaking() },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Retry")
+                    }
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Back")
+                    }
                 }
             }
 
-            MatchmakingStatus.MATCHED -> {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(8.dp))
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun MatchmakingSearchCard(
+    matchModes: Set<MatchMode>,
+    queueElapsedSeconds: Long,
+) {
+    RpsCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(40.dp),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 3.dp,
+            )
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Text(
-                    text = "Match found! Starting game…",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    text = "Finding an opponent",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = formatMatchModes(matchModes),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "Matched by similar rating",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                 )
             }
 
-            MatchmakingStatus.IDLE -> {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 Text(
-                    text = "Preparing matchmaking…",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    text = "In queue",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = formatQueueTime(queueElapsedSeconds),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
     }
 }
 
-private fun formatQueueElapsed(seconds: Long): String {
+@Composable
+private fun MatchmakingMessageCard(
+    title: String,
+    body: String,
+    isError: Boolean = false,
+) {
+    RpsCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (!isError) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(36.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 3.dp,
+                )
+            }
+            Text(
+                text = title,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isError) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = body,
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+private fun formatQueueTime(seconds: Long): String {
     val minutes = seconds / 60
     val secs = seconds % 60
-    return "In queue: %d:%02d".format(minutes, secs)
+    return "%d:%02d".format(minutes, secs)
 }

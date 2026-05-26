@@ -93,11 +93,7 @@ class HomeViewModel(
 
     fun toggleMatchMode(context: Context, mode: MatchMode) {
         val current = _uiState.value.selectedMatchModes
-        val updated = when {
-            mode !in current -> current + mode
-            current.size == 1 -> current
-            else -> current - mode
-        }
+        val updated = MatchMode.toggleInSelection(current, mode)
         MatchModePreferences(context).set(updated)
         _uiState.update { it.copy(selectedMatchModes = updated) }
     }

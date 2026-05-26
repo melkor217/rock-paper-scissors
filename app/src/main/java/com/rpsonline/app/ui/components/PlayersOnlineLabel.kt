@@ -32,6 +32,6 @@ fun PlayersOnlineLabel(
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
-        textAlign = if (emphasized) TextAlign.Center else TextAlign.Start,
+        textAlign = TextAlign.Center,
     )
 }

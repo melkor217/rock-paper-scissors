@@ -36,5 +36,13 @@ enum class MatchMode(
 
         fun encodeRouteArg(modes: Set<MatchMode>): String =
             modes.sortedBy { it.ordinal }.joinToString(",") { it.name }
+
+        /** At least one mode must stay selected; deselecting the only one switches to the other(s). */
+        fun toggleInSelection(current: Set<MatchMode>, mode: MatchMode): Set<MatchMode> =
+            when {
+                mode !in current -> current + mode
+                current.size == 1 -> entries.filter { it != mode }.toSet()
+                else -> current - mode
+            }
     }
 }
