@@ -35,7 +35,7 @@ export function bestOfRounds(mode: MatchMode): number {
   }
 }
 
-/** BO10 can end tied at 5–5 after all rounds are played. */
+/** BO10 can end tied when all rounds are played with equal wins. */
 export function seriesOutcomeAfterRound(
   mode: MatchMode,
   player1Wins: number,
@@ -50,7 +50,7 @@ export function seriesOutcomeAfterRound(
     return { kind: "continue" };
   }
 
-  if (player1Wins === 5 && player2Wins === 5) return { kind: "draw" };
+  if (player1Wins === player2Wins) return { kind: "draw" };
   if (player1Wins > player2Wins) return { kind: "winner", player: "player1" };
   if (player2Wins > player1Wins) return { kind: "winner", player: "player2" };
   return { kind: "draw" };
