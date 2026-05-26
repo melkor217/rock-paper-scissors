@@ -27,20 +27,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.RpsCard
-import com.rpsonline.app.ui.components.EloRatingText
-import com.rpsonline.app.ui.components.MatchEloChangeLabel
-import com.rpsonline.app.ui.components.MatchEloMatchupLine
-import com.rpsonline.app.ui.components.WinLossStatLine
-import com.rpsonline.app.ui.components.postMatchElo
+import com.rpsonline.app.ui.components.MatchHistoryCardHeader
+import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.leaderboard.PlayerThrowStatsColumn
-import com.rpsonline.app.ui.leaderboard.hasThrowStats
 import com.rpsonline.app.viewmodel.ProfileViewModel
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-
-private val MatchDateFormat = DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm")
 
 @Composable
 fun ProfileScreen(
@@ -155,49 +145,14 @@ private fun ProfileStatsCard(
     throwsPaper: Int,
     throwsScissors: Int,
 ) {
-    val statStyle = MaterialTheme.typography.bodyMedium
-    val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
-
-    RpsCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    EloRatingText(elo = elo)
-                    Text(
-                        text = "ELO",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                WinLossStatLine(
-                    wins = wins,
-                    losses = losses,
-                    textStyle = statStyle,
-                )
-            }
-            if (showThrowStats) {
-                PlayerThrowStatsColumn(
-                    wins = wins,
-                    throwsRock = throwsRock,
-                    throwsPaper = throwsPaper,
-                    throwsScissors = throwsScissors,
-                    modifier = Modifier.weight(1f),
-                    textStyle = statStyle,
-                )
-            }
-        }
-    }
+    ProfileSummaryStatsCard(
+        elo = elo,
+        wins = wins,
+        losses = losses,
+        throwsRock = throwsRock,
+        throwsPaper = throwsPaper,
+        throwsScissors = throwsScissors,
+    )
 }
 
 @Composable
@@ -208,72 +163,21 @@ private fun MatchHistoryCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = formatCompactMatchLabel(entry.matchId),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    MatchEloMatchupLine(
-                        myDisplayName = entry.myDisplayName,
-                        opponentName = entry.opponentName,
-                        myElo = entry.myElo,
-                        opponentElo = entry.opponentElo,
-                    )
-                    Text(
-                        text = formatMatchDate(entry.lastActivityAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = matchOutcomeLabel(entry),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = matchOutcomeColor(entry),
-                    )
-                    Text(
-                        text = "${entry.myWins} – ${entry.opponentWins}",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    MatchEloChangeLabel(
-                        postMatchElo = postMatchElo(entry.myElo, entry.eloDelta),
-                        eloDelta = entry.eloDelta,
-                        textStyle = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
+            MatchHistoryCardHeader(
+                entry = entry,
+                lastActivityAt = entry.lastActivityAt,
+                outcomeLabel = matchOutcomeLabel(entry),
+                outcomeColor = matchOutcomeColor(entry),
+            )
             MatchRecapCard(
                 recaps = entry.recaps,
-                title = "Rounds",
+                title = null,
             )
         }
     }
-}
-
-private const val CompactMatchIdLength = 8
-
-private fun formatCompactMatchLabel(matchId: String): String {
-    val compact = matchId.take(CompactMatchIdLength)
-    return "Match#$compact"
-}
-
-private fun formatMatchDate(epochMs: Long): String {
-    if (epochMs <= 0L) return "—"
-    return Instant.ofEpochMilli(epochMs)
-        .atZone(ZoneId.systemDefault())
-        .format(MatchDateFormat)
 }
 
 private fun matchOutcomeLabel(entry: MatchHistoryEntry): String = when {

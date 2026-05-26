@@ -23,6 +23,7 @@ fun MatchEloChangeLabel(
     eloDelta: Int?,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    showEloPrefix: Boolean = true,
 ) {
     if (eloDelta == null) return
 
@@ -37,11 +38,14 @@ fun MatchEloChangeLabel(
             modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "ELO ",
-                style = textStyle,
-                fontWeight = FontWeight.Bold,
-            )
+            if (showEloPrefix) {
+                Text(
+                    text = "ELO ",
+                    style = textStyle,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             EloRatingText(
                 elo = postMatchElo,
                 style = textStyle.copy(fontWeight = FontWeight.Bold),

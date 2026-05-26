@@ -8,12 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -32,13 +28,9 @@ import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.AppUpdateDialogs
-import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
-import com.rpsonline.app.ui.components.RpsCard
-import com.rpsonline.app.ui.components.WinLossStatLine
+import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.leaderboard.PlayerThrowStatsColumn
-import com.rpsonline.app.ui.leaderboard.hasThrowStats
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
@@ -175,79 +167,15 @@ private fun HomeProfileSummaryCard(
     profile: UserProfile?,
     onClick: () -> Unit,
 ) {
-    val elo = profile?.elo ?: 1000
-    val wins = profile?.wins ?: 0
-    val losses = profile?.losses ?: 0
-    val throwsRock = profile?.throwsRock ?: 0
-    val throwsPaper = profile?.throwsPaper ?: 0
-    val throwsScissors = profile?.throwsScissors ?: 0
-    val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
-
-    RpsCard(
+    ProfileSummaryStatsCard(
+        elo = profile?.elo ?: 1000,
+        wins = profile?.wins ?: 0,
+        losses = profile?.losses ?: 0,
+        throwsRock = profile?.throwsRock ?: 0,
+        throwsPaper = profile?.throwsPaper ?: 0,
+        throwsScissors = profile?.throwsScissors ?: 0,
+        showHeader = true,
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Profile",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "Open profile",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            val statStyle = MaterialTheme.typography.bodyMedium
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        EloRatingText(elo = elo)
-                        Text(
-                            text = "ELO",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    WinLossStatLine(
-                        wins = wins,
-                        losses = losses,
-                        textStyle = statStyle,
-                    )
-                }
-                if (showThrowStats) {
-                    PlayerThrowStatsColumn(
-                        wins = wins,
-                        throwsRock = throwsRock,
-                        throwsPaper = throwsPaper,
-                        throwsScissors = throwsScissors,
-                        modifier = Modifier.weight(1f),
-                        textStyle = statStyle,
-                    )
-                }
-            }
-        }
-    }
+    )
 }
 
