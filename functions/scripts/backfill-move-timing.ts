@@ -174,17 +174,17 @@ async function main() {
   );
 
   if (dryRun) {
-    const sample = matchUpdates.slice(0, 3);
-    for (const m of sample) {
-      console.log("match sample", m.matchId, {
+    for (const m of matchUpdates) {
+      console.log(`[dry-run] would update matches/${m.matchId}`, {
+        rounds: m.rounds,
         player1MoveTimeMs: m.player1MoveTimeMs,
         player2MoveTimeMs: m.player2MoveTimeMs,
         player1MoveCount: m.player1MoveCount,
         player2MoveCount: m.player2MoveCount,
       });
     }
-    for (const [uid, totals] of [...userTotals.entries()].slice(0, 5)) {
-      console.log("user sample", uid, totals);
+    for (const [uid, totals] of userTotals) {
+      console.log(`[dry-run] would update users/${uid}`, totals);
     }
     return;
   }
