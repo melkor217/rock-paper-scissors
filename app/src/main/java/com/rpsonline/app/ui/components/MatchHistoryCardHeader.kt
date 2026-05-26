@@ -25,8 +25,7 @@ import java.time.format.DateTimeFormatter
 
 private const val CompactMatchIdLength = 8
 
-private val MatchDateDayFormat = DateTimeFormatter.ofPattern("MMM d")
-private val MatchTimeFormat = DateTimeFormatter.ofPattern("HH:mm")
+private val MatchDateTimeFormat = DateTimeFormatter.ofPattern("MMM d HH:mm")
 
 @Composable
 fun MatchHistoryCardHeader(
@@ -71,7 +70,6 @@ fun MatchHistoryCardHeader(
                     outcomeColor = outcomeColor,
                     myWins = entry.myWins,
                     opponentWins = entry.opponentWins,
-                    myElo = entry.myElo,
                     eloDelta = entry.eloDelta,
                 )
             }
@@ -173,82 +171,50 @@ private fun MatchResultCenter(
     outcomeColor: androidx.compose.ui.graphics.Color,
     myWins: Int,
     opponentWins: Int,
-    myElo: Int?,
     eloDelta: Int?,
 ) {
-    val scoreColor = outcomeColor
+    val resultLineStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+    val scoreStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
-        Text(
-            text = "$myWins–$opponentWins",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = scoreColor,
-            maxLines = 1,
-        )
-        val resultLineStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterEnd,
         ) {
             Text(
                 text = outcomeLabel,
                 style = resultLineStyle,
                 color = outcomeColor,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(end = 6.dp),
             )
+        }
+        Text(
+            text = "$myWins:$opponentWins",
+            style = scoreStyle,
+            color = outcomeColor,
+            maxLines = 1,
+        )
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterStart,
+        ) {
             if (eloDelta != null) {
-                Spacer(modifier = Modifier.width(4.dp))
-                PostMatchEloSummary(
-                    postMatchElo = postMatchElo(myElo, eloDelta),
-                    eloDelta = eloDelta,
-                    textStyle = resultLineStyle,
+                Text(
+                    text = "(${formatEloDelta(eloDelta)})",
+                    style = resultLineStyle,
+                    color = outcomeColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 6.dp),
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun PostMatchEloSummary(
-    postMatchElo: Int?,
-    eloDelta: Int?,
-    textStyle: androidx.compose.ui.text.TextStyle,
-) {
-    if (eloDelta == null) return
-
-    val deltaColor = when {
-        eloDelta > 0 -> MaterialTheme.colorScheme.primary
-        eloDelta < 0 -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    if (postMatchElo != null) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            EloRatingText(
-                elo = postMatchElo,
-                style = textStyle.copy(fontWeight = FontWeight.Bold),
-            )
-            Text(
-                text = "(${formatEloDelta(eloDelta)})",
-                style = textStyle,
-                fontWeight = FontWeight.Bold,
-                color = deltaColor,
-                maxLines = 1,
-            )
-        }
-    } else {
-        Text(
-            text = formatEloDelta(eloDelta),
-            style = textStyle,
-            fontWeight = FontWeight.Bold,
-            color = deltaColor,
-            maxLines = 1,
-        )
     }
 }
 
@@ -273,21 +239,13 @@ private fun MatchDateLabel(
     }
 
     val zoned = Instant.ofEpochMilli(lastActivityAt).atZone(ZoneId.systemDefault())
-    Column(
+    Text(
+        text = zoned.format(MatchDateTimeFormat),
         modifier = modifier,
-        horizontalAlignment = Alignment.End,
-    ) {
-        Text(
-            text = zoned.format(MatchDateDayFormat),
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            maxLines = 1,
-        )
-        Text(
-            text = zoned.format(MatchTimeFormat),
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            maxLines = 1,
-        )
-    }
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        textAlign = TextAlign.End,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }

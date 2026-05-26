@@ -175,6 +175,7 @@ private fun HomeProfileSummaryCard(
         throwsPaper = profile?.throwsPaper ?: 0,
         throwsScissors = profile?.throwsScissors ?: 0,
         showHeader = true,
+        showChevron = true,
         onClick = onClick,
     )
 }

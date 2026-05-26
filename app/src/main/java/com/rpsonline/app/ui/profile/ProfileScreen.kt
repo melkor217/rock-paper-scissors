@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -172,10 +173,14 @@ private fun MatchHistoryCard(
                 outcomeLabel = matchOutcomeLabel(entry),
                 outcomeColor = matchOutcomeColor(entry),
             )
-            MatchRecapCard(
-                recaps = entry.recaps,
-                title = null,
-            )
+            if (entry.recaps.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                MatchRecapCard(
+                    recaps = entry.recaps,
+                    title = null,
+                    embedded = true,
+                )
+            }
         }
     }
 }

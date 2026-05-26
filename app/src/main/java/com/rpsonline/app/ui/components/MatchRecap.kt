@@ -32,7 +32,7 @@ import com.rpsonline.app.data.model.RoundRecap
 
 private val RecapMoveIconSize = 14.dp
 private val RecapCompactBreakpoint = 360.dp
-private val RecapRoundColumnWidthWide = 56.dp
+private val RecapRoundColumnWidthWide = 68.dp
 private val RecapRoundColumnWidthCompact = 28.dp
 private val RecapOutcomeColumnWidthWide = 44.dp
 private val RecapOutcomeColumnWidthCompact = 36.dp
@@ -68,49 +68,79 @@ fun MatchRecapCard(
     recaps: List<RoundRecap>,
     title: String? = "Match recap",
     modifier: Modifier = Modifier,
+    embedded: Boolean = false,
 ) {
     if (recaps.isEmpty()) return
-    val displayRecaps = recaps.asReversed()
-    RpsCard(modifier = modifier.fillMaxWidth()) {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val compact = maxWidth < RecapCompactBreakpoint
-            val horizontalPadding = if (compact) 8.dp else 10.dp
-            val roundColumnWidth = if (compact) {
-                RecapRoundColumnWidthCompact
-            } else {
-                RecapRoundColumnWidthWide
-            }
-            val outcomeColumnWidth = if (compact) {
-                RecapOutcomeColumnWidthCompact
-            } else {
-                RecapOutcomeColumnWidthWide
-            }
+    if (embedded) {
+        MatchRecapContent(
+            recaps = recaps,
+            title = title,
+            embedded = true,
+            modifier = modifier.fillMaxWidth(),
+        )
+    } else {
+        RpsCard(modifier = modifier.fillMaxWidth()) {
+            MatchRecapContent(
+                recaps = recaps,
+                title = title,
+                embedded = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = horizontalPadding, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                if (title != null) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+@Composable
+private fun MatchRecapContent(
+    recaps: List<RoundRecap>,
+    title: String?,
+    embedded: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val displayRecaps = recaps.asReversed()
+    BoxWithConstraints(modifier = modifier) {
+        val compact = maxWidth < RecapCompactBreakpoint
+        val horizontalPadding = when {
+            embedded -> 0.dp
+            compact -> 8.dp
+            else -> 10.dp
+        }
+        val verticalPadding = if (embedded) 4.dp else 8.dp
+        val roundColumnWidth = if (compact) {
+            RecapRoundColumnWidthCompact
+        } else {
+            RecapRoundColumnWidthWide
+        }
+        val outcomeColumnWidth = if (compact) {
+            RecapOutcomeColumnWidthCompact
+        } else {
+            RecapOutcomeColumnWidthWide
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (title != null) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            displayRecaps.forEachIndexed { index, recap ->
+                if (index > 0) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                displayRecaps.forEachIndexed { index, recap ->
-                    if (index > 0) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    RoundRecapRow(
-                        roundLabel = roundRecapLabel(recap.roundNumber, compact),
-                        recap = recap,
-                        roundColumnWidth = roundColumnWidth,
-                        outcomeColumnWidth = outcomeColumnWidth,
-                    )
-                }
+                RoundRecapRow(
+                    roundLabel = roundRecapLabel(recap.roundNumber, compact),
+                    recap = recap,
+                    roundColumnWidth = roundColumnWidth,
+                    outcomeColumnWidth = outcomeColumnWidth,
+                )
             }
         }
     }
@@ -196,7 +226,7 @@ private fun RoundChoicesLine(recap: RoundRecap) {
 }
 
 private fun roundRecapLabel(roundNumber: Int, compact: Boolean): String =
-    if (compact) "R$roundNumber" else "Round $roundNumber"
+    if (compact) "R$roundNumber" else "Round#$roundNumber"
 
 private fun recapChoicesSeparator(recap: RoundRecap): String = when {
     recap.isDraw || recap.won == null -> "="

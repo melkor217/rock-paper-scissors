@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.LeaderboardEntry
@@ -78,6 +79,7 @@ fun RpsPerWinLabel(
             style = valueStyle,
             color = color,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         if (showMoveIcons) {
             Spacer(modifier = Modifier.width(6.dp))
@@ -111,6 +113,7 @@ fun RpsPerWinLabel(
             style = textStyle,
             color = color,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
