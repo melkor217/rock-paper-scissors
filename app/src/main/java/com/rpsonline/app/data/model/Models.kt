@@ -1,5 +1,6 @@
 package com.rpsonline.app.data.model
 
+import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.domain.MatchMode
 
 enum class Move(val label: String) {
@@ -50,6 +51,9 @@ data class Match(
     val player2MoveTimeMs: Long = 0,
     val player1MoveCount: Int = 0,
     val player2MoveCount: Int = 0,
+    val player1ClockMs: Long = GameRules.INITIAL_CLOCK_MS,
+    val player2ClockMs: Long = GameRules.INITIAL_CLOCK_MS,
+    val clocksUpdatedAt: Long = 0L,
     val rounds: List<RoundResult> = emptyList(),
     val winnerId: String? = null,
     val player1EloDelta: Int? = null,
@@ -76,6 +80,12 @@ data class Match(
 
     fun opponentWins(userId: String): Int =
         if (userId == player1) player2Wins else player1Wins
+
+    fun myClockMs(userId: String): Long =
+        if (userId == player1) player1ClockMs else player2ClockMs
+
+    fun opponentClockMs(userId: String): Long =
+        if (userId == player1) player2ClockMs else player1ClockMs
 
     fun myEloDelta(userId: String): Int? =
         if (userId == player1) player1EloDelta else player2EloDelta

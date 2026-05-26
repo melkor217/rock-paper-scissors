@@ -15,6 +15,12 @@ import {
   winsToFinish,
 } from "./game";
 import {
+  applyClockIncrement,
+  clockExpiry,
+  initialClockFields,
+  tickClocks,
+} from "./clockControl";
+import {
   computeMoveMs,
   existingMoveMs,
   MoveTimingSlot,
@@ -60,6 +66,10 @@ interface MatchDoc {
   player2MoveTimeMs?: number;
   player1MoveCount?: number;
   player2MoveCount?: number;
+  /** Remaining match thinking time (ms); runs until move is submitted each round. */
+  player1ClockMs?: number;
+  player2ClockMs?: number;
+  clocksUpdatedAt?: Timestamp;
   winnerId?: string;
   player1EloDelta?: number;
   player2EloDelta?: number;
@@ -191,6 +201,7 @@ async function createMatch(playerA: string, playerB: string, matchMode: MatchMod
     player2MoveTimeMs: 0,
     player1MoveCount: 0,
     player2MoveCount: 0,
+    ...initialClockFields(now),
     rounds: [{ roundNumber: 1, deadline, startedAt: now }],
     createdAt: now,
     lastActivityAt: now,
@@ -413,6 +424,18 @@ async function applySeriesOutcome(
   return false;
 }
 
+async function persistClocks(
+  matchRef: FirebaseFirestore.DocumentReference,
+  clocks: ReturnType<typeof tickClocks>,
+): Promise<void> {
+  await matchRef.update({
+    player1ClockMs: clocks.player1ClockMs,
+    player2ClockMs: clocks.player2ClockMs,
+    clocksUpdatedAt: clocks.clocksUpdatedAt,
+    lastActivityAt: FieldValue.serverTimestamp(),
+  });
+}
+
 async function resolveRoundIfReady(
   matchRef: FirebaseFirestore.DocumentReference,
   match: MatchDoc,
@@ -422,6 +445,9 @@ async function resolveRoundIfReady(
   if (!round) return;
 
   const now = Timestamp.now();
+  const ticked = tickClocks(match, round, now);
+  match = { ...match, ...ticked };
+
   const p1Choice = round.player1Choice;
   const p2Choice = round.player2Choice;
   const deadlinePassed =
@@ -431,6 +457,84 @@ async function resolveRoundIfReady(
   const rounds = [...match.rounds];
   const roundIndex = rounds.findIndex((r) => r.roundNumber === round.roundNumber && !r.resolvedAt);
   if (roundIndex < 0) return;
+
+  const expiry = clockExpiry(ticked.player1ClockMs, ticked.player2ClockMs, round);
+  if (expiry === "player1") {
+    if (p2Choice) {
+      await recordRoundMoveThrows(match, { ...round, player2Choice: p2Choice });
+    }
+    rounds[roundIndex] = sanitizeRound({
+      ...round,
+      ...(p2Choice ? { player2Choice: p2Choice } : {}),
+      throwStatsRecorded: true,
+      winner: match.player2,
+      resolvedAt: now,
+    });
+    await finalizeMatch(
+      matchRef,
+      { ...match, rounds: sanitizeRounds(rounds) },
+      match.player2,
+      { forfeit: true },
+    );
+    return;
+  }
+  if (expiry === "player2") {
+    if (p1Choice) {
+      await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice });
+    }
+    rounds[roundIndex] = sanitizeRound({
+      ...round,
+      ...(p1Choice ? { player1Choice: p1Choice } : {}),
+      throwStatsRecorded: true,
+      winner: match.player1,
+      resolvedAt: now,
+    });
+    await finalizeMatch(
+      matchRef,
+      { ...match, rounds: sanitizeRounds(rounds) },
+      match.player1,
+      { forfeit: true },
+    );
+    return;
+  }
+  if (expiry === "both") {
+    if (p1Choice && !p2Choice) {
+      await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice });
+      rounds[roundIndex] = sanitizeRound({
+        ...round,
+        player1Choice: p1Choice,
+        throwStatsRecorded: true,
+        winner: match.player1,
+        resolvedAt: now,
+      });
+      await finalizeMatch(
+        matchRef,
+        { ...match, rounds: sanitizeRounds(rounds) },
+        match.player1,
+        { forfeit: true },
+      );
+      return;
+    }
+    if (!p1Choice && p2Choice) {
+      await recordRoundMoveThrows(match, { ...round, player2Choice: p2Choice });
+      rounds[roundIndex] = sanitizeRound({
+        ...round,
+        player2Choice: p2Choice,
+        throwStatsRecorded: true,
+        winner: match.player2,
+        resolvedAt: now,
+      });
+      await finalizeMatch(
+        matchRef,
+        { ...match, rounds: sanitizeRounds(rounds) },
+        match.player2,
+        { forfeit: true },
+      );
+      return;
+    }
+    await abandonMatch(matchRef, match, rounds, roundIndex, now);
+    return;
+  }
 
   // Both players submitted — resolve normally.
   if (p1Choice && p2Choice) {
@@ -475,6 +579,7 @@ async function resolveRoundIfReady(
     await abandonMatch(matchRef, match, rounds, roundIndex, now);
     return;
   } else {
+    await persistClocks(matchRef, ticked);
     return;
   }
 
@@ -515,6 +620,7 @@ async function resolveRoundIfReady(
 
   const nextRoundNumber = match.currentRound + 1;
   const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
+  const incremented = applyClockIncrement(ticked.player1ClockMs, ticked.player2ClockMs);
   rounds[roundIndex] = sanitizeRound({
     ...round,
     player1Choice: p1Choice,
@@ -529,6 +635,9 @@ async function resolveRoundIfReady(
     currentRound: nextRoundNumber,
     player1Wins,
     player2Wins,
+    player1ClockMs: incremented.player1ClockMs,
+    player2ClockMs: incremented.player2ClockMs,
+    clocksUpdatedAt: now,
     lastActivityAt: FieldValue.serverTimestamp(),
   });
 }
@@ -585,6 +694,7 @@ async function applyPlayerChoice(
     const now = Timestamp.now();
     let current = { ...rounds[idx] };
     const timings: RecordedMoveTiming[] = [];
+    const ticked = tickClocks(match, current, now);
 
     if (uid === match.player1) {
       if (current.player1Choice) return;
@@ -607,6 +717,9 @@ async function applyPlayerChoice(
     rounds[idx] = sanitizeRound(current);
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
+      player1ClockMs: ticked.player1ClockMs,
+      player2ClockMs: ticked.player2ClockMs,
+      clocksUpdatedAt: ticked.clocksUpdatedAt,
       lastActivityAt: FieldValue.serverTimestamp(),
       ...matchTimingIncrements(timings),
     });
@@ -669,6 +782,7 @@ async function mergeChoicesFromSubcollection(
     const timings: RecordedMoveTiming[] = [];
     const now = Timestamp.now();
     let current = { ...rounds[idx] };
+    const ticked = tickClocks(match, current, now);
     for (const doc of choicesSnap.docs) {
       const uid = doc.id;
       const choice = doc.get("choice") as string;
@@ -697,11 +811,17 @@ async function mergeChoicesFromSubcollection(
     rounds[idx] = sanitizeRound(current);
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
+      player1ClockMs: ticked.player1ClockMs,
+      player2ClockMs: ticked.player2ClockMs,
+      clocksUpdatedAt: ticked.clocksUpdatedAt,
       lastActivityAt: FieldValue.serverTimestamp(),
       ...matchTimingIncrements(timings),
     });
     applyRecordedTimingsToTransaction(tx, timings);
-    return { match: { ...match, rounds: sanitizeRounds(rounds) }, recorded };
+    return {
+      match: { ...match, ...ticked, rounds: sanitizeRounds(rounds) },
+      recorded,
+    };
   });
 
   return outcome?.match ?? null;

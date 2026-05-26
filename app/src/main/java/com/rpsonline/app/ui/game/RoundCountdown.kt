@@ -88,7 +88,7 @@ fun RoundCountdown(
             text = when {
                 atZero -> "Time's up — resolving round…"
                 hasSubmittedMove -> "Waiting for opponent's pick"
-                urgent -> "Hurry — timeout forfeits the match!"
+                urgent -> "Hurry — round or match clock can forfeit!"
                 else -> "Seconds to pick"
             },
             style = MaterialTheme.typography.labelMedium,

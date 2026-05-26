@@ -6,6 +6,12 @@ object GameRules {
     /** Must match Cloud Functions `ROUND_TIMEOUT_MS` (60s). Late player forfeits the series. */
     const val ROUND_TIMEOUT_SECONDS = 60
 
+    /** Must match Cloud Functions `INITIAL_CLOCK_MS`. */
+    const val INITIAL_CLOCK_MS = 60_000L
+
+    /** Must match Cloud Functions `CLOCK_INCREMENT_MS`. */
+    const val CLOCK_INCREMENT_MS = 5_000L
+
     /**
      * Returns winner move on victory, null on tie.
      */

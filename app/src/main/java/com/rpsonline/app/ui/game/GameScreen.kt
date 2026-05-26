@@ -149,15 +149,20 @@ fun GameScreen(
             )
             Spacer(modifier = Modifier.height(if (compactLayout) 8.dp else 12.dp))
 
-            val showCountdown = match.status == MatchStatus.ACTIVE &&
+            val showTimers = match.status == MatchStatus.ACTIVE &&
                 match.openRound()?.deadline != null &&
-                uiState.countdownSeconds != null
-            if (showCountdown) {
-                RoundCountdown(
-                    secondsRemaining = uiState.countdownSeconds,
+                uiState.countdownSeconds != null &&
+                uiState.myClockSeconds != null &&
+                uiState.opponentClockSeconds != null
+            if (showTimers) {
+                GameTimerRow(
+                    myClockSeconds = uiState.myClockSeconds!!,
+                    opponentClockSeconds = uiState.opponentClockSeconds!!,
+                    roundSecondsRemaining = uiState.countdownSeconds,
                     isResolvingTimeout = uiState.isResolvingTimeout,
                     hasSubmittedMove = uiState.hasSubmittedMove,
                     compact = compactLayout,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(4.dp))
             }

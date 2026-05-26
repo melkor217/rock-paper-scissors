@@ -10,6 +10,7 @@ import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.domain.DisplayNames
+import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.data.model.RoundResult
 import kotlinx.coroutines.channels.awaitClose
@@ -219,6 +220,9 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
         player2MoveTimeMs = getLong("player2MoveTimeMs") ?: 0L,
         player1MoveCount = getLong("player1MoveCount")?.toInt() ?: 0,
         player2MoveCount = getLong("player2MoveCount")?.toInt() ?: 0,
+        player1ClockMs = getLong("player1ClockMs") ?: GameRules.INITIAL_CLOCK_MS,
+        player2ClockMs = getLong("player2ClockMs") ?: GameRules.INITIAL_CLOCK_MS,
+        clocksUpdatedAt = getTimestamp("clocksUpdatedAt")?.toDate()?.time ?: 0L,
         rounds = rounds,
         winnerId = getString("winnerId"),
         player1EloDelta = getIntField("player1EloDelta"),

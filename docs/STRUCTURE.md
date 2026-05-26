@@ -97,6 +97,7 @@ These values must match between client and server:
 | Series draw | BO10 only: 5–5 after 10 rounds (`tiedSeriesScore`) | `seriesOutcomeAfterRound()` in `game.ts` |
 | Match format | `matchModes` on queue + match docs | Same; queue pairs overlapping `matchModes` (random among shared BO3/BO5/BO10) |
 | Round timeout | `ROUND_TIMEOUT_SECONDS = 60` | `ROUND_TIMEOUT_MS = 60_000` |
+| Match clocks | `INITIAL_CLOCK_MS = 60_000`, `CLOCK_INCREMENT_MS = 5_000` | `clockControl.ts` (`player1ClockMs`, `player2ClockMs`, `clocksUpdatedAt`) |
 | Move resolution | `resolveRound()` | `resolveRound()` in `game.ts` |
 
 After changing rules, update both sides and redeploy functions.

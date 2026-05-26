@@ -30,6 +30,8 @@ data class GameUiState(
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val countdownSeconds: Int? = null,
+    val myClockSeconds: Int? = null,
+    val opponentClockSeconds: Int? = null,
     val isResolvingTimeout: Boolean = false,
     val lockedMove: Move? = null,
 )
@@ -46,6 +48,7 @@ class GameViewModel(
 
     private var observeJob: Job? = null
     private var countdownJob: Job? = null
+    private var clockJob: Job? = null
     private var preGameCountdownJob: Job? = null
     private var preGameCountdownStarted = false
     private var countdownDeadlineMs: Long? = null
@@ -108,6 +111,7 @@ class GameViewModel(
                     timeoutRequestedForRound = null
                 }
                 syncCountdown(match)
+                syncMatchClocks(match, userId)
                 maybeStartPreGameCountdown(match, userId)
             }
         }
@@ -189,6 +193,69 @@ class GameViewModel(
             append(open?.player2Choice)
             append('|')
             append(open?.resolvedAt)
+            append('|')
+            append(match.player1ClockMs)
+            append('|')
+            append(match.player2ClockMs)
+            append('|')
+            append(match.clocksUpdatedAt)
+        }
+    }
+
+    private fun syncMatchClocks(match: Match?, userId: String?) {
+        if (match?.status != MatchStatus.ACTIVE || userId == null || match.openRound() == null) {
+            clockJob?.cancel()
+            _uiState.update { it.copy(myClockSeconds = null, opponentClockSeconds = null) }
+            return
+        }
+
+        clockJob?.cancel()
+        clockJob = viewModelScope.launch {
+            while (true) {
+                val state = _uiState.value
+                val activeMatch = state.match ?: break
+                if (activeMatch.status != MatchStatus.ACTIVE) break
+
+                val openRound = activeMatch.openRound() ?: break
+                val opponentSubmitted = when (userId) {
+                    activeMatch.player1 -> openRound.player2Choice != null
+                    else -> openRound.player1Choice != null
+                }
+
+                val updatedAt = activeMatch.clocksUpdatedAt.takeIf { it > 0L }
+                    ?: System.currentTimeMillis()
+                val elapsed = (System.currentTimeMillis() - updatedAt).coerceAtLeast(0L)
+
+                val myBase = activeMatch.myClockMs(userId)
+                val oppBase = activeMatch.opponentClockMs(userId)
+                val freezeClocks = state.showPreGameCountdown
+                val myMs = if (state.hasSubmittedMove || freezeClocks) {
+                    myBase
+                } else {
+                    (myBase - elapsed).coerceAtLeast(0L)
+                }
+                val oppMs = if (opponentSubmitted || freezeClocks) {
+                    oppBase
+                } else {
+                    (oppBase - elapsed).coerceAtLeast(0L)
+                }
+
+                val mySeconds = ((myMs + 999) / 1000).toInt()
+                val oppSeconds = ((oppMs + 999) / 1000).toInt()
+                _uiState.update {
+                    it.copy(myClockSeconds = mySeconds, opponentClockSeconds = oppSeconds)
+                }
+
+                if (!freezeClocks && !state.hasSubmittedMove && myMs <= 0L) {
+                    if (timeoutRequestedForRound != openRound.roundNumber ||
+                        (!_uiState.value.isResolvingTimeout && _uiState.value.error != null)
+                    ) {
+                        requestTimeoutResolution(activeMatch, openRound.roundNumber)
+                    }
+                }
+
+                delay(100)
+            }
         }
     }
 
@@ -289,6 +356,7 @@ class GameViewModel(
     override fun onCleared() {
         observeJob?.cancel()
         countdownJob?.cancel()
+        clockJob?.cancel()
         preGameCountdownJob?.cancel()
         resolvingRetryJob?.cancel()
         super.onCleared()
