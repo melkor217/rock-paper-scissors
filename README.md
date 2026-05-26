@@ -45,6 +45,17 @@ Deploy Firestore rules and Cloud Functions:
 
 Match rules in the app (`GameRules`) must stay aligned with `functions/` (wins to finish, round timeout).
 
+## CI (pull requests)
+
+The [Android APK](.github/workflows/android-apk.yml) workflow runs on every push and pull request: debug APK build plus `:app:testDebugUnitTest`. The required check name on GitHub is **build**.
+
+| PR source | Behavior |
+|-----------|----------|
+| Branch on this repo | Uses `GOOGLE_SERVICES_JSON_BASE64` secret when set. |
+| Fork | GitHub may require a maintainer to **approve** the workflow run first. Secrets are not exposed to forks; CI uses `app/google-services.json.example` so compile still runs. |
+
+To block merges until CI passes, add a **required status check** for `build` on `main` (Settings → Rules → rulesets → *main*, or branch protection).
+
 ## Tests
 
 ```bash
