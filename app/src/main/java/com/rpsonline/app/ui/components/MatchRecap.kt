@@ -31,7 +31,8 @@ import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundRecap
 
 private val RecapMoveIconSize = 14.dp
-private val RecapCompactBreakpoint = 360.dp
+/** When recap card content is narrow: tighter padding and shorter dates (labels stay Round#N). */
+private val RecapLayoutCompactBreakpoint = 360.dp
 /** Minimum width per recap column (~8 characters). */
 private val RecapColumnMinWidthWide = 88.dp
 private val RecapColumnMinWidthCompact = 72.dp
@@ -98,14 +99,14 @@ private fun MatchRecapContent(
 ) {
     val displayRecaps = recaps.asReversed()
     BoxWithConstraints(modifier = modifier) {
-        val compact = maxWidth < RecapCompactBreakpoint
+        val compactLayout = maxWidth < RecapLayoutCompactBreakpoint
         val horizontalPadding = when {
             embedded -> 0.dp
-            compact -> 8.dp
+            compactLayout -> 8.dp
             else -> 10.dp
         }
         val verticalPadding = if (embedded) 4.dp else 8.dp
-        val columnMinWidth = if (compact) {
+        val columnMinWidth = if (compactLayout) {
             RecapColumnMinWidthCompact
         } else {
             RecapColumnMinWidthWide
