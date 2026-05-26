@@ -39,6 +39,7 @@ import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.opponentEloAtMatch
 import com.rpsonline.app.ui.components.MatchEloChangeLabel
+import com.rpsonline.app.ui.components.formatMatchScore
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.PlayerStatsWidget
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -224,7 +225,7 @@ private fun FinalScoreCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Final score: $myWins – $opponentWins",
+                text = "Final score: ${formatMatchScore(myWins, opponentWins)}",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
