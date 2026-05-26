@@ -2,7 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { calculateElo, isValidMove, MatchMode, Move, parseMatchMode, resolveRound, winsToFinish } from "./game";
+import { calculateElo, isValidMove, MatchMode, Move, parseMatchMode, parseMatchModes, pickSharedMatchMode, resolveRound, winsToFinish } from "./game";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -128,16 +128,17 @@ async function createMatch(playerA: string, playerB: string, matchMode: MatchMod
   return matchRef.id;
 }
 
-async function tryMatch(uid: string, elo: number, matchMode: MatchMode): Promise<string | null> {
+async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Promise<string | null> {
   const queueSnap = await db.collection("queue").orderBy("joinedAt", "asc").get();
   for (const doc of queueSnap.docs) {
     const otherId = doc.id;
     if (otherId === uid) continue;
-    const otherMode = parseMatchMode(doc.get("matchMode"));
-    if (otherMode !== matchMode) continue;
+    const otherModes = parseMatchModes(doc.get("matchModes"), doc.get("matchMode"));
+    const sharedMode = pickSharedMatchMode(matchModes, otherModes);
+    if (!sharedMode) continue;
     const otherElo = (doc.get("elo") as number) ?? 1000;
     if (Math.abs(otherElo - elo) <= ELO_WINDOW) {
-      return createMatch(uid, otherId, matchMode);
+      return createMatch(uid, otherId, sharedMode);
     }
   }
   return null;
@@ -424,8 +425,8 @@ export const onQueueEntry = onDocumentCreated(
     }
 
     const elo = (data.elo as number) ?? profile.elo;
-    const matchMode = parseMatchMode(data.matchMode);
-    await tryMatch(uid, elo, matchMode);
+    const matchModes = parseMatchModes(data.matchModes, data.matchMode);
+    await tryMatch(uid, elo, matchModes);
   },
 );
 

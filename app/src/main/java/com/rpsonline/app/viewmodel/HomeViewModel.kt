@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseUser
 import com.rpsonline.app.data.model.UserProfile
+import com.rpsonline.app.data.preferences.MatchModePreferences
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
+import com.rpsonline.app.domain.MatchMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
@@ -23,6 +25,7 @@ data class HomeUiState(
     val isLoading: Boolean = true,
     val profile: UserProfile? = null,
     val onlinePlayerCount: Int? = null,
+    val selectedMatchModes: Set<MatchMode> = MatchMode.DEFAULT_SELECTION,
     val error: String? = null,
 )
 
@@ -72,7 +75,8 @@ class HomeViewModel(
         }
     }
 
-    fun onHomeVisible() {
+    fun onHomeVisible(context: Context) {
+        loadMatchModePreferences(context)
         viewModelScope.launch {
             val uid = authRepository.currentUserId ?: return@launch
             userRepository.getUserProfile(uid)?.let { profile ->
@@ -80,6 +84,22 @@ class HomeViewModel(
             }
         }
         refresh()
+    }
+
+    fun loadMatchModePreferences(context: Context) {
+        val modes = MatchModePreferences(context).get()
+        _uiState.update { it.copy(selectedMatchModes = modes) }
+    }
+
+    fun toggleMatchMode(context: Context, mode: MatchMode) {
+        val current = _uiState.value.selectedMatchModes
+        val updated = when {
+            mode !in current -> current + mode
+            current.size == 1 -> current
+            else -> current - mode
+        }
+        MatchModePreferences(context).set(updated)
+        _uiState.update { it.copy(selectedMatchModes = updated) }
     }
 
     fun refresh() {

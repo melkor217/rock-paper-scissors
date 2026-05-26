@@ -24,7 +24,7 @@ enum class MatchmakingStatus {
 
 data class MatchmakingUiState(
     val status: MatchmakingStatus = MatchmakingStatus.IDLE,
-    val matchMode: MatchMode = MatchMode.BO3,
+    val matchModes: Set<MatchMode> = MatchMode.DEFAULT_SELECTION,
     val matchId: String? = null,
     val match: Match? = null,
     val error: String? = null,
@@ -33,13 +33,13 @@ data class MatchmakingUiState(
 )
 
 class MatchmakingViewModel(
-    private val matchMode: MatchMode = MatchMode.BO3,
+    private val matchModes: Set<MatchMode> = MatchMode.DEFAULT_SELECTION,
     private val matchRepository: MatchRepository = MatchRepository(),
     private val authRepository: AuthRepository = AuthRepository(),
     private val presenceRepository: PresenceRepository = PresenceRepository(),
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(MatchmakingUiState(matchMode = matchMode))
+    private val _uiState = MutableStateFlow(MatchmakingUiState(matchModes = matchModes))
     val uiState: StateFlow<MatchmakingUiState> = _uiState.asStateFlow()
 
     private var observeJob: Job? = null
@@ -77,7 +77,7 @@ class MatchmakingViewModel(
                     }
                     return@launch
                 }
-                val immediateMatchId = matchRepository.joinQueue(matchMode)
+                val immediateMatchId = matchRepository.joinQueue(matchModes)
                 if (immediateMatchId != null) {
                     stopQueueTimer()
                     _uiState.update {
@@ -160,11 +160,11 @@ class MatchmakingViewModel(
     }
 
     companion object {
-        fun factory(matchMode: MatchMode): androidx.lifecycle.ViewModelProvider.Factory =
+        fun factory(matchModes: Set<MatchMode>): androidx.lifecycle.ViewModelProvider.Factory =
             object : androidx.lifecycle.ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return MatchmakingViewModel(matchMode = matchMode) as T
+                    return MatchmakingViewModel(matchModes = matchModes) as T
                 }
             }
     }

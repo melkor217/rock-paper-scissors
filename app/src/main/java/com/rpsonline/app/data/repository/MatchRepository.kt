@@ -27,7 +27,8 @@ class MatchRepository(
     /**
      * Join matchmaking via Firestore (not Callable). Writes queue/{uid}; Cloud Function pairs players.
      */
-    suspend fun joinQueue(matchMode: MatchMode = MatchMode.BO3): String? {
+    suspend fun joinQueue(matchModes: Set<MatchMode>): String? {
+        require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
         val userId = uid
         val userSnap = firestore.collection("users").document(userId).get().await()
         if (!userSnap.exists()) {
@@ -50,7 +51,7 @@ class MatchRepository(
                 "joinedAt" to FieldValue.serverTimestamp(),
                 "elo" to elo,
                 "displayName" to displayName,
-                "matchMode" to matchMode.name,
+                "matchModes" to matchModes.map { it.name },
             ),
         ).await()
 

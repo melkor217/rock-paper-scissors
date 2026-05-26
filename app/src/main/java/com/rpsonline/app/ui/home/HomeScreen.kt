@@ -9,30 +9,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.FilterChip
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
-import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
@@ -44,10 +43,9 @@ import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
-    onFindMatch: (MatchMode) -> Unit,
+    onFindMatch: (Set<MatchMode>) -> Unit,
     onLeaderboard: () -> Unit,
     onProfile: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
@@ -59,7 +57,7 @@ fun HomeScreen(
     val activity = context.findActivity()
 
     LaunchedEffect(Unit) {
-        viewModel.onHomeVisible()
+        viewModel.onHomeVisible(context)
         updateViewModel.onScreenVisible(context)
     }
 
@@ -112,7 +110,8 @@ fun HomeScreen(
         }
 
         val profile = uiState.profile
-        var selectedMode by remember { mutableStateOf(MatchMode.BO3) }
+        val selectedModes = uiState.selectedMatchModes
+
         Text(
             text = "Welcome, ${profile?.displayName ?: DisplayNames.DEFAULT}",
             style = MaterialTheme.typography.headlineMedium,
@@ -120,43 +119,74 @@ fun HomeScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
-        HomeProfileSummaryCard(
-            profile = profile,
+        ProfileSummaryStatsCard(
+            elo = profile?.elo ?: 1000,
+            wins = profile?.wins ?: 0,
+            losses = profile?.losses ?: 0,
+            throwsRock = profile?.throwsRock ?: 0,
+            throwsPaper = profile?.throwsPaper ?: 0,
+            throwsScissors = profile?.throwsScissors ?: 0,
+            showHeader = true,
+            showChevron = true,
             onClick = onProfile,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Match format",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            MatchMode.entries.forEach { mode ->
-                FilterChip(
-                    selected = selectedMode == mode,
-                    onClick = { selectedMode = mode },
-                    label = { Text(mode.label) },
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
+
         uiState.onlinePlayerCount?.let { count ->
             PlayersOnlineLabel(
                 count = count,
                 modifier = Modifier.fillMaxWidth(),
                 emphasized = true,
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
+
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                MatchMode.entries.forEach { mode ->
+                    val selected = mode in selectedModes
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .toggleable(
+                                value = selected,
+                                role = Role.Checkbox,
+                                onValueChange = { viewModel.toggleMatchMode(context, mode) },
+                            )
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Checkbox(
+                            checked = selected,
+                            onCheckedChange = null,
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = MaterialTheme.colorScheme.primary,
+                                uncheckedColor = MaterialTheme.colorScheme.outline,
+                                checkmarkColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledUncheckedColor = MaterialTheme.colorScheme.outline,
+                            ),
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = mode.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Button(
-            onClick = { onFindMatch(selectedMode) },
+            onClick = { onFindMatch(selectedModes) },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Find ${selectedMode.label} Match")
+            Text("Find Match")
         }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedButton(
@@ -190,22 +220,3 @@ fun HomeScreen(
         }
     }
 }
-
-@Composable
-private fun HomeProfileSummaryCard(
-    profile: UserProfile?,
-    onClick: () -> Unit,
-) {
-    ProfileSummaryStatsCard(
-        elo = profile?.elo ?: 1000,
-        wins = profile?.wins ?: 0,
-        losses = profile?.losses ?: 0,
-        throwsRock = profile?.throwsRock ?: 0,
-        throwsPaper = profile?.throwsPaper ?: 0,
-        throwsScissors = profile?.throwsScissors ?: 0,
-        showHeader = true,
-        showChevron = true,
-        onClick = onClick,
-    )
-}
-

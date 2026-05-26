@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
-import com.rpsonline.app.ui.components.formatMatchMode
+import com.rpsonline.app.ui.components.formatMatchModes
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.playMatchFoundSound
 import com.rpsonline.app.viewmodel.MatchmakingStatus
@@ -28,10 +28,10 @@ import com.rpsonline.app.viewmodel.MatchmakingViewModel
 
 @Composable
 fun MatchmakingScreen(
-    matchMode: MatchMode,
+    matchModes: Set<MatchMode>,
     onMatchFound: (String) -> Unit,
     onCancel: () -> Unit,
-    viewModel: MatchmakingViewModel = viewModel(factory = MatchmakingViewModel.factory(matchMode)),
+    viewModel: MatchmakingViewModel = viewModel(factory = MatchmakingViewModel.factory(matchModes)),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -61,7 +61,7 @@ fun MatchmakingScreen(
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Searching for ${formatMatchMode(matchMode)} opponent…",
+                    text = "Searching for ${formatMatchModes(matchModes)} opponent…",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                 )

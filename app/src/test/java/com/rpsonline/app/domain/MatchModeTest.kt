@@ -23,4 +23,15 @@ class MatchModeTest {
         assertEquals(MatchMode.BO3, MatchMode.fromString("unknown"))
         assertEquals(MatchMode.BO5, MatchMode.fromString("BO5"))
     }
+
+    @Test
+    fun parseRouteArg_supportsMultipleModes() {
+        assertEquals(setOf(MatchMode.BO3, MatchMode.BO5), MatchMode.parseRouteArg("BO3,BO5"))
+        assertEquals(MatchMode.DEFAULT_SELECTION, MatchMode.parseRouteArg(null))
+    }
+
+    @Test
+    fun encodeRouteArg_isStable() {
+        assertEquals("BO3,BO5", MatchMode.encodeRouteArg(setOf(MatchMode.BO5, MatchMode.BO3)))
+    }
 }

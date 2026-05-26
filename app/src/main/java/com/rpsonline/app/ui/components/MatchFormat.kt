@@ -28,3 +28,6 @@ fun postMatchElo(preMatchElo: Int?, eloDelta: Int?): Int? {
 }
 
 fun formatMatchMode(mode: MatchMode): String = mode.label
+
+fun formatMatchModes(modes: Set<MatchMode>): String =
+    modes.sortedBy { it.ordinal }.joinToString(" / ") { it.label }

@@ -10,6 +10,20 @@ export function winsToFinish(mode: MatchMode): number {
   return mode === "BO5" ? 3 : 2;
 }
 
+export function parseMatchModes(value: unknown, legacyMode?: unknown): MatchMode[] {
+  if (Array.isArray(value)) {
+    const modes = value.filter((entry): entry is MatchMode => entry === "BO3" || entry === "BO5");
+    if (modes.length > 0) return modes;
+  }
+  return [parseMatchMode(legacyMode)];
+}
+
+export function pickSharedMatchMode(modesA: MatchMode[], modesB: MatchMode[]): MatchMode | null {
+  if (modesA.includes("BO3") && modesB.includes("BO3")) return "BO3";
+  if (modesA.includes("BO5") && modesB.includes("BO5")) return "BO5";
+  return null;
+}
+
 export function resolveRound(p1: Move, p2: Move): "player1" | "player2" | "tie" {
   if (p1 === p2) return "tie";
   if (

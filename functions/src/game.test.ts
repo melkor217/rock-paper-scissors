@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { calculateElo, parseMatchMode, resolveRound, winsToFinish } from "./game";
+import { calculateElo, parseMatchMode, parseMatchModes, pickSharedMatchMode, resolveRound, winsToFinish } from "./game";
 
 describe("resolveRound", () => {
   it("detects ties", () => {
@@ -30,5 +30,17 @@ describe("match modes", () => {
   it("maps wins to finish by mode", () => {
     assert.equal(winsToFinish("BO3"), 2);
     assert.equal(winsToFinish("BO5"), 3);
+  });
+
+  it("parses multiple queue modes with legacy fallback", () => {
+    assert.deepEqual(parseMatchModes(["BO5", "BO3"]), ["BO5", "BO3"]);
+    assert.deepEqual(parseMatchModes(undefined, "BO5"), ["BO5"]);
+    assert.deepEqual(parseMatchModes([], "BO3"), ["BO3"]);
+  });
+
+  it("picks the shared mode, preferring BO3", () => {
+    assert.equal(pickSharedMatchMode(["BO3", "BO5"], ["BO5"]), "BO5");
+    assert.equal(pickSharedMatchMode(["BO3", "BO5"], ["BO3", "BO5"]), "BO3");
+    assert.equal(pickSharedMatchMode(["BO3"], ["BO5"]), null);
   });
 });
