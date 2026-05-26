@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -25,6 +29,88 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.rpsonline.app.data.model.Move
+
+enum class RoundBannerKind {
+    Win,
+    Lose,
+    Draw,
+}
+
+fun roundBannerHeadline(kind: RoundBannerKind, roundNumber: Int): String = when (kind) {
+    RoundBannerKind.Win -> "You won Round #$roundNumber"
+    RoundBannerKind.Lose -> "You lost Round #$roundNumber"
+    RoundBannerKind.Draw -> "Draw on Round #$roundNumber"
+}
+
+fun roundBannerSubtitle(
+    kind: RoundBannerKind,
+    compact: Boolean,
+    showFollowUpHint: Boolean,
+): String = when (kind) {
+    RoundBannerKind.Draw -> when {
+        compact && showFollowUpHint -> "Replay this round."
+        compact -> "No point awarded."
+        showFollowUpHint -> "Replay this round. Score unchanged."
+        else -> "No point awarded."
+    }
+    RoundBannerKind.Win -> roundBannerScoredSubtitle("Point scored", compact, showFollowUpHint)
+    RoundBannerKind.Lose -> roundBannerScoredSubtitle("Opponent scored", compact, showFollowUpHint)
+}
+
+private fun roundBannerScoredSubtitle(
+    base: String,
+    compact: Boolean,
+    showFollowUpHint: Boolean,
+): String = when {
+    compact && showFollowUpHint -> ""
+    compact -> "$base."
+    showFollowUpHint -> "$base — pick your move for the next round."
+    else -> "$base."
+}
+
+@Composable
+fun RoundOutcomeBanner(
+    kind: RoundBannerKind,
+    roundNumber: Int,
+    myChoice: String?,
+    opponentChoice: String?,
+    showFollowUpHint: Boolean,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    opponentLabel: String = "Opponent",
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val (containerColor, contentColor, icon) = when (kind) {
+        RoundBannerKind.Win -> Triple(
+            colorScheme.primaryContainer,
+            colorScheme.onPrimaryContainer,
+            Icons.Default.EmojiEvents,
+        )
+        RoundBannerKind.Lose -> Triple(
+            colorScheme.errorContainer,
+            colorScheme.onErrorContainer,
+            Icons.Default.HeartBroken,
+        )
+        RoundBannerKind.Draw -> Triple(
+            colorScheme.tertiaryContainer,
+            colorScheme.onTertiaryContainer,
+            Icons.Default.Balance,
+        )
+    }
+    RoundOutcomeCard(
+        containerColor = containerColor,
+        contentColor = contentColor,
+        icon = icon,
+        headline = roundBannerHeadline(kind, roundNumber),
+        subtitle = roundBannerSubtitle(kind, compact, showFollowUpHint),
+        myChoice = myChoice,
+        opponentChoice = opponentChoice,
+        choiceSeparator = if (kind == RoundBannerKind.Draw) "=" else "vs",
+        modifier = modifier,
+        compact = compact,
+        opponentLabel = opponentLabel,
+    )
+}
 
 @Composable
 fun RoundOutcomeCard(

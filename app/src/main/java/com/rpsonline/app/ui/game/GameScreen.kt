@@ -174,6 +174,7 @@ fun GameScreen(
                     DrawRoundBanner(
                         myChoice = myChoice,
                         opponentChoice = oppChoice,
+                        roundNumber = round.roundNumber,
                         isReplay = drawReplay != null,
                         compact = compactLayout,
                         opponentLabel = opponentScoreLabel,

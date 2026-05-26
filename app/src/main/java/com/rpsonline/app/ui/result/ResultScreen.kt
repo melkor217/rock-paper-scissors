@@ -37,6 +37,7 @@ import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
+import com.rpsonline.app.domain.matchResultOutcomeDetail
 import com.rpsonline.app.domain.opponentEloAtMatch
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.MatchEloChangeLabel
@@ -108,6 +109,11 @@ fun ResultScreen(
             myCurrentElo?.let { currentMatch.opponentEloAtMatch(uid, it) }
         }
         val recaps = userId?.let { currentMatch.resolvedRoundRecaps(it) } ?: emptyList()
+        val outcomeDetail = matchResultOutcomeDetail(
+            match = currentMatch,
+            won = won,
+            isDraw = isDraw,
+        )
 
         Column(
             modifier = Modifier
@@ -162,6 +168,14 @@ fun ResultScreen(
                     MaterialTheme.colorScheme.error
                 },
             )
+            outcomeDetail?.let { detail ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(4.dp))

@@ -1,8 +1,5 @@
 package com.rpsonline.app.ui.game
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
@@ -16,20 +13,12 @@ fun WinRoundBanner(
     compact: Boolean = false,
     opponentLabel: String = "Opponent",
 ) {
-    RoundOutcomeCard(
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        icon = Icons.Default.EmojiEvents,
-        headline = "You won Round #$roundNumber",
-        subtitle = when {
-            compact && awaitingNextRound -> ""
-            compact -> "Point scored."
-            awaitingNextRound -> "Point scored — pick your move for the next round."
-            else -> "Point scored."
-        },
+    RoundOutcomeBanner(
+        kind = RoundBannerKind.Win,
+        roundNumber = roundNumber,
         myChoice = myChoice,
         opponentChoice = opponentChoice,
-        choiceSeparator = "vs",
+        showFollowUpHint = awaitingNextRound,
         modifier = modifier,
         compact = compact,
         opponentLabel = opponentLabel,

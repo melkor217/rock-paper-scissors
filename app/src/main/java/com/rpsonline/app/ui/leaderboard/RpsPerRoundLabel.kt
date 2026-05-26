@@ -31,40 +31,45 @@ import com.rpsonline.app.ui.components.ThrowCountRow
 import com.rpsonline.app.ui.theme.currentAppThemeStyle
 import java.util.Locale
 
-fun throwsPerWin(
-    wins: Int,
+/** Total throws divided by rounds won (same idea as the old throws-per-match-win metric). */
+fun throwsPerRound(
+    roundsWon: Int,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
 ): Double? {
-    if (wins <= 0) return null
+    if (roundsWon <= 0) return null
     val totalThrows = throwsRock + throwsPaper + throwsScissors
     if (totalThrows <= 0) return null
-    return totalThrows.toDouble() / wins
+    return totalThrows.toDouble() / roundsWon
 }
 
-fun hasThrowStats(wins: Int, throwsRock: Int, throwsPaper: Int, throwsScissors: Int): Boolean =
-    wins > 0 && throwsRock + throwsPaper + throwsScissors > 0
+fun hasThrowStats(
+    roundsWon: Int,
+    throwsRock: Int,
+    throwsPaper: Int,
+    throwsScissors: Int,
+): Boolean = roundsWon > 0 && throwsRock + throwsPaper + throwsScissors > 0
 
-fun LeaderboardEntry.throwsPerWin(): Double? =
-    throwsPerWin(wins, throwsRock, throwsPaper, throwsScissors)
+fun LeaderboardEntry.throwsPerRound(): Double? =
+    throwsPerRound(roundsWon, throwsRock, throwsPaper, throwsScissors)
 
-fun UserProfile.throwsPerWin(): Double? =
-    throwsPerWin(wins, throwsRock, throwsPaper, throwsScissors)
+fun UserProfile.throwsPerRound(): Double? =
+    throwsPerRound(roundsWon, throwsRock, throwsPaper, throwsScissors)
 
-fun formatThrowsPerWin(value: Double): String =
+fun formatThrowsPerRound(value: Double): String =
     String.format(Locale.US, "%.1f", value)
 
 @Composable
-fun RpsPerWinLabel(
-    throwsPerWin: Double,
+fun RpsPerRoundLabel(
+    throwsPerRound: Double,
     modifier: Modifier = Modifier,
     iconSize: Dp = MoveStatIconSize,
     textStyle: TextStyle = MaterialTheme.typography.bodySmall,
     color: Color = if (currentAppThemeStyle() == AppThemeStyle.CYBERPUNK) {
         MaterialTheme.colorScheme.primary
     } else {
-        rpsPerWinColor(throwsPerWin)
+        rpsPerRoundColor(throwsPerRound)
     },
     showMoveIcons: Boolean = true,
 ) {
@@ -75,7 +80,7 @@ fun RpsPerWinLabel(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = formatThrowsPerWin(throwsPerWin),
+            text = formatThrowsPerRound(throwsPerRound),
             style = valueStyle,
             color = color,
             maxLines = 1,
@@ -109,7 +114,7 @@ fun RpsPerWinLabel(
             Spacer(modifier = Modifier.width(4.dp))
         }
         Text(
-            text = "/Win",
+            text = "/Round",
             style = textStyle,
             color = color,
             maxLines = 1,
@@ -120,23 +125,23 @@ fun RpsPerWinLabel(
 
 @Composable
 fun PlayerThrowStatsColumn(
-    wins: Int,
+    roundsWon: Int,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.bodySmall,
 ) {
-    if (!hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)) return
-    val throwsPerWin = throwsPerWin(wins, throwsRock, throwsPaper, throwsScissors) ?: return
+    if (!hasThrowStats(roundsWon, throwsRock, throwsPaper, throwsScissors)) return
+    val throwsPerRound = throwsPerRound(roundsWon, throwsRock, throwsPaper, throwsScissors) ?: return
 
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        RpsPerWinLabel(
-            throwsPerWin = throwsPerWin,
+        RpsPerRoundLabel(
+            throwsPerRound = throwsPerRound,
             textStyle = textStyle,
             showMoveIcons = true,
         )

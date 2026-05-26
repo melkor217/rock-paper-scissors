@@ -16,9 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.rpsonline.app.ui.leaderboard.RpsPerWinLabel
+import com.rpsonline.app.ui.leaderboard.RpsPerRoundLabel
 import com.rpsonline.app.ui.leaderboard.hasThrowStats
-import com.rpsonline.app.ui.leaderboard.throwsPerWin
+import com.rpsonline.app.ui.leaderboard.throwsPerRound
 
 private val ProfileCardPadding = 10.dp
 private val ProfileHeaderStatsGap = 6.dp
@@ -30,6 +30,9 @@ fun ProfileSummaryStatsCard(
     wins: Int,
     losses: Int,
     draws: Int = 0,
+    roundsWon: Int = 0,
+    roundsLost: Int = 0,
+    roundsDraw: Int = 0,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
@@ -40,7 +43,7 @@ fun ProfileSummaryStatsCard(
     onClick: (() -> Unit)? = null,
 ) {
     val statStyle = MaterialTheme.typography.labelMedium
-    val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
+    val showThrowStats = hasThrowStats(roundsWon, throwsRock, throwsPaper, throwsScissors)
 
     val cardModifier = modifier.fillMaxWidth()
     val body: @Composable () -> Unit = {
@@ -49,6 +52,9 @@ fun ProfileSummaryStatsCard(
             wins = wins,
             losses = losses,
             draws = draws,
+            roundsWon = roundsWon,
+            roundsLost = roundsLost,
+            roundsDraw = roundsDraw,
             throwsRock = throwsRock,
             throwsPaper = throwsPaper,
             throwsScissors = throwsScissors,
@@ -73,6 +79,9 @@ private fun ProfileSummaryStatsBody(
     wins: Int,
     losses: Int,
     draws: Int = 0,
+    roundsWon: Int = 0,
+    roundsLost: Int = 0,
+    roundsDraw: Int = 0,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
@@ -148,15 +157,20 @@ private fun ProfileSummaryStatsBody(
             }
 
             if (showThrowStats) {
-                val throwsPerWinValue = throwsPerWin(wins, throwsRock, throwsPaper, throwsScissors)
-                if (throwsPerWinValue != null) {
+                val throwsPerRoundValue = throwsPerRound(
+                    roundsWon,
+                    throwsRock,
+                    throwsPaper,
+                    throwsScissors,
+                )
+                if (throwsPerRoundValue != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RpsPerWinLabel(
-                            throwsPerWin = throwsPerWinValue,
+                        RpsPerRoundLabel(
+                            throwsPerRound = throwsPerRoundValue,
                             textStyle = statStyle,
                             showMoveIcons = true,
                         )

@@ -1,8 +1,5 @@
 package com.rpsonline.app.ui.game
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.HeartBroken
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
@@ -16,20 +13,12 @@ fun LoseRoundBanner(
     compact: Boolean = false,
     opponentLabel: String = "Opponent",
 ) {
-    RoundOutcomeCard(
-        containerColor = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        icon = Icons.Default.HeartBroken,
-        headline = "You lost Round #$roundNumber",
-        subtitle = when {
-            compact && awaitingNextRound -> ""
-            compact -> "Opponent scored."
-            awaitingNextRound -> "Opponent scored — pick your move for the next round."
-            else -> "Opponent scored a point."
-        },
+    RoundOutcomeBanner(
+        kind = RoundBannerKind.Lose,
+        roundNumber = roundNumber,
         myChoice = myChoice,
         opponentChoice = opponentChoice,
-        choiceSeparator = "vs",
+        showFollowUpHint = awaitingNextRound,
         modifier = modifier,
         compact = compact,
         opponentLabel = opponentLabel,

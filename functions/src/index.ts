@@ -48,6 +48,8 @@ interface RoundDoc {
   player2MoveMs?: number;
   /** Set when throwsRock/Paper/Scissors have been incremented for this round. */
   throwStatsRecorded?: boolean;
+  /** Set when roundsWon/Lost/Draw have been incremented for this round. */
+  roundStatsRecorded?: boolean;
 }
 
 interface MatchDoc {
@@ -71,6 +73,8 @@ interface MatchDoc {
   player2ClockMs?: number;
   clocksUpdatedAt?: Timestamp;
   winnerId?: string;
+  /** Why the match ended: normal series, round deadline forfeit, or match clock forfeit. */
+  endReason?: "normal" | "round_timeout" | "clock_timeout";
   player1EloDelta?: number;
   player2EloDelta?: number;
   player1Elo?: number;
@@ -160,6 +164,45 @@ async function recordRoundMoveThrows(match: MatchDoc, round: RoundDoc): Promise<
   if (tasks.length > 0) {
     await Promise.all(tasks);
   }
+}
+
+async function recordRoundOutcomeStats(
+  player1: string,
+  player2: string,
+  winner: string,
+): Promise<void> {
+  const bump = (uid: string, patch: Record<string, FirebaseFirestore.FieldValue>) =>
+    db.collection("users").doc(uid).update({
+      ...patch,
+      lastSeen: FieldValue.serverTimestamp(),
+    });
+
+  if (winner === "tie") {
+    await Promise.all([
+      bump(player1, { roundsDraw: FieldValue.increment(1) }),
+      bump(player2, { roundsDraw: FieldValue.increment(1) }),
+    ]);
+    return;
+  }
+
+  const loser = winner === player1 ? player2 : player1;
+  await Promise.all([
+    bump(winner, { roundsWon: FieldValue.increment(1) }),
+    bump(loser, { roundsLost: FieldValue.increment(1) }),
+  ]);
+}
+
+/** Throw counts + per-player round W/L/D once per resolved round with a winner. */
+async function recordRoundResolutionStats(
+  match: MatchDoc,
+  round: RoundDoc,
+  winner: string,
+): Promise<void> {
+  if (!round.throwStatsRecorded) {
+    await recordRoundMoveThrows(match, round);
+  }
+  if (round.roundStatsRecorded) return;
+  await recordRoundOutcomeStats(match.player1, match.player2, winner);
 }
 
 async function getUserProfile(uid: string) {
@@ -255,6 +298,7 @@ function sanitizeRound(round: RoundDoc): RoundDoc {
   if (round.player1MoveMs != null) clean.player1MoveMs = round.player1MoveMs;
   if (round.player2MoveMs != null) clean.player2MoveMs = round.player2MoveMs;
   if (round.throwStatsRecorded) clean.throwStatsRecorded = true;
+  if (round.roundStatsRecorded) clean.roundStatsRecorded = true;
   return clean;
 }
 
@@ -284,11 +328,13 @@ async function abandonMatch(
   await batch.commit();
 }
 
+type MatchEndReason = "normal" | "round_timeout" | "clock_timeout";
+
 async function finalizeMatch(
   matchRef: FirebaseFirestore.DocumentReference,
   match: MatchDoc,
   winnerId: string,
-  options?: { forfeit?: boolean },
+  options?: { forfeit?: boolean; endReason?: MatchEndReason },
 ): Promise<void> {
   const [p1Snap, p2Snap] = await Promise.all([
     db.collection("users").doc(match.player1).get(),
@@ -311,10 +357,13 @@ async function finalizeMatch(
     }
   }
 
+  const endReason: MatchEndReason = options?.endReason ?? "normal";
+
   const batch = db.batch();
   batch.update(matchRef, {
     status: "completed",
     winnerId,
+    endReason,
     player1Wins,
     player2Wins,
     rounds: sanitizeRounds(match.rounds),
@@ -361,6 +410,7 @@ async function finalizeMatchDraw(
   batch.update(matchRef, {
     status: "completed",
     winnerId: FieldValue.delete(),
+    endReason: "normal",
     player1Wins,
     player2Wins,
     rounds: sanitizeRounds(rounds),
@@ -406,6 +456,7 @@ async function applySeriesOutcome(
     player1Choice: p1Choice,
     player2Choice: p2Choice,
     throwStatsRecorded: true,
+    roundStatsRecorded: true,
   });
 
   if (outcome.kind === "winner") {
@@ -460,75 +511,83 @@ async function resolveRoundIfReady(
 
   const expiry = clockExpiry(ticked.player1ClockMs, ticked.player2ClockMs, round);
   if (expiry === "player1") {
-    if (p2Choice) {
-      await recordRoundMoveThrows(match, { ...round, player2Choice: p2Choice });
-    }
-    rounds[roundIndex] = sanitizeRound({
+    const winner = match.player2;
+    const resolvedRound = {
       ...round,
       ...(p2Choice ? { player2Choice: p2Choice } : {}),
       throwStatsRecorded: true,
-      winner: match.player2,
+      roundStatsRecorded: true,
+      winner,
       resolvedAt: now,
-    });
+    };
+    await recordRoundResolutionStats(match, resolvedRound, winner);
+    rounds[roundIndex] = sanitizeRound(resolvedRound);
     await finalizeMatch(
       matchRef,
       { ...match, rounds: sanitizeRounds(rounds) },
       match.player2,
-      { forfeit: true },
+      { forfeit: true, endReason: "clock_timeout" },
     );
     return;
   }
   if (expiry === "player2") {
-    if (p1Choice) {
-      await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice });
-    }
-    rounds[roundIndex] = sanitizeRound({
+    const winner = match.player1;
+    const resolvedRound = {
       ...round,
       ...(p1Choice ? { player1Choice: p1Choice } : {}),
       throwStatsRecorded: true,
-      winner: match.player1,
+      roundStatsRecorded: true,
+      winner,
       resolvedAt: now,
-    });
+    };
+    await recordRoundResolutionStats(match, resolvedRound, winner);
+    rounds[roundIndex] = sanitizeRound(resolvedRound);
     await finalizeMatch(
       matchRef,
       { ...match, rounds: sanitizeRounds(rounds) },
       match.player1,
-      { forfeit: true },
+      { forfeit: true, endReason: "clock_timeout" },
     );
     return;
   }
   if (expiry === "both") {
     if (p1Choice && !p2Choice) {
-      await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice });
-      rounds[roundIndex] = sanitizeRound({
+      const winner = match.player1;
+      const resolvedRound = {
         ...round,
         player1Choice: p1Choice,
         throwStatsRecorded: true,
-        winner: match.player1,
+        roundStatsRecorded: true,
+        winner,
         resolvedAt: now,
-      });
+      };
+      await recordRoundResolutionStats(match, resolvedRound, winner);
+      rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
         { ...match, rounds: sanitizeRounds(rounds) },
         match.player1,
-        { forfeit: true },
+        { forfeit: true, endReason: "clock_timeout" },
       );
       return;
     }
     if (!p1Choice && p2Choice) {
-      await recordRoundMoveThrows(match, { ...round, player2Choice: p2Choice });
-      rounds[roundIndex] = sanitizeRound({
+      const winner = match.player2;
+      const resolvedRound = {
         ...round,
         player2Choice: p2Choice,
         throwStatsRecorded: true,
-        winner: match.player2,
+        roundStatsRecorded: true,
+        winner,
         resolvedAt: now,
-      });
+      };
+      await recordRoundResolutionStats(match, resolvedRound, winner);
+      rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
         { ...match, rounds: sanitizeRounds(rounds) },
         match.player2,
-        { forfeit: true },
+        { forfeit: true, endReason: "clock_timeout" },
       );
       return;
     }
@@ -542,36 +601,42 @@ async function resolveRoundIfReady(
   } else if (deadlinePassed) {
     // Late player forfeits the entire series (not just the round).
     if (p1Choice && !p2Choice) {
-      await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice });
-      rounds[roundIndex] = sanitizeRound({
+      const winner = match.player1;
+      const resolvedRound = {
         ...round,
         player1Choice: p1Choice,
         throwStatsRecorded: true,
-        winner: match.player1,
+        roundStatsRecorded: true,
+        winner,
         resolvedAt: now,
-      });
+      };
+      await recordRoundResolutionStats(match, resolvedRound, winner);
+      rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
         { ...match, rounds: sanitizeRounds(rounds) },
         match.player1,
-        { forfeit: true },
+        { forfeit: true, endReason: "round_timeout" },
       );
       return;
     }
     if (!p1Choice && p2Choice) {
-      await recordRoundMoveThrows(match, { ...round, player2Choice: p2Choice });
-      rounds[roundIndex] = sanitizeRound({
+      const winner = match.player2;
+      const resolvedRound = {
         ...round,
         player2Choice: p2Choice,
         throwStatsRecorded: true,
-        winner: match.player2,
+        roundStatsRecorded: true,
+        winner,
         resolvedAt: now,
-      });
+      };
+      await recordRoundResolutionStats(match, resolvedRound, winner);
+      rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
         { ...match, rounds: sanitizeRounds(rounds) },
         match.player2,
-        { forfeit: true },
+        { forfeit: true, endReason: "round_timeout" },
       );
       return;
     }
@@ -583,8 +648,6 @@ async function resolveRoundIfReady(
     return;
   }
 
-  await recordRoundMoveThrows(match, { ...round, player1Choice: p1Choice, player2Choice: p2Choice });
-
   let winner: string;
   const result = resolveRound(p1Choice!, p2Choice!);
   if (result === "tie") {
@@ -594,6 +657,17 @@ async function resolveRoundIfReady(
   } else {
     winner = match.player2;
   }
+
+  const resolvedRound = {
+    ...round,
+    player1Choice: p1Choice,
+    player2Choice: p2Choice,
+    throwStatsRecorded: true,
+    roundStatsRecorded: true,
+    winner,
+    resolvedAt: now,
+  };
+  await recordRoundResolutionStats(match, resolvedRound, winner);
 
   let player1Wins = match.player1Wins;
   let player2Wins = match.player2Wins;
@@ -621,14 +695,7 @@ async function resolveRoundIfReady(
   const nextRoundNumber = match.currentRound + 1;
   const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
   const incremented = applyClockIncrement(ticked.player1ClockMs, ticked.player2ClockMs);
-  rounds[roundIndex] = sanitizeRound({
-    ...round,
-    player1Choice: p1Choice,
-    player2Choice: p2Choice,
-    throwStatsRecorded: true,
-    winner,
-    resolvedAt: now,
-  });
+  rounds[roundIndex] = sanitizeRound(resolvedRound);
   rounds.push({ roundNumber: nextRoundNumber, deadline: nextDeadline, startedAt: now });
   await matchRef.update({
     rounds: sanitizeRounds(rounds),
