@@ -29,6 +29,8 @@ See [docs/STRUCTURE.md](docs/STRUCTURE.md) for packages, Firestore paths, and ho
 
 Requirements: JDK 17, Android SDK (API 35), and a `google-services.json` from your Firebase project in `app/`.
 
+`JAVA_HOME` is optional: `./gradlew` now auto-detects Android Studio's bundled JBR on macOS/Windows (if installed in default locations) before falling back to `java` on `PATH`.
+
 ```bash
 ./gradlew :app:assembleDebug
 ```

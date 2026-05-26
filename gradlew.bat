@@ -41,6 +41,18 @@ set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 @rem Find java.exe
 if defined JAVA_HOME goto findJavaFromJavaHome
 
+for %%D in (
+    "C:\Program Files\Android\Android Studio\jbr"
+    "C:\Program Files\Android\Android Studio Preview\jbr"
+    "%LOCALAPPDATA%\Programs\Android Studio\jbr"
+    "%LOCALAPPDATA%\Programs\Android Studio Preview\jbr"
+) do (
+    if exist "%%~D\bin\java.exe" (
+        set "JAVA_HOME=%%~D"
+        goto findJavaFromJavaHome
+    )
+)
+
 set JAVA_EXE=java.exe
 %JAVA_EXE% -version >NUL 2>&1
 if %ERRORLEVEL% equ 0 goto execute
