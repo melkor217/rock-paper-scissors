@@ -6,15 +6,18 @@ package com.rpsonline.app.domain
 enum class MatchMode(
     val winsToFinish: Int,
     val bestOfRounds: Int,
+    /** When set, a tied score after all rounds ends the series as a draw (BO10 only). */
+    val tiedSeriesScore: Int? = null,
 ) {
     BO3(winsToFinish = 2, bestOfRounds = 3),
     BO5(winsToFinish = 3, bestOfRounds = 5),
+    BO10(winsToFinish = 6, bestOfRounds = 10, tiedSeriesScore = 5),
     ;
 
     val label: String get() = "Best of $bestOfRounds"
 
     companion object {
-        val DEFAULT_SELECTION: Set<MatchMode> = setOf(BO3)
+        val DEFAULT_SELECTION: Set<MatchMode> = entries.toSet()
 
         fun fromString(value: String?): MatchMode =
             entries.find { it.name.equals(value, ignoreCase = true) } ?: BO3

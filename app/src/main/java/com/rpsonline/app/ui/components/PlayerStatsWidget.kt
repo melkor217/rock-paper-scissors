@@ -16,6 +16,7 @@ fun PlayerStatsWidget(
         elo = eloOverride ?: profile?.elo ?: 1000,
         wins = profile?.wins ?: 0,
         losses = profile?.losses ?: 0,
+        draws = profile?.draws ?: 0,
         throwsRock = profile?.throwsRock ?: 0,
         throwsPaper = profile?.throwsPaper ?: 0,
         throwsScissors = profile?.throwsScissors ?: 0,

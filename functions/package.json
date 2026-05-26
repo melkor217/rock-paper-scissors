@@ -6,9 +6,10 @@
     "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "deploy": "firebase deploy --only functions,firestore:rules,firestore:indexes",
     "lint": "eslint --ext .js,.ts .",
-    "test": "npm run build && node --test lib/game.test.js",
+    "test": "npm run build && node --test lib/*.test.js",
     "backfill-last-seen": "npm run build && node lib/scripts/backfill-user-last-seen.js",
-    "backfill-throw-stats": "npm run build && node lib/scripts/backfill-throw-stats.js"
+    "backfill-throw-stats": "npm run build && node lib/scripts/backfill-throw-stats.js",
+    "backfill-move-timing": "npm run build && node lib/scripts/backfill-move-timing.js"
   },
   "engines": {
     "node": "22"

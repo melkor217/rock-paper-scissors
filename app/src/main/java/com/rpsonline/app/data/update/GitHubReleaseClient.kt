@@ -10,14 +10,14 @@ class GitHubReleaseClient(
     private val owner: String,
     private val repo: String,
 ) {
-    fun fetchLatestRelease(): AppUpdateInfo? {
+    fun fetchLatestRelease(installedVersionName: String): AppUpdateInfo? {
         var connection: HttpURLConnection? = null
         return try {
             connection = (URL("https://api.github.com/repos/$owner/$repo/releases/latest")
                 .openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = 5_000
-                readTimeout = 5_000
+                readTimeout = 10_000
                 setRequestProperty("Accept", "application/vnd.github+json")
                 setRequestProperty("User-Agent", "RpsOnline-Android")
             }
@@ -25,7 +25,7 @@ class GitHubReleaseClient(
                 return null
             }
             val body = connection.inputStream.bufferedReader().use { it.readText() }
-            parseRelease(body)
+            parseRelease(body, installedVersionName)
         } catch (_: Exception) {
             null
         } finally {
@@ -33,7 +33,7 @@ class GitHubReleaseClient(
         }
     }
 
-    private fun parseRelease(json: String): AppUpdateInfo? {
+    private fun parseRelease(json: String, installedVersionName: String): AppUpdateInfo? {
         return try {
             val root = JSONObject(json)
             val tag = root.optString("tag_name")
@@ -51,16 +51,51 @@ class GitHubReleaseClient(
             }
             val url = apkUrl?.takeIf { it.isNotBlank() } ?: return null
 
-            val notes = root.optString("body").takeIf { it.isNotBlank() }
+            val releaseBody = root.optString("body").takeIf { it.isNotBlank() }
+            val (baseTag, headTag) = releaseBody?.let { ReleaseChangelog.parseCompareRangeFromReleaseBody(it) }
+                ?: (ReleaseChangelog.tagForInstalledVersion(installedVersionName) to tag)
+            val compareSection = if (baseTag != headTag) {
+                fetchCompareChangelog(baseTag, headTag)
+            } else {
+                null
+            }
+            val changelog = ReleaseChangelog.buildDisplayText(releaseBody, compareSection)
+
             AppUpdateInfo(
                 tag = tag,
                 versionCode = versionCodeFromTag(tag),
                 versionLabel = versionLabelFromTag(tag),
                 apkUrl = url,
-                releaseNotes = notes,
+                releaseNotes = changelog,
             )
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun fetchCompareChangelog(baseTag: String, headTag: String): String? {
+        if (baseTag.isBlank() || headTag.isBlank() || baseTag == headTag) return null
+        var connection: HttpURLConnection? = null
+        return try {
+            val compareRef = "$baseTag...$headTag"
+            connection = (URL("https://api.github.com/repos/$owner/$repo/compare/$compareRef")
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 5_000
+                readTimeout = 10_000
+                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("User-Agent", "RpsOnline-Android")
+            }
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                return null
+            }
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val commits = JSONObject(body).optJSONArray("commits") ?: return null
+            ReleaseChangelog.formatCompareCommits(commits).takeIf { it.isNotBlank() }
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection?.disconnect()
         }
     }
 }

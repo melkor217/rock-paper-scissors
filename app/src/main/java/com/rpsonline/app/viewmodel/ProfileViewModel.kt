@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 
 data class ProfileUiState(
     val isLoading: Boolean = true,
+    val isMatchHistoryLoading: Boolean = true,
     val profile: UserProfile? = null,
     val matchHistory: List<MatchHistoryEntry> = emptyList(),
     val isOwnProfile: Boolean = true,
@@ -43,7 +44,7 @@ class ProfileViewModel(
         profileJob = viewModelScope.launch {
             userRepository.observeUserProfile(userId).collect { profile ->
                 if (profile != null) {
-                    _uiState.update { it.copy(profile = profile, isLoading = false, error = null) }
+                    _uiState.update { it.copy(profile = profile, error = null) }
                 }
             }
         }
@@ -54,6 +55,7 @@ class ProfileViewModel(
                 _uiState.update {
                     ProfileUiState(
                         isLoading = true,
+                        isMatchHistoryLoading = true,
                         isOwnProfile = userId == authRepository.currentUserId,
                     )
                 }
@@ -61,6 +63,7 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = showFullScreenLoading,
+                        isMatchHistoryLoading = true,
                         error = null,
                     )
                 }
@@ -89,6 +92,7 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isMatchHistoryLoading = false,
                         profile = profile,
                         matchHistory = history,
                         isOwnProfile = isOwnProfile,
@@ -98,6 +102,7 @@ class ProfileViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isMatchHistoryLoading = false,
                         error = e.message ?: "Failed to load profile",
                     )
                 }

@@ -44,7 +44,8 @@ class AppUpdateRepository(
 
     fun checkForUpdate(): UpdateCheckOutcome {
         if (!updatesEnabled()) return UpdateCheckOutcome.UpToDate
-        val latest = releaseClient.fetchLatestRelease() ?: return UpdateCheckOutcome.CheckFailed
+        val latest = releaseClient.fetchLatestRelease(currentVersionName())
+            ?: return UpdateCheckOutcome.CheckFailed
         return if (latest.versionCode > currentVersionCode()) {
             UpdateCheckOutcome.UpdateAvailable(latest)
         } else {

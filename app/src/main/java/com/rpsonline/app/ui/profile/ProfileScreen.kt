@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
+import com.rpsonline.app.ui.components.MatchHistoryLoadingSection
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.MatchHistoryCardHeader
@@ -56,11 +56,12 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         when {
-            uiState.isLoading -> {
+            uiState.isLoading && uiState.profile == null -> {
                 RpsLoadingColumn(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
+                    message = "Loading profile…",
                 )
             }
             uiState.error != null -> {
@@ -84,6 +85,7 @@ fun ProfileScreen(
                             elo = profile?.elo ?: 1000,
                             wins = profile?.wins ?: 0,
                             losses = profile?.losses ?: 0,
+                            draws = profile?.draws ?: 0,
                             throwsRock = profile?.throwsRock ?: 0,
                             throwsPaper = profile?.throwsPaper ?: 0,
                             throwsScissors = profile?.throwsScissors ?: 0,
@@ -100,7 +102,11 @@ fun ProfileScreen(
                             color = MaterialTheme.colorScheme.onBackground,
                         )
                     }
-                    if (uiState.matchHistory.isEmpty()) {
+                    if (uiState.isMatchHistoryLoading) {
+                        item {
+                            MatchHistoryLoadingSection()
+                        }
+                    } else if (uiState.matchHistory.isEmpty()) {
                         item {
                             Text(
                                 text = if (uiState.isOwnProfile) {
@@ -139,6 +145,7 @@ private fun ProfileStatsCard(
     elo: Int,
     wins: Int,
     losses: Int,
+    draws: Int,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
@@ -147,6 +154,7 @@ private fun ProfileStatsCard(
         elo = elo,
         wins = wins,
         losses = losses,
+        draws = draws,
         throwsRock = throwsRock,
         throwsPaper = throwsPaper,
         throwsScissors = throwsScissors,

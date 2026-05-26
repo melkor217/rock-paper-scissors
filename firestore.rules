@@ -10,21 +10,33 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function isValidMatchMode(mode) {
+      return mode == 'BO3' || mode == 'BO5' || mode == 'BO10';
+    }
+
+    function modesAreDistinct(modes) {
+      return modes.size() <= 1
+        || (modes.size() == 2 && modes[0] != modes[1])
+        || (modes.size() == 3
+            && modes[0] != modes[1]
+            && modes[0] != modes[2]
+            && modes[1] != modes[2]);
+    }
+
     function validQueueMatchModes(modes) {
       return modes is list
         && modes.size() >= 1
-        && modes.size() <= 2
-        && (modes.size() == 1
-            ? (modes[0] == 'BO3' || modes[0] == 'BO5')
-            : ((modes[0] == 'BO3' || modes[0] == 'BO5')
-               && (modes[1] == 'BO3' || modes[1] == 'BO5')
-               && modes[0] != modes[1]));
+        && modes.size() <= 3
+        && (modes.size() < 1 || isValidMatchMode(modes[0]))
+        && (modes.size() < 2 || isValidMatchMode(modes[1]))
+        && (modes.size() < 3 || isValidMatchMode(modes[2]))
+        && modesAreDistinct(modes);
     }
 
     function validQueueMatchModeField(data) {
       return !('matchModes' in data) && !('matchMode' in data)
         || ('matchModes' in data && validQueueMatchModes(data.matchModes))
-        || ('matchMode' in data && (data.matchMode == 'BO3' || data.matchMode == 'BO5'));
+        || ('matchMode' in data && isValidMatchMode(data.matchMode));
     }
 
     /** Legacy clients omit matchModes; Cloud Functions default to BO3. */
@@ -46,13 +58,17 @@ service cloud.firestore {
         && request.resource.data.elo == 1000
         && request.resource.data.wins == 0
         && request.resource.data.losses == 0
+        && (!('draws' in request.resource.data) || request.resource.data.draws == 0)
+        && (!('moveTimeMs' in request.resource.data) || request.resource.data.moveTimeMs == 0)
+        && (!('moveCount' in request.resource.data) || request.resource.data.moveCount == 0)
         && request.resource.data.throwsRock == 0
         && request.resource.data.throwsPaper == 0
         && request.resource.data.throwsScissors == 0
         && request.resource.data.lastSeen is timestamp;
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).changedKeys().hasAny([
-          'elo', 'wins', 'losses', 'activeMatchId',
+          'elo', 'wins', 'losses', 'draws', 'activeMatchId',
+          'moveTimeMs', 'moveCount',
           'throwsRock', 'throwsPaper', 'throwsScissors'
         ])
         && (!('lastSeen' in request.resource.data.diff(resource.data).changedKeys())

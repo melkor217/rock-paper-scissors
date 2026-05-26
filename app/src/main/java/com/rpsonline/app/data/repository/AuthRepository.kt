@@ -106,6 +106,9 @@ class AuthRepository(
                 put("elo", profile.elo)
                 put("wins", profile.wins)
                 put("losses", profile.losses)
+                put("draws", profile.draws)
+                put("moveTimeMs", profile.moveTimeMs)
+                put("moveCount", profile.moveCount)
                 put("throwsRock", profile.throwsRock)
                 put("throwsPaper", profile.throwsPaper)
                 put("throwsScissors", profile.throwsScissors)
@@ -195,6 +198,9 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toUserProfile(uid: St
         elo = getIntField("elo") ?: 1000,
         wins = getIntField("wins") ?: 0,
         losses = getIntField("losses") ?: 0,
+        draws = getIntField("draws") ?: 0,
+        moveTimeMs = getLong("moveTimeMs") ?: 0L,
+        moveCount = getIntField("moveCount") ?: 0,
         throwsRock = getIntField("throwsRock") ?: 0,
         throwsPaper = getIntField("throwsPaper") ?: 0,
         throwsScissors = getIntField("throwsScissors") ?: 0,
