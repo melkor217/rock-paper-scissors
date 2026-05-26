@@ -20,10 +20,24 @@ class MatchModeTest {
     }
 
     @Test
+    fun bo10_requiresSixWins_andAllowsFiveFiveDraw() {
+        assertEquals(6, MatchMode.BO10.winsToFinish)
+        assertEquals(10, MatchMode.BO10.bestOfRounds)
+        assertEquals(5, MatchMode.BO10.tiedSeriesScore)
+        assertEquals("Best of 10", MatchMode.BO10.label)
+    }
+
+    @Test
+    fun defaultSelection_includesAllModes() {
+        assertEquals(setOf(MatchMode.BO3, MatchMode.BO5, MatchMode.BO10), MatchMode.DEFAULT_SELECTION)
+    }
+
+    @Test
     fun fromString_defaultsToBo3() {
         assertEquals(MatchMode.BO3, MatchMode.fromString(null))
         assertEquals(MatchMode.BO3, MatchMode.fromString("unknown"))
         assertEquals(MatchMode.BO5, MatchMode.fromString("BO5"))
+        assertEquals(MatchMode.BO10, MatchMode.fromString("BO10"))
     }
 
     @Test
@@ -38,13 +52,13 @@ class MatchModeTest {
     }
 
     @Test
-    fun toggleInSelection_deselectingOnlyMode_selectsTheOther() {
+    fun toggleInSelection_deselectingOnlyMode_selectsAllOthers() {
         assertEquals(
-            setOf(MatchMode.BO5),
+            setOf(MatchMode.BO5, MatchMode.BO10),
             MatchMode.toggleInSelection(setOf(MatchMode.BO3), MatchMode.BO3),
         )
         assertEquals(
-            setOf(MatchMode.BO3),
+            setOf(MatchMode.BO3, MatchMode.BO10),
             MatchMode.toggleInSelection(setOf(MatchMode.BO5), MatchMode.BO5),
         )
     }

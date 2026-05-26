@@ -1,6 +1,15 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { calculateElo, parseMatchMode, parseMatchModes, pickSharedMatchMode, resolveRound, winsToFinish } from "./game";
+import {
+  bestOfRounds,
+  calculateElo,
+  parseMatchMode,
+  parseMatchModes,
+  pickSharedMatchMode,
+  resolveRound,
+  seriesOutcomeAfterRound,
+  winsToFinish,
+} from "./game";
 
 describe("resolveRound", () => {
   it("detects ties", () => {
@@ -25,15 +34,32 @@ describe("match modes", () => {
   it("defaults unknown values to BO3", () => {
     assert.equal(parseMatchMode(undefined), "BO3");
     assert.equal(parseMatchMode("BO5"), "BO5");
+    assert.equal(parseMatchMode("BO10"), "BO10");
   });
 
   it("maps wins to finish by mode", () => {
     assert.equal(winsToFinish("BO3"), 2);
     assert.equal(winsToFinish("BO5"), 3);
+    assert.equal(winsToFinish("BO10"), 6);
+    assert.equal(bestOfRounds("BO10"), 10);
+  });
+
+  it("BO10 series outcome after round 10", () => {
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 6, 3, 9), {
+      kind: "winner",
+      player: "player1",
+    });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 5, 5, 10), { kind: "draw" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 6, 4, 10), {
+      kind: "winner",
+      player: "player1",
+    });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 4, 4, 10), { kind: "draw" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 5, 4, 9), { kind: "continue" });
   });
 
   it("parses multiple queue modes with legacy fallback", () => {
-    assert.deepEqual(parseMatchModes(["BO5", "BO3"]), ["BO5", "BO3"]);
+    assert.deepEqual(parseMatchModes(["BO5", "BO3", "BO10"]), ["BO5", "BO3", "BO10"]);
     assert.deepEqual(parseMatchModes(undefined, "BO5"), ["BO5"]);
     assert.deepEqual(parseMatchModes([], "BO3"), ["BO3"]);
   });

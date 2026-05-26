@@ -5,10 +5,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.rpsonline.app.data.model.LeaderboardEntry
 
-fun LeaderboardEntry.winRatePercent(): Int? {
-    val games = wins + losses
+fun winRatePercent(wins: Int, losses: Int, draws: Int = 0): Int? {
+    val games = wins + losses + draws
     return games.takeIf { it > 0 }?.let { (wins * 100) / it }
 }
+
+fun LeaderboardEntry.winRatePercent(): Int? = winRatePercent(wins, losses, draws)
 
 @Composable
 fun leaderboardWinRateColor(percent: Int?): Color {

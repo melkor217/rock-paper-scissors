@@ -199,6 +199,8 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
             winner = map["winner"] as? String,
             resolvedAt = (map["resolvedAt"] as? Timestamp)?.toDate()?.time,
             deadline = (map["deadline"] as? Timestamp)?.toDate()?.time,
+            player1MoveMs = (map["player1MoveMs"] as? Number)?.toInt(),
+            player2MoveMs = (map["player2MoveMs"] as? Number)?.toInt(),
         )
     }
 
@@ -213,6 +215,10 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
         currentRound = getLong("currentRound")?.toInt() ?: 1,
         player1Wins = getLong("player1Wins")?.toInt() ?: 0,
         player2Wins = getLong("player2Wins")?.toInt() ?: 0,
+        player1MoveTimeMs = getLong("player1MoveTimeMs") ?: 0L,
+        player2MoveTimeMs = getLong("player2MoveTimeMs") ?: 0L,
+        player1MoveCount = getLong("player1MoveCount")?.toInt() ?: 0,
+        player2MoveCount = getLong("player2MoveCount")?.toInt() ?: 0,
         rounds = rounds,
         winnerId = getString("winnerId"),
         player1EloDelta = getIntField("player1EloDelta"),

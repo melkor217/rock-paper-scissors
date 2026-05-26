@@ -12,17 +12,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import com.rpsonline.app.data.preferences.AppThemeStyle
 import com.rpsonline.app.ui.leaderboard.leaderboardSpectrumColor
+import com.rpsonline.app.ui.leaderboard.winRatePercent
 import com.rpsonline.app.ui.theme.currentAppThemeStyle
 
 @Composable
 fun WinLossStatLine(
     wins: Int,
     losses: Int,
+    draws: Int = 0,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
 ) {
-    val games = wins + losses
-    val winRate = games.takeIf { it > 0 }?.let { (wins * 100) / it }
+    val winRate = winRatePercent(wins, losses, draws)
     val separatorColor = MaterialTheme.colorScheme.onSurfaceVariant
     val isCyberpunk = currentAppThemeStyle() == AppThemeStyle.CYBERPUNK
     val winRateColor = if (isCyberpunk) {
@@ -67,6 +68,27 @@ fun WinLossStatLine(
             ),
         ) {
             append("L $losses")
+        }
+        withStyle(
+            SpanStyle(
+                color = separatorColor,
+                fontSize = fontSize,
+                fontFamily = fontFamily,
+                letterSpacing = letterSpacing,
+            ),
+        ) {
+            append(" / ")
+        }
+        withStyle(
+            SpanStyle(
+                color = MaterialTheme.colorScheme.tertiary,
+                fontWeight = boldWeight,
+                fontSize = fontSize,
+                fontFamily = fontFamily,
+                letterSpacing = letterSpacing,
+            ),
+        ) {
+            append("D $draws")
         }
         if (winRate != null) {
             withStyle(

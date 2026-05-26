@@ -2,15 +2,31 @@ import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { calculateElo, isValidMove, MatchMode, Move, parseMatchMode, parseMatchModes, pickSharedMatchMode, resolveRound, winsToFinish } from "./game";
+import {
+  calculateElo,
+  isValidMove,
+  MatchMode,
+  Move,
+  parseMatchMode,
+  parseMatchModes,
+  pickSharedMatchMode,
+  resolveRound,
+  seriesOutcomeAfterRound,
+  winsToFinish,
+} from "./game";
+import {
+  computeMoveMs,
+  existingMoveMs,
+  MoveTimingSlot,
+  ROUND_TIMEOUT_MS,
+  withMoveMs,
+} from "./moveTiming";
 
 admin.initializeApp();
 const db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 
 const REGION = "us-central1";
-/** Late player forfeits the whole match after this window. */
-const ROUND_TIMEOUT_MS = 60_000;
 const ELO_WINDOW = 200;
 
 interface RoundDoc {
@@ -19,7 +35,11 @@ interface RoundDoc {
   player2Choice?: Move;
   winner?: string;
   resolvedAt?: Timestamp;
+  startedAt?: Timestamp;
   deadline?: Timestamp;
+  /** Ms from round start until each player locked in a move. */
+  player1MoveMs?: number;
+  player2MoveMs?: number;
   /** Set when throwsRock/Paper/Scissors have been incremented for this round. */
   throwStatsRecorded?: boolean;
 }
@@ -35,6 +55,11 @@ interface MatchDoc {
   player1Wins: number;
   player2Wins: number;
   rounds: RoundDoc[];
+  /** Sum of per-round move times (ms) for each player in this match. */
+  player1MoveTimeMs?: number;
+  player2MoveTimeMs?: number;
+  player1MoveCount?: number;
+  player2MoveCount?: number;
   winnerId?: string;
   player1EloDelta?: number;
   player2EloDelta?: number;
@@ -44,11 +69,66 @@ interface MatchDoc {
   lastActivityAt: Timestamp;
 }
 
+interface RecordedMoveTiming {
+  uid: string;
+  slot: MoveTimingSlot;
+  ms: number;
+}
+
 const THROW_FIELDS: Record<Move, "throwsRock" | "throwsPaper" | "throwsScissors"> = {
   ROCK: "throwsRock",
   PAPER: "throwsPaper",
   SCISSORS: "throwsScissors",
 };
+
+function moveTimingSlot(match: MatchDoc, uid: string): MoveTimingSlot | null {
+  if (uid === match.player1) return "player1";
+  if (uid === match.player2) return "player2";
+  return null;
+}
+
+/** Stamp per-round move ms and return match/user increment deltas (once per player per round). */
+function recordMoveTiming(
+  round: RoundDoc,
+  match: MatchDoc,
+  uid: string,
+  now: Timestamp,
+): { round: RoundDoc; timing: RecordedMoveTiming } | null {
+  const slot = moveTimingSlot(match, uid);
+  if (!slot || existingMoveMs(round, slot) != null) return null;
+  const ms = computeMoveMs(round, now, now);
+  return {
+    round: withMoveMs(round, slot, ms) as RoundDoc,
+    timing: { uid, slot, ms },
+  };
+}
+
+function matchTimingIncrements(timings: RecordedMoveTiming[]): Record<string, FirebaseFirestore.FieldValue> {
+  const out: Record<string, FirebaseFirestore.FieldValue> = {};
+  for (const t of timings) {
+    if (t.slot === "player1") {
+      out.player1MoveTimeMs = FieldValue.increment(t.ms);
+      out.player1MoveCount = FieldValue.increment(1);
+    } else {
+      out.player2MoveTimeMs = FieldValue.increment(t.ms);
+      out.player2MoveCount = FieldValue.increment(1);
+    }
+  }
+  return out;
+}
+
+function applyRecordedTimingsToTransaction(
+  tx: FirebaseFirestore.Transaction,
+  timings: RecordedMoveTiming[],
+): void {
+  for (const t of timings) {
+    tx.update(db.collection("users").doc(t.uid), {
+      moveTimeMs: FieldValue.increment(t.ms),
+      moveCount: FieldValue.increment(1),
+      lastSeen: FieldValue.serverTimestamp(),
+    });
+  }
+}
 
 async function recordMoveThrown(uid: string, move: Move): Promise<void> {
   await db.collection("users").doc(uid).update({
@@ -107,7 +187,11 @@ async function createMatch(playerA: string, playerB: string, matchMode: MatchMod
     currentRound: 1,
     player1Wins: 0,
     player2Wins: 0,
-    rounds: [{ roundNumber: 1, deadline }],
+    player1MoveTimeMs: 0,
+    player2MoveTimeMs: 0,
+    player1MoveCount: 0,
+    player2MoveCount: 0,
+    rounds: [{ roundNumber: 1, deadline, startedAt: now }],
     createdAt: now,
     lastActivityAt: now,
   };
@@ -155,7 +239,10 @@ function sanitizeRound(round: RoundDoc): RoundDoc {
   if (round.player2Choice) clean.player2Choice = round.player2Choice;
   if (round.winner) clean.winner = round.winner;
   if (round.resolvedAt) clean.resolvedAt = round.resolvedAt;
+  if (round.startedAt) clean.startedAt = round.startedAt;
   if (round.deadline) clean.deadline = round.deadline;
+  if (round.player1MoveMs != null) clean.player1MoveMs = round.player1MoveMs;
+  if (round.player2MoveMs != null) clean.player2MoveMs = round.player2MoveMs;
   if (round.throwStatsRecorded) clean.throwStatsRecorded = true;
   return clean;
 }
@@ -244,6 +331,88 @@ async function finalizeMatch(
   await batch.commit();
 }
 
+async function finalizeMatchDraw(
+  matchRef: FirebaseFirestore.DocumentReference,
+  match: MatchDoc,
+  player1Wins: number,
+  player2Wins: number,
+  rounds: RoundDoc[],
+): Promise<void> {
+  const [p1Snap, p2Snap] = await Promise.all([
+    db.collection("users").doc(match.player1).get(),
+    db.collection("users").doc(match.player2).get(),
+  ]);
+
+  const p1Elo = (p1Snap.get("elo") as number) ?? 1000;
+  const p2Elo = (p2Snap.get("elo") as number) ?? 1000;
+
+  const batch = db.batch();
+  batch.update(matchRef, {
+    status: "completed",
+    winnerId: FieldValue.delete(),
+    player1Wins,
+    player2Wins,
+    rounds: sanitizeRounds(rounds),
+    player1Elo: p1Elo,
+    player2Elo: p2Elo,
+    player1EloDelta: 0,
+    player2EloDelta: 0,
+    lastActivityAt: FieldValue.serverTimestamp(),
+  });
+  batch.update(db.collection("users").doc(match.player1), {
+    draws: FieldValue.increment(1),
+    activeMatchId: FieldValue.delete(),
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+  batch.update(db.collection("users").doc(match.player2), {
+    draws: FieldValue.increment(1),
+    activeMatchId: FieldValue.delete(),
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+  await batch.commit();
+}
+
+async function applySeriesOutcome(
+  matchRef: FirebaseFirestore.DocumentReference,
+  match: MatchDoc,
+  rounds: RoundDoc[],
+  roundIndex: number,
+  round: RoundDoc,
+  player1Wins: number,
+  player2Wins: number,
+  now: Timestamp,
+  p1Choice: Move,
+  p2Choice: Move,
+  winner: string,
+): Promise<boolean> {
+  const mode = parseMatchMode(match.matchMode);
+  const outcome = seriesOutcomeAfterRound(mode, player1Wins, player2Wins, round.roundNumber);
+
+  rounds[roundIndex] = sanitizeRound({
+    ...round,
+    winner,
+    resolvedAt: now,
+    player1Choice: p1Choice,
+    player2Choice: p2Choice,
+    throwStatsRecorded: true,
+  });
+
+  if (outcome.kind === "winner") {
+    const winnerId = outcome.player === "player1" ? match.player1 : match.player2;
+    await finalizeMatch(
+      matchRef,
+      { ...match, rounds: sanitizeRounds(rounds), player1Wins, player2Wins },
+      winnerId,
+    );
+    return true;
+  }
+  if (outcome.kind === "draw") {
+    await finalizeMatchDraw(matchRef, match, player1Wins, player2Wins, sanitizeRounds(rounds));
+    return true;
+  }
+  return false;
+}
+
 async function resolveRoundIfReady(
   matchRef: FirebaseFirestore.DocumentReference,
   match: MatchDoc,
@@ -326,63 +495,26 @@ async function resolveRoundIfReady(
   if (winner === match.player1) player1Wins += 1;
   if (winner === match.player2) player2Wins += 1;
 
-  const winsNeeded = winsToFinish(parseMatchMode(match.matchMode));
-
-  if (player1Wins >= winsNeeded) {
-    rounds[roundIndex] = sanitizeRound({
-      ...round,
-      winner,
-      resolvedAt: now,
-      player1Choice: p1Choice,
-      player2Choice: p2Choice,
-      throwStatsRecorded: true,
-    });
-    await finalizeMatch(
+  if (
+    await applySeriesOutcome(
       matchRef,
-      { ...match, rounds: sanitizeRounds(rounds), player1Wins, player2Wins },
-      match.player1,
-    );
-    return;
-  }
-  if (player2Wins >= winsNeeded) {
-    rounds[roundIndex] = sanitizeRound({
-      ...round,
-      winner,
-      resolvedAt: now,
-      player1Choice: p1Choice,
-      player2Choice: p2Choice,
-      throwStatsRecorded: true,
-    });
-    await finalizeMatch(
-      matchRef,
-      { ...match, rounds: sanitizeRounds(rounds), player1Wins, player2Wins },
-      match.player2,
-    );
-    return;
-  }
-
-  if (winner === "tie") {
-    const nextRoundNumber = match.currentRound + 1;
-    const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
-    rounds[roundIndex] = sanitizeRound({
-      ...round,
-      player1Choice: p1Choice,
-      player2Choice: p2Choice,
-      throwStatsRecorded: true,
-      winner: "tie",
-      resolvedAt: now,
-    });
-    rounds.push({ roundNumber: nextRoundNumber, deadline: nextDeadline });
-    await matchRef.update({
-      rounds: sanitizeRounds(rounds),
-      currentRound: nextRoundNumber,
+      match,
+      rounds,
+      roundIndex,
+      round,
       player1Wins,
       player2Wins,
-      lastActivityAt: FieldValue.serverTimestamp(),
-    });
+      now,
+      p1Choice!,
+      p2Choice!,
+      winner,
+    )
+  ) {
     return;
   }
 
+  const nextRoundNumber = match.currentRound + 1;
+  const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
   rounds[roundIndex] = sanitizeRound({
     ...round,
     player1Choice: p1Choice,
@@ -391,11 +523,9 @@ async function resolveRoundIfReady(
     winner,
     resolvedAt: now,
   });
-
-  const nextRoundNumber = match.currentRound + 1;
-  const nextDeadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
+  rounds.push({ roundNumber: nextRoundNumber, deadline: nextDeadline, startedAt: now });
   await matchRef.update({
-    rounds: sanitizeRounds([...rounds, { roundNumber: nextRoundNumber, deadline: nextDeadline }]),
+    rounds: sanitizeRounds(rounds),
     currentRound: nextRoundNumber,
     player1Wins,
     player2Wins,
@@ -452,12 +582,25 @@ async function applyPlayerChoice(
     const idx = rounds.findIndex((r) => r.roundNumber === roundNumber && !r.resolvedAt);
     if (idx < 0) return;
 
-    const current = { ...rounds[idx] };
+    const now = Timestamp.now();
+    let current = { ...rounds[idx] };
+    const timings: RecordedMoveTiming[] = [];
+
     if (uid === match.player1) {
       if (current.player1Choice) return;
+      const stamped = recordMoveTiming(current, match, uid, now);
+      if (stamped) {
+        current = stamped.round;
+        timings.push(stamped.timing);
+      }
       current.player1Choice = choice as Move;
     } else {
       if (current.player2Choice) return;
+      const stamped = recordMoveTiming(current, match, uid, now);
+      if (stamped) {
+        current = stamped.round;
+        timings.push(stamped.timing);
+      }
       current.player2Choice = choice as Move;
     }
 
@@ -465,7 +608,9 @@ async function applyPlayerChoice(
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
+      ...matchTimingIncrements(timings),
     });
+    applyRecordedTimingsToTransaction(tx, timings);
   });
 
   const updated = await matchRef.get();
@@ -521,15 +666,27 @@ async function mergeChoicesFromSubcollection(
     if (idx < 0) return { match, recorded: [] as Array<{ uid: string; move: Move }> };
 
     const recorded: Array<{ uid: string; move: Move }> = [];
-    const current = { ...rounds[idx] };
+    const timings: RecordedMoveTiming[] = [];
+    const now = Timestamp.now();
+    let current = { ...rounds[idx] };
     for (const doc of choicesSnap.docs) {
       const uid = doc.id;
       const choice = doc.get("choice") as string;
       if (!isValidMove(choice)) continue;
       if (uid === match.player1 && !current.player1Choice) {
+        const stamped = recordMoveTiming(current, match, uid, now);
+        if (stamped) {
+          current = stamped.round;
+          timings.push(stamped.timing);
+        }
         current.player1Choice = choice;
         recorded.push({ uid, move: choice });
       } else if (uid === match.player2 && !current.player2Choice) {
+        const stamped = recordMoveTiming(current, match, uid, now);
+        if (stamped) {
+          current = stamped.round;
+          timings.push(stamped.timing);
+        }
         current.player2Choice = choice;
         recorded.push({ uid, move: choice });
       }
@@ -541,7 +698,9 @@ async function mergeChoicesFromSubcollection(
     tx.update(matchRef, {
       rounds: sanitizeRounds(rounds),
       lastActivityAt: FieldValue.serverTimestamp(),
+      ...matchTimingIncrements(timings),
     });
+    applyRecordedTimingsToTransaction(tx, timings);
     return { match: { ...match, rounds: sanitizeRounds(rounds) }, recorded };
   });
 

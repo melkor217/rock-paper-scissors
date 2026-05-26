@@ -180,6 +180,7 @@ private fun LeaderboardEntryContent(
             WinLossStatLine(
                 wins = entry.wins,
                 losses = entry.losses,
+                draws = entry.draws,
                 textStyle = MaterialTheme.typography.bodySmall,
             )
             if (throwsPerWin != null && rpsPerWinColor != null) {

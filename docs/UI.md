@@ -137,7 +137,7 @@ Reused across multiple screens.
 |--------|------|------|
 | `ProfileSummaryStatsCard` | `ProfileSummaryStatsCard.kt` | ELO, W–L, throw chips, optional header/chevron |
 | `PlayerStatsWidget` | `PlayerStatsWidget.kt` | Thin wrapper: named header + `ProfileSummaryStatsCard` |
-| `WinLossStatLine` | `WinLossStatLine.kt` | Wins / losses text line |
+| `WinLossStatLine` | `WinLossStatLine.kt` | W / L / D / win-% stat line |
 | `EloRatingText` | `EloRatingText.kt` | Styled ELO number |
 | `ThrowCountRow` | `ThrowCountChips.kt` | Rock / paper / scissors counts |
 | `PlayersOnlineLabel` | `PlayersOnlineLabel.kt` | Presence count copy |

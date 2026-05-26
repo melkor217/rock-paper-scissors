@@ -29,6 +29,7 @@ fun ProfileSummaryStatsCard(
     elo: Int,
     wins: Int,
     losses: Int,
+    draws: Int = 0,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
@@ -47,6 +48,7 @@ fun ProfileSummaryStatsCard(
             elo = elo,
             wins = wins,
             losses = losses,
+            draws = draws,
             throwsRock = throwsRock,
             throwsPaper = throwsPaper,
             throwsScissors = throwsScissors,
@@ -70,6 +72,7 @@ private fun ProfileSummaryStatsBody(
     elo: Int,
     wins: Int,
     losses: Int,
+    draws: Int = 0,
     throwsRock: Int,
     throwsPaper: Int,
     throwsScissors: Int,
@@ -139,6 +142,7 @@ private fun ProfileSummaryStatsBody(
                 WinLossStatLine(
                     wins = wins,
                     losses = losses,
+                    draws = draws,
                     textStyle = statStyle,
                 )
             }

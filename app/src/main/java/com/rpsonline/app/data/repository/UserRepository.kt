@@ -46,7 +46,7 @@ class UserRepository(
 
         return snapshot.documents
             .map { doc -> doc.toLeaderboardEntry() }
-            .filter { it.wins + it.losses > 0 }
+            .filter { it.wins + it.losses + it.draws > 0 }
             .take(limit.toInt())
     }
 
@@ -57,6 +57,9 @@ class UserRepository(
             elo = getIntField("elo") ?: 1000,
             wins = getIntField("wins") ?: 0,
             losses = getIntField("losses") ?: 0,
+            draws = getIntField("draws") ?: 0,
+            moveTimeMs = getLong("moveTimeMs") ?: 0L,
+            moveCount = getIntField("moveCount") ?: 0,
             throwsRock = getIntField("throwsRock") ?: 0,
             throwsPaper = getIntField("throwsPaper") ?: 0,
             throwsScissors = getIntField("throwsScissors") ?: 0,
@@ -71,6 +74,9 @@ private fun DocumentSnapshot.toUserProfile(uid: String): UserProfile =
         elo = getIntField("elo") ?: 1000,
         wins = getIntField("wins") ?: 0,
         losses = getIntField("losses") ?: 0,
+        draws = getIntField("draws") ?: 0,
+        moveTimeMs = getLong("moveTimeMs") ?: 0L,
+        moveCount = getIntField("moveCount") ?: 0,
         throwsRock = getIntField("throwsRock") ?: 0,
         throwsPaper = getIntField("throwsPaper") ?: 0,
         throwsScissors = getIntField("throwsScissors") ?: 0,

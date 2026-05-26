@@ -1,24 +1,72 @@
 export type Move = "ROCK" | "PAPER" | "SCISSORS";
 
-export type MatchMode = "BO3" | "BO5";
+export type MatchMode = "BO3" | "BO5" | "BO10";
+
+export type SeriesOutcome =
+  | { kind: "continue" }
+  | { kind: "draw" }
+  | { kind: "winner"; player: "player1" | "player2" };
 
 export function parseMatchMode(value: unknown): MatchMode {
-  return value === "BO5" ? "BO5" : "BO3";
+  if (value === "BO5") return "BO5";
+  if (value === "BO10") return "BO10";
+  return "BO3";
 }
 
 export function winsToFinish(mode: MatchMode): number {
-  return mode === "BO5" ? 3 : 2;
+  switch (mode) {
+    case "BO5":
+      return 3;
+    case "BO10":
+      return 6;
+    default:
+      return 2;
+  }
+}
+
+export function bestOfRounds(mode: MatchMode): number {
+  switch (mode) {
+    case "BO5":
+      return 5;
+    case "BO10":
+      return 10;
+    default:
+      return 3;
+  }
+}
+
+/** BO10 can end tied when all rounds are played with equal wins. */
+export function seriesOutcomeAfterRound(
+  mode: MatchMode,
+  player1Wins: number,
+  player2Wins: number,
+  completedRoundNumber: number,
+): SeriesOutcome {
+  const need = winsToFinish(mode);
+  if (player1Wins >= need) return { kind: "winner", player: "player1" };
+  if (player2Wins >= need) return { kind: "winner", player: "player2" };
+
+  if (mode !== "BO10" || completedRoundNumber < bestOfRounds(mode)) {
+    return { kind: "continue" };
+  }
+
+  if (player1Wins === player2Wins) return { kind: "draw" };
+  if (player1Wins > player2Wins) return { kind: "winner", player: "player1" };
+  if (player2Wins > player1Wins) return { kind: "winner", player: "player2" };
+  return { kind: "draw" };
 }
 
 export function parseMatchModes(value: unknown, legacyMode?: unknown): MatchMode[] {
   if (Array.isArray(value)) {
-    const modes = value.filter((entry): entry is MatchMode => entry === "BO3" || entry === "BO5");
+    const modes = value.filter(
+      (entry): entry is MatchMode => entry === "BO3" || entry === "BO5" || entry === "BO10",
+    );
     if (modes.length > 0) return modes;
   }
   return [parseMatchMode(legacyMode)];
 }
 
-const SHARED_MODE_ORDER: MatchMode[] = ["BO3", "BO5"];
+const SHARED_MODE_ORDER: MatchMode[] = ["BO3", "BO5", "BO10"];
 
 /** Picks uniformly at random among formats both players queued for. */
 export function pickSharedMatchMode(
