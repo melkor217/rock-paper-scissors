@@ -86,6 +86,9 @@ async function main() {
       if (doc.get("throwsRock") == null) patch.throwsRock = 0;
       if (doc.get("throwsPaper") == null) patch.throwsPaper = 0;
       if (doc.get("throwsScissors") == null) patch.throwsScissors = 0;
+      if (doc.get("roundsWon") == null) patch.roundsWon = 0;
+      if (doc.get("roundsLost") == null) patch.roundsLost = 0;
+      if (doc.get("roundsDraw") == null) patch.roundsDraw = 0;
 
       if (Object.keys(patch).length === 0) {
         skipped += 1;

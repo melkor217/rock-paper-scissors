@@ -147,9 +147,9 @@ private fun LeaderboardEntryContent(
             else -> leaderboardRankLabelColor(rank, darkTheme)
         }
     }
-    val throwsPerWin = entry.throwsPerWin()
-    val rpsPerWinColor = remember(throwsPerWin, darkTheme) {
-        throwsPerWin?.let { rpsPerWinColor(it, darkTheme) }
+    val throwsPerRound = entry.throwsPerRound()
+    val rpsPerRoundColor = remember(throwsPerRound, darkTheme) {
+        throwsPerRound?.let { rpsPerRoundColor(it, darkTheme) }
     }
 
     Row(
@@ -183,10 +183,10 @@ private fun LeaderboardEntryContent(
                 draws = entry.draws,
                 textStyle = MaterialTheme.typography.bodySmall,
             )
-            if (throwsPerWin != null && rpsPerWinColor != null) {
-                RpsPerWinLabel(
-                    throwsPerWin = throwsPerWin,
-                    color = rpsPerWinColor,
+            if (throwsPerRound != null && rpsPerRoundColor != null) {
+                RpsPerRoundLabel(
+                    throwsPerRound = throwsPerRound,
+                    color = rpsPerRoundColor,
                 )
             }
         }

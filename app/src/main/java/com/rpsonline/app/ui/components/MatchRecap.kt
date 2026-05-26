@@ -1,5 +1,6 @@
 package com.rpsonline.app.ui.components
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -7,8 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Description
@@ -28,26 +30,31 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.data.model.RoundEndReason
 import com.rpsonline.app.data.model.RoundRecap
 
 private val RecapMoveIconSize = 14.dp
-/** When recap card content is narrow: tighter horizontal padding. */
 private val RecapLayoutCompactBreakpoint = 360.dp
-/** Target width per column for ~8 characters on wide layouts. */
-private val RecapColumnMinWidthWide = 88.dp
-private val RecapColumnMinWidthFloor = 56.dp
-private val RecapRowColumnSpacing = 6.dp
+private val RecapRowColumnSpacing = 4.dp
+private val RecapColRound = 34.dp
+private val RecapColTime = 38.dp
+private val RecapColChoices = 68.dp
+private val RecapColOutcome = 40.dp
 
-private fun recapColumnWidth(contentWidth: Dp): Dp {
-    val spacing = RecapRowColumnSpacing * 2
-    if (contentWidth <= spacing) return RecapColumnMinWidthFloor
-    return ((contentWidth - spacing) / 3).coerceIn(RecapColumnMinWidthFloor, RecapColumnMinWidthWide)
+private fun recapRowTotalWidth(): Dp =
+    RecapColRound + RecapColTime * 2 + RecapColChoices + RecapColOutcome + RecapRowColumnSpacing * 4
+
+fun formatRecapMoveMs(ms: Int?): String {
+    if (ms == null) return "—"
+    val seconds = ((ms + 500) / 1000).coerceAtLeast(0)
+    return "${seconds}s"
 }
 
 private enum class RecapSideOutcome {
     Won,
     Lost,
     Draw,
+    Cancelled,
 }
 
 @Composable
@@ -55,15 +62,18 @@ private fun recapSideColor(outcome: RecapSideOutcome): Color = when (outcome) {
     RecapSideOutcome.Won -> MaterialTheme.colorScheme.primary
     RecapSideOutcome.Lost -> MaterialTheme.colorScheme.error
     RecapSideOutcome.Draw -> MaterialTheme.colorScheme.tertiary
+    RecapSideOutcome.Cancelled -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 private fun mySideOutcome(recap: RoundRecap): RecapSideOutcome = when {
+    recap.isCancelled -> RecapSideOutcome.Cancelled
     recap.isDraw || recap.won == null -> RecapSideOutcome.Draw
     recap.won -> RecapSideOutcome.Won
     else -> RecapSideOutcome.Lost
 }
 
 private fun opponentSideOutcome(recap: RoundRecap): RecapSideOutcome = when {
+    recap.isCancelled -> RecapSideOutcome.Cancelled
     recap.isDraw || recap.won == null -> RecapSideOutcome.Draw
     recap.won -> RecapSideOutcome.Lost
     else -> RecapSideOutcome.Won
@@ -112,7 +122,9 @@ private fun MatchRecapContent(
         }
         val verticalPadding = if (embedded) 4.dp else 8.dp
         val contentWidth = maxWidth - horizontalPadding * 2
-        val columnMinWidth = recapColumnWidth(contentWidth)
+        val compact = contentWidth < RecapLayoutCompactBreakpoint
+        val useFixedColumns = contentWidth < recapRowTotalWidth()
+        val scrollState = rememberScrollState()
 
         Column(
             modifier = Modifier
@@ -128,15 +140,33 @@ private fun MatchRecapContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            displayRecaps.forEachIndexed { index, recap ->
-                if (index > 0) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Column(
+                modifier = if (useFixedColumns) {
+                    Modifier.horizontalScroll(scrollState)
+                } else {
+                    Modifier.fillMaxWidth()
+                },
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                displayRecaps.forEachIndexed { index, recap ->
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    val label = roundRecapLabel(recap.roundNumber, compact)
+                    if (useFixedColumns) {
+                        RoundRecapRowFixed(
+                            roundLabel = label,
+                            recap = recap,
+                            compact = compact,
+                        )
+                    } else {
+                        RoundRecapRow(
+                            roundLabel = label,
+                            recap = recap,
+                            compact = compact,
+                        )
+                    }
                 }
-                RoundRecapRow(
-                    roundLabel = roundRecapLabel(recap.roundNumber),
-                    recap = recap,
-                    columnMinWidth = columnMinWidth,
-                )
             }
         }
     }
@@ -146,64 +176,126 @@ private fun MatchRecapContent(
 fun RoundRecapRow(
     roundLabel: String,
     recap: RoundRecap,
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
-    columnMinWidth: Dp = RecapColumnMinWidthWide,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(RecapRowColumnSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RecapRowColumn(
-            modifier = Modifier.weight(1f),
-            columnMinWidth = columnMinWidth,
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Text(
-                text = roundLabel,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Start,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        RecapRowColumn(
-            modifier = Modifier.weight(1f),
-            columnMinWidth = columnMinWidth,
-            contentAlignment = Alignment.Center,
-        ) {
-            RoundChoicesLine(recap = recap)
-        }
-        RecapRowColumn(
-            modifier = Modifier.weight(1f),
-            columnMinWidth = columnMinWidth,
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            Text(
-                text = recapOutcomeColumnLabel(recap),
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = recapOutcomeColor(recap),
-                textAlign = TextAlign.End,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        RoundRecapCells(
+            roundLabel = roundLabel,
+            recap = recap,
+            compact = compact,
+            roundModifier = { Modifier.weight(1.1f) },
+            myTimeModifier = { Modifier.weight(0.85f) },
+            choicesModifier = { Modifier.weight(1.35f) },
+            oppTimeModifier = { Modifier.weight(0.85f) },
+            outcomeModifier = { Modifier.weight(0.9f) },
+        )
+    }
+}
+
+/** Fixed-width row for narrow screens inside [horizontalScroll] (weights do not work there). */
+@Composable
+private fun RoundRecapRowFixed(
+    roundLabel: String,
+    recap: RoundRecap,
+    compact: Boolean,
+) {
+    Row(
+        modifier = Modifier.width(recapRowTotalWidth()),
+        horizontalArrangement = Arrangement.spacedBy(RecapRowColumnSpacing),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RoundRecapCells(
+            roundLabel = roundLabel,
+            recap = recap,
+            compact = compact,
+            roundModifier = { Modifier.width(RecapColRound) },
+            myTimeModifier = { Modifier.width(RecapColTime) },
+            choicesModifier = { Modifier.width(RecapColChoices) },
+            oppTimeModifier = { Modifier.width(RecapColTime) },
+            outcomeModifier = { Modifier.width(RecapColOutcome) },
+        )
     }
 }
 
 @Composable
-private fun RecapRowColumn(
-    columnMinWidth: Dp,
+private fun RoundRecapCells(
+    roundLabel: String,
+    recap: RoundRecap,
+    compact: Boolean,
+    roundModifier: () -> Modifier,
+    myTimeModifier: () -> Modifier,
+    choicesModifier: () -> Modifier,
+    oppTimeModifier: () -> Modifier,
+    outcomeModifier: () -> Modifier,
+) {
+    RecapCell(
+        modifier = roundModifier(),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(
+            text = roundLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Start,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    RecapCell(
+        modifier = myTimeModifier(),
+        contentAlignment = Alignment.Center,
+    ) {
+        RecapMoveTimeText(
+            moveMs = recap.myMoveMs,
+            outcome = mySideOutcome(recap),
+            compact = compact,
+        )
+    }
+    RecapCell(
+        modifier = choicesModifier(),
+        contentAlignment = Alignment.Center,
+    ) {
+        RoundChoicesLine(recap = recap, compact = compact)
+    }
+    RecapCell(
+        modifier = oppTimeModifier(),
+        contentAlignment = Alignment.Center,
+    ) {
+        RecapMoveTimeText(
+            moveMs = recap.opponentMoveMs,
+            outcome = opponentSideOutcome(recap),
+            compact = compact,
+        )
+    }
+    RecapCell(
+        modifier = outcomeModifier(),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        Text(
+            text = recapOutcomeColumnLabel(recap),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = recapOutcomeColor(recap),
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun RecapCell(
     contentAlignment: Alignment,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Box(
-        modifier = modifier.widthIn(min = columnMinWidth),
+        modifier = modifier,
         contentAlignment = contentAlignment,
     ) {
         content()
@@ -211,11 +303,38 @@ private fun RecapRowColumn(
 }
 
 @Composable
-private fun RoundChoicesLine(recap: RoundRecap) {
+private fun RecapMoveTimeText(
+    moveMs: Int?,
+    outcome: RecapSideOutcome,
+    compact: Boolean,
+) {
+    Text(
+        text = formatRecapMoveMs(moveMs),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = recapSideColor(outcome),
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+private fun RoundChoicesLine(recap: RoundRecap, compact: Boolean) {
+    if (recap.isCancelled && recap.myChoice == null && recap.opponentChoice == null) {
+        Text(
+            text = "—",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        return
+    }
     if (recap.isDraw && recap.myChoice == null && recap.opponentChoice == null) {
         Text(
-            text = "Replayed",
-            style = MaterialTheme.typography.bodySmall,
+            text = "Replay",
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -224,29 +343,33 @@ private fun RoundChoicesLine(recap: RoundRecap) {
     }
 
     Row(
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RecapMoveIcon(
             choice = recap.myChoice,
             outcome = mySideOutcome(recap),
+            iconSize = if (compact) 12.dp else RecapMoveIconSize,
         )
         Text(
             text = recapChoicesSeparator(recap),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = recapSeparatorColor(recap),
         )
         RecapMoveIcon(
             choice = recap.opponentChoice,
             outcome = opponentSideOutcome(recap),
+            iconSize = if (compact) 12.dp else RecapMoveIconSize,
         )
     }
 }
 
-private fun roundRecapLabel(roundNumber: Int): String = "Round#$roundNumber"
+private fun roundRecapLabel(roundNumber: Int, compact: Boolean): String =
+    if (compact) "R$roundNumber" else "Rd$roundNumber"
 
 private fun recapChoicesSeparator(recap: RoundRecap): String = when {
+    recap.isCancelled -> "·"
     recap.isDraw || recap.won == null -> "="
     recap.won -> ">"
     else -> "<"
@@ -254,6 +377,7 @@ private fun recapChoicesSeparator(recap: RoundRecap): String = when {
 
 @Composable
 private fun recapSeparatorColor(recap: RoundRecap): Color = when {
+    recap.isCancelled -> MaterialTheme.colorScheme.onSurfaceVariant
     recap.isDraw || recap.won == null -> MaterialTheme.colorScheme.tertiary
     recap.won -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error
@@ -271,7 +395,7 @@ private fun RecapMoveIcon(
     if (icon == null) {
         Text(
             text = "—",
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             color = color,
         )
@@ -293,24 +417,50 @@ private fun moveIcon(move: Move?): ImageVector? = when (move) {
 }
 
 fun recapOutcomeLabel(recap: RoundRecap): String = when {
+    recap.isCancelled -> "Cancelled"
     recap.isDraw || recap.won == null -> "Draw"
-    recap.opponentTimedOut -> "Win (timeout)"
-    recap.iTimedOut -> "Loss (timeout)"
+    recap.opponentTimedOut -> recapWinTimeoutLabel(recap.endReason)
+    recap.iTimedOut -> recapLossTimeoutLabel(recap.endReason)
     recap.won -> "Win"
     else -> "Loss"
 }
 
-/** Compact outcome text for fixed-width recap columns. */
 private fun recapOutcomeColumnLabel(recap: RoundRecap): String = when {
+    recap.isCancelled -> "—"
     recap.isDraw || recap.won == null -> "Draw"
-    recap.opponentTimedOut -> "Win TO"
-    recap.iTimedOut -> "Loss TO"
+    recap.opponentTimedOut -> recapWinTimeoutColumnLabel(recap.endReason)
+    recap.iTimedOut -> recapLossTimeoutColumnLabel(recap.endReason)
     recap.won -> "Win"
     else -> "Loss"
+}
+
+private fun recapWinTimeoutLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "Win (clock)"
+    RoundEndReason.ROUND_TIMEOUT -> "Win (round)"
+    else -> "Win (timeout)"
+}
+
+private fun recapLossTimeoutLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "Loss (clock)"
+    RoundEndReason.ROUND_TIMEOUT -> "Loss (round)"
+    else -> "Loss (timeout)"
+}
+
+private fun recapWinTimeoutColumnLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "W-CLK"
+    RoundEndReason.ROUND_TIMEOUT -> "W-RND"
+    else -> "W-TO"
+}
+
+private fun recapLossTimeoutColumnLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "L-CLK"
+    RoundEndReason.ROUND_TIMEOUT -> "L-RND"
+    else -> "L-TO"
 }
 
 @Composable
 fun recapOutcomeColor(recap: RoundRecap): Color = when {
+    recap.isCancelled -> MaterialTheme.colorScheme.onSurfaceVariant
     recap.isDraw || recap.won == null -> MaterialTheme.colorScheme.tertiary
     recap.won -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.error

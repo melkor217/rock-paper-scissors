@@ -7,9 +7,12 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.rpsonline.app.data.model.Match
+import com.rpsonline.app.data.model.MatchEndReason
 import com.rpsonline.app.data.model.MatchStatus
+import com.rpsonline.app.data.model.RoundEndReason
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.domain.DisplayNames
+import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.data.model.RoundResult
 import kotlinx.coroutines.channels.awaitClose
@@ -197,7 +200,9 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
             player1Choice = map["player1Choice"] as? String,
             player2Choice = map["player2Choice"] as? String,
             winner = map["winner"] as? String,
+            endReason = RoundEndReason.fromString(map["endReason"] as? String),
             resolvedAt = (map["resolvedAt"] as? Timestamp)?.toDate()?.time,
+            startedAt = (map["startedAt"] as? Timestamp)?.toDate()?.time,
             deadline = (map["deadline"] as? Timestamp)?.toDate()?.time,
             player1MoveMs = (map["player1MoveMs"] as? Number)?.toInt(),
             player2MoveMs = (map["player2MoveMs"] as? Number)?.toInt(),
@@ -219,8 +224,12 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
         player2MoveTimeMs = getLong("player2MoveTimeMs") ?: 0L,
         player1MoveCount = getLong("player1MoveCount")?.toInt() ?: 0,
         player2MoveCount = getLong("player2MoveCount")?.toInt() ?: 0,
+        player1ClockMs = getLong("player1ClockMs") ?: GameRules.INITIAL_CLOCK_MS,
+        player2ClockMs = getLong("player2ClockMs") ?: GameRules.INITIAL_CLOCK_MS,
+        clocksUpdatedAt = getTimestamp("clocksUpdatedAt")?.toDate()?.time ?: 0L,
         rounds = rounds,
         winnerId = getString("winnerId"),
+        endReason = MatchEndReason.fromString(getString("endReason")),
         player1EloDelta = getIntField("player1EloDelta"),
         player2EloDelta = getIntField("player2EloDelta"),
         player1Elo = getIntField("player1Elo"),

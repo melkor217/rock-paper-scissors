@@ -9,7 +9,9 @@
     "test": "npm run build && node --test lib/*.test.js",
     "backfill-last-seen": "npm run build && node lib/scripts/backfill-user-last-seen.js",
     "backfill-throw-stats": "npm run build && node lib/scripts/backfill-throw-stats.js",
-    "backfill-move-timing": "npm run build && node lib/scripts/backfill-move-timing.js"
+    "backfill-move-timing": "npm run build && node lib/scripts/backfill-move-timing.js",
+    "backfill-round-stats": "npm run build && node lib/scripts/backfill-round-stats.js",
+    "backfill-round-end-reason": "npm run build && node lib/scripts/backfill-round-end-reason.js"
   },
   "engines": {
     "node": "22"

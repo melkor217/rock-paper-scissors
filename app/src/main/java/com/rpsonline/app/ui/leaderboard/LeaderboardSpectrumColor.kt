@@ -65,22 +65,22 @@ fun leaderboardSpectrumColor(percent: Float, darkTheme: Boolean): Color {
 fun leaderboardSpectrumColor(percent: Float): Color =
     leaderboardSpectrumColor(percent, isRpsDarkTheme())
 
-/** Fewer throws per win is better; 2 cyan → 7.5 yellow → 13 magenta. */
-private const val RpsPerWinBest = 2f
-private const val RpsPerWinMid = 7.5f
-private const val RpsPerWinWorst = 13f
+/** Fewer throws per round is better; 2 cyan → 7.5 yellow → 13 magenta. */
+private const val RpsPerRoundBest = 2f
+private const val RpsPerRoundMid = 7.5f
+private const val RpsPerRoundWorst = 13f
 
-fun rpsPerWinColor(throwsPerWin: Double, darkTheme: Boolean): Color {
-    val value = throwsPerWin.toFloat().coerceIn(RpsPerWinBest, RpsPerWinWorst)
+fun rpsPerRoundColor(throwsPerRound: Double, darkTheme: Boolean): Color {
+    val value = throwsPerRound.toFloat().coerceIn(RpsPerRoundBest, RpsPerRoundWorst)
     val percent = when {
-        value <= RpsPerWinMid -> {
-            val span = RpsPerWinMid - RpsPerWinBest
-            val t = if (span > 0f) (value - RpsPerWinBest) / span else 0f
+        value <= RpsPerRoundMid -> {
+            val span = RpsPerRoundMid - RpsPerRoundBest
+            val t = if (span > 0f) (value - RpsPerRoundBest) / span else 0f
             (1f - t) * 100f + t * BalancedSharePercent
         }
         else -> {
-            val span = RpsPerWinWorst - RpsPerWinMid
-            val t = if (span > 0f) (value - RpsPerWinMid) / span else 1f
+            val span = RpsPerRoundWorst - RpsPerRoundMid
+            val t = if (span > 0f) (value - RpsPerRoundMid) / span else 1f
             BalancedSharePercent * (1f - t)
         }
     }
@@ -88,8 +88,8 @@ fun rpsPerWinColor(throwsPerWin: Double, darkTheme: Boolean): Color {
 }
 
 @Composable
-fun rpsPerWinColor(throwsPerWin: Double): Color =
-    rpsPerWinColor(throwsPerWin, isRpsDarkTheme())
+fun rpsPerRoundColor(throwsPerRound: Double): Color =
+    rpsPerRoundColor(throwsPerRound, isRpsDarkTheme())
 
 private const val EloRatingMin = 800f
 private const val EloRatingMid = 1000f

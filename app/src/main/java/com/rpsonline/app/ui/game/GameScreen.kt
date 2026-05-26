@@ -75,21 +75,6 @@ fun GameScreen(
             return
         }
 
-        if (uiState.showPreGameCountdown) {
-            PreGameCountdownScreen(
-                secondsRemaining = uiState.preGameCountdownSeconds,
-                myDisplayName = "You",
-                opponentDisplayName = match.opponentName(userId),
-                myProfile = uiState.myProfile,
-                opponentProfile = uiState.opponentProfile,
-                myElo = match.myElo(userId),
-                opponentElo = match.opponentElo(userId),
-                onSkip = viewModel::skipPreGameCountdown,
-                modifier = Modifier.weight(1f),
-            )
-            return
-        }
-
         val currentRound = match.currentRoundData()
         val drawReplay = match.pendingDrawReplay()
         val pendingOutcome = match.pendingRoundOutcome()
@@ -149,15 +134,26 @@ fun GameScreen(
             )
             Spacer(modifier = Modifier.height(if (compactLayout) 8.dp else 12.dp))
 
-            val showCountdown = match.status == MatchStatus.ACTIVE &&
+            val showTimers = match.status == MatchStatus.ACTIVE &&
                 match.openRound()?.deadline != null &&
-                uiState.countdownSeconds != null
-            if (showCountdown) {
-                RoundCountdown(
-                    secondsRemaining = uiState.countdownSeconds,
+                uiState.countdownSeconds != null &&
+                uiState.myClockSeconds != null &&
+                uiState.opponentClockSeconds != null
+            if (showTimers) {
+                val opponentSubmitted = when (userId) {
+                    match.player1 -> openRound?.player2Choice != null
+                    else -> openRound?.player1Choice != null
+                } == true
+                GameTimerRow(
+                    myClockSeconds = uiState.myClockSeconds!!,
+                    opponentClockSeconds = uiState.opponentClockSeconds!!,
+                    myClockRunning = !uiState.hasSubmittedMove,
+                    opponentClockRunning = !opponentSubmitted,
+                    roundSecondsRemaining = uiState.countdownSeconds,
                     isResolvingTimeout = uiState.isResolvingTimeout,
                     hasSubmittedMove = uiState.hasSubmittedMove,
                     compact = compactLayout,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(4.dp))
             }
@@ -178,6 +174,7 @@ fun GameScreen(
                     DrawRoundBanner(
                         myChoice = myChoice,
                         opponentChoice = oppChoice,
+                        roundNumber = round.roundNumber,
                         isReplay = drawReplay != null,
                         compact = compactLayout,
                         opponentLabel = opponentScoreLabel,
@@ -193,6 +190,7 @@ fun GameScreen(
                         WinRoundBanner(
                             myChoice = myChoice,
                             opponentChoice = oppChoice,
+                            roundNumber = round.roundNumber,
                             awaitingNextRound = awaitingNextRound,
                             compact = compactLayout,
                             opponentLabel = opponentScoreLabel,
@@ -201,6 +199,7 @@ fun GameScreen(
                         LoseRoundBanner(
                             myChoice = myChoice,
                             opponentChoice = oppChoice,
+                            roundNumber = round.roundNumber,
                             awaitingNextRound = awaitingNextRound,
                             compact = compactLayout,
                             opponentLabel = opponentScoreLabel,

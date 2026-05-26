@@ -1,5 +1,6 @@
 package com.rpsonline.app.data.model
 
+import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.domain.MatchMode
 
 enum class Move(val label: String) {
@@ -24,16 +25,69 @@ enum class MatchStatus {
     }
 }
 
+enum class MatchEndReason {
+    NORMAL,
+    ROUND_TIMEOUT,
+    CLOCK_TIMEOUT;
+
+    companion object {
+        fun fromString(value: String?): MatchEndReason? = when (value?.lowercase()) {
+            "round_timeout" -> ROUND_TIMEOUT
+            "clock_timeout" -> CLOCK_TIMEOUT
+            "normal" -> NORMAL
+            else -> null
+        }
+    }
+}
+
+enum class RoundEndReason {
+    NORMAL,
+    ROUND_TIMEOUT,
+    CLOCK_TIMEOUT,
+    CANCELLED;
+
+    companion object {
+        fun fromString(value: String?): RoundEndReason? = when (value?.lowercase()) {
+            "normal", "tie" -> NORMAL
+            "round_timeout" -> ROUND_TIMEOUT
+            "clock_timeout" -> CLOCK_TIMEOUT
+            "cancelled" -> CANCELLED
+            else -> null
+        }
+    }
+}
+
 data class RoundResult(
     val roundNumber: Int = 0,
     val player1Choice: String? = null,
     val player2Choice: String? = null,
     val winner: String? = null,
+    val endReason: RoundEndReason? = null,
     val resolvedAt: Long? = null,
+    val startedAt: Long? = null,
     val deadline: Long? = null,
     val player1MoveMs: Int? = null,
     val player2MoveMs: Int? = null,
-)
+) {
+    fun roundStartMs(): Long? =
+        startedAt ?: deadline?.let { it - GameRules.ROUND_TIMEOUT_SECONDS * 1000L }
+
+    fun isRecapRound(): Boolean = resolvedAt != null
+
+    fun isCancelledRound(): Boolean =
+        endReason == RoundEndReason.CANCELLED ||
+            (endReason == null && resolvedAt != null && winner == null)
+
+    fun effectiveEndReason(): RoundEndReason? = endReason ?: inferLegacyEndReason()
+
+    private fun inferLegacyEndReason(): RoundEndReason? = when {
+        isCancelledRound() -> RoundEndReason.CANCELLED
+        winner != null && (winner == "tie" || (player1Choice != null && player2Choice != null)) ->
+            RoundEndReason.NORMAL
+        winner != null -> null
+        else -> null
+    }
+}
 
 data class Match(
     val id: String = "",
@@ -50,8 +104,12 @@ data class Match(
     val player2MoveTimeMs: Long = 0,
     val player1MoveCount: Int = 0,
     val player2MoveCount: Int = 0,
+    val player1ClockMs: Long = GameRules.INITIAL_CLOCK_MS,
+    val player2ClockMs: Long = GameRules.INITIAL_CLOCK_MS,
+    val clocksUpdatedAt: Long = 0L,
     val rounds: List<RoundResult> = emptyList(),
     val winnerId: String? = null,
+    val endReason: MatchEndReason? = null,
     val player1EloDelta: Int? = null,
     val player2EloDelta: Int? = null,
     val player1Elo: Int? = null,
@@ -76,6 +134,12 @@ data class Match(
 
     fun opponentWins(userId: String): Int =
         if (userId == player1) player2Wins else player1Wins
+
+    fun myClockMs(userId: String): Long =
+        if (userId == player1) player1ClockMs else player2ClockMs
+
+    fun opponentClockMs(userId: String): Long =
+        if (userId == player1) player2ClockMs else player1ClockMs
 
     fun myEloDelta(userId: String): Int? =
         if (userId == player1) player1EloDelta else player2EloDelta
@@ -117,35 +181,70 @@ data class Match(
 
     fun resolvedRoundRecaps(userId: String): List<RoundRecap> =
         rounds
-            .filter { it.resolvedAt != null }
+            .filter { it.isRecapRound() }
             .sortedWith(compareBy({ it.resolvedAt ?: 0L }, { it.roundNumber }))
-            .map { round ->
-                val myChoice = if (userId == player1) round.player1Choice else round.player2Choice
-                val opponentChoice = if (userId == player1) round.player2Choice else round.player1Choice
-                val isDraw = round.winner == "tie"
-                val won = when (round.winner) {
-                    "tie" -> null
-                    userId -> true
-                    else -> false
-                }
-                RoundRecap(
-                    roundNumber = round.roundNumber,
-                    myChoice = myChoice,
-                    opponentChoice = opponentChoice,
-                    won = won,
-                    isDraw = isDraw,
-                    opponentTimedOut = !isDraw && won == true && opponentChoice == null,
-                    iTimedOut = !isDraw && won == false && myChoice == null,
-                )
-            }
+            .map { round -> round.toRoundRecap(userId, player1) }
+}
+
+private fun RoundResult.toRoundRecap(userId: String, player1: String): RoundRecap {
+    val myChoice = if (userId == player1) player1Choice else player2Choice
+    val opponentChoice = if (userId == player1) player2Choice else player1Choice
+    val isCancelled = isCancelledRound()
+    val isDraw = winner == "tie"
+    val reason = effectiveEndReason()
+    val won = when {
+        isCancelled -> null
+        winner == "tie" -> null
+        winner == userId -> true
+        else -> false
+    }
+    val forfeitTimeout = reason == RoundEndReason.ROUND_TIMEOUT ||
+        reason == RoundEndReason.CLOCK_TIMEOUT
+    val myTimedOut = when {
+        isCancelled || isDraw -> false
+        forfeitTimeout -> won == false
+        else -> won == false && myChoice == null
+    }
+    val opponentTimedOut = when {
+        isCancelled || isDraw -> false
+        forfeitTimeout -> won == true
+        else -> won == true && opponentChoice == null
+    }
+    val myMoveMsRaw = if (userId == player1) player1MoveMs else player2MoveMs
+    val opponentMoveMsRaw = if (userId == player1) player2MoveMs else player1MoveMs
+    return RoundRecap(
+        roundNumber = roundNumber,
+        myChoice = myChoice,
+        opponentChoice = opponentChoice,
+        myMoveMs = if (isCancelled) {
+            recapCancelledMoveMs(myMoveMsRaw, this)
+        } else {
+            recapMoveDisplayMs(myMoveMsRaw, myTimedOut, this)
+        },
+        opponentMoveMs = if (isCancelled) {
+            recapCancelledMoveMs(opponentMoveMsRaw, this)
+        } else {
+            recapMoveDisplayMs(opponentMoveMsRaw, opponentTimedOut, this)
+        },
+        won = won,
+        isDraw = isDraw,
+        isCancelled = isCancelled,
+        endReason = reason,
+        opponentTimedOut = opponentTimedOut,
+        iTimedOut = myTimedOut,
+    )
 }
 
 data class RoundRecap(
     val roundNumber: Int,
     val myChoice: String?,
     val opponentChoice: String?,
+    val myMoveMs: Int? = null,
+    val opponentMoveMs: Int? = null,
     val won: Boolean?,
     val isDraw: Boolean = false,
+    val isCancelled: Boolean = false,
+    val endReason: RoundEndReason? = null,
     val opponentTimedOut: Boolean = false,
     val iTimedOut: Boolean = false,
 )
@@ -158,13 +257,18 @@ data class UserProfile(
     val wins: Int = 0,
     val losses: Int = 0,
     val draws: Int = 0,
+    val roundsWon: Int = 0,
+    val roundsLost: Int = 0,
+    val roundsDraw: Int = 0,
     val moveTimeMs: Long = 0,
     val moveCount: Int = 0,
     val throwsRock: Int = 0,
     val throwsPaper: Int = 0,
     val throwsScissors: Int = 0,
     val activeMatchId: String? = null,
-)
+) {
+    fun roundsPlayed(): Int = roundsWon + roundsLost + roundsDraw
+}
 
 data class LeaderboardEntry(
     val uid: String = "",
@@ -173,12 +277,17 @@ data class LeaderboardEntry(
     val wins: Int = 0,
     val losses: Int = 0,
     val draws: Int = 0,
+    val roundsWon: Int = 0,
+    val roundsLost: Int = 0,
+    val roundsDraw: Int = 0,
     val moveTimeMs: Long = 0,
     val moveCount: Int = 0,
     val throwsRock: Int = 0,
     val throwsPaper: Int = 0,
     val throwsScissors: Int = 0,
-)
+) {
+    fun roundsPlayed(): Int = roundsWon + roundsLost + roundsDraw
+}
 
 data class MatchResult(
     val matchId: String,
@@ -205,6 +314,26 @@ data class MatchHistoryEntry(
     val lastActivityAt: Long,
     val recaps: List<RoundRecap>,
 )
+
+/** Elapsed time on a cancelled round when move ms was never recorded. */
+internal fun recapCancelledMoveMs(moveMs: Int?, round: RoundResult): Int? =
+    moveMs ?: roundElapsedMsAtTimeout(round).takeIf { round.resolvedAt != null }
+
+/** Elapsed thinking time shown in history; on timeout uses round start → resolution when move ms is missing. */
+internal fun recapMoveDisplayMs(moveMs: Int?, timedOut: Boolean, round: RoundResult): Int? {
+    if (!timedOut) return moveMs
+    if (moveMs != null) return moveMs
+    return roundElapsedMsAtTimeout(round)
+}
+
+internal fun roundElapsedMsAtTimeout(round: RoundResult): Int {
+    val start = round.roundStartMs()
+    val end = round.resolvedAt
+    if (start != null && end != null) {
+        return (end - start).toInt().coerceIn(0, GameRules.ROUND_TIMEOUT_SECONDS * 1000)
+    }
+    return GameRules.ROUND_TIMEOUT_SECONDS * 1000
+}
 
 fun Match.toHistoryEntry(userId: String): MatchHistoryEntry {
     val myWins = myWins(userId)
