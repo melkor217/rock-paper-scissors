@@ -25,7 +25,7 @@ Package root: `com.rpsonline.app`.
 |-------|------|------|
 | Entry | `MainActivity.kt`, `RpsApplication.kt` | Activity, Firebase init |
 | Navigation | `navigation/NavGraph.kt` | Routes and screen flow |
-| UI | `ui/` | Compose screens and components |
+| UI | `ui/` | Compose screens and components — see [UI.md](UI.md) |
 | ViewModel | `viewmodel/` | Screen state, Firestore listeners |
 | Data | `data/repository/`, `data/model/` | Firebase access, DTOs |
 | Domain | `domain/GameRules.kt` | Client-side rules (must match server) |
@@ -33,16 +33,19 @@ Package root: `com.rpsonline.app`.
 
 ### Screens (`ui/`)
 
+Full screen list, navigation graph, and shared widgets: **[docs/UI.md](UI.md)**.
+
 | Screen | Package | Purpose |
 |--------|---------|---------|
 | Sign in | `ui/auth/` | Google, email, guest |
-| Home | `ui/home/` | Play, leaderboard preview, app info |
+| Home | `ui/home/` | Play, profile summary, app info |
 | Matchmaking | `ui/matchmaking/` | Queue until paired |
 | Game | `ui/game/` | Round play, timer, score, moves |
 | Result | `ui/result/` | Final score, ELO, match recap |
 | Leaderboard | `ui/leaderboard/` | Top players, podium |
+| Profile | `ui/profile/` | Stats + match history (any user) |
 
-Flow: **Sign in → Home → Matchmaking → Game → Result** (or Home if match abandoned). Leaderboard is reachable from Home.
+Flow: **Sign in → Home → Matchmaking → Game → Result** (or Home if match abandoned). **Leaderboard** and **Profile** are reachable from Home, leaderboard rows, and result opponent link.
 
 ViewModels load data via repositories (`AuthRepository`, `UserRepository`, `MatchRepository`, `AppUpdateRepository`) and expose `StateFlow` / UI state to Composables.
 
