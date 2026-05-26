@@ -38,9 +38,14 @@ describe("match modes", () => {
     assert.deepEqual(parseMatchModes([], "BO3"), ["BO3"]);
   });
 
-  it("picks the shared mode, preferring BO3", () => {
+  it("picks a single shared mode when only one overlaps", () => {
     assert.equal(pickSharedMatchMode(["BO3", "BO5"], ["BO5"]), "BO5");
-    assert.equal(pickSharedMatchMode(["BO3", "BO5"], ["BO3", "BO5"]), "BO3");
     assert.equal(pickSharedMatchMode(["BO3"], ["BO5"]), null);
+  });
+
+  it("picks randomly among shared modes when both accept both", () => {
+    const both = ["BO3", "BO5"] as const;
+    assert.equal(pickSharedMatchMode([...both], [...both], () => 0), "BO3");
+    assert.equal(pickSharedMatchMode([...both], [...both], () => 0.99), "BO5");
   });
 });

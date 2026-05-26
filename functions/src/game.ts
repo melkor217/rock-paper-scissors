@@ -18,10 +18,17 @@ export function parseMatchModes(value: unknown, legacyMode?: unknown): MatchMode
   return [parseMatchMode(legacyMode)];
 }
 
-export function pickSharedMatchMode(modesA: MatchMode[], modesB: MatchMode[]): MatchMode | null {
-  if (modesA.includes("BO3") && modesB.includes("BO3")) return "BO3";
-  if (modesA.includes("BO5") && modesB.includes("BO5")) return "BO5";
-  return null;
+const SHARED_MODE_ORDER: MatchMode[] = ["BO3", "BO5"];
+
+/** Picks uniformly at random among formats both players queued for. */
+export function pickSharedMatchMode(
+  modesA: MatchMode[],
+  modesB: MatchMode[],
+  random: () => number = Math.random,
+): MatchMode | null {
+  const shared = SHARED_MODE_ORDER.filter((mode) => modesA.includes(mode) && modesB.includes(mode));
+  if (shared.length === 0) return null;
+  return shared[Math.floor(random() * shared.length)];
 }
 
 export function resolveRound(p1: Move, p2: Move): "player1" | "player2" | "tie" {

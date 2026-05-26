@@ -92,7 +92,7 @@ These values must match between client and server:
 | Constant | App (`GameRules`) | Server (`functions/src/index.ts` / `game.ts`) |
 |----------|-------------------|-----------------------------------------------|
 | Wins to finish | `MatchMode.winsToFinish` (BO3=2, BO5=3) | `winsToFinish(mode)` in `game.ts` |
-| Match format | `matchModes` on queue + match docs | Same; queue pairs overlapping `matchModes` |
+| Match format | `matchModes` on queue + match docs | Same; queue pairs overlapping `matchModes` (random BO3/BO5 when both players accept both) |
 | Round timeout | `ROUND_TIMEOUT_SECONDS = 60` | `ROUND_TIMEOUT_MS = 60_000` |
 | Move resolution | `resolveRound()` | `resolveRound()` in `game.ts` |
 
