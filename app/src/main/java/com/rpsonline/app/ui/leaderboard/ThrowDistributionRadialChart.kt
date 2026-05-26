@@ -11,7 +11,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.rpsonline.app.ui.theme.isRpsDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -99,7 +99,7 @@ fun ThrowDistributionRadialChart(
     val density = LocalDensity.current
     val iconSize = 8.dp
     val axisStroke = 1.5.dp
-    val darkTheme = isSystemInDarkTheme()
+    val darkTheme = isRpsDarkTheme()
     val iconSizePx = with(density) { iconSize.toPx() }
     val chartSizePx = with(density) { size.toPx() }
     val axisStrokePx = with(density) { axisStroke.toPx() }

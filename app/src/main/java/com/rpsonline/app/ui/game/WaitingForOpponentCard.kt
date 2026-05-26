@@ -7,8 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import com.rpsonline.app.ui.components.RpsCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,11 +23,10 @@ fun WaitingForOpponentCard(
     myChoice: String,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    RpsCard(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-        ),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.94f),
+        borderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
     ) {
         Column(
             modifier = Modifier

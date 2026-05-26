@@ -1,7 +1,7 @@
 package com.rpsonline.app.ui.leaderboard
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.isSystemInDarkTheme
+import com.rpsonline.app.ui.theme.isRpsDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Card
@@ -29,29 +29,29 @@ private data class PodiumStyle(
 
 private fun podiumStyleForRank(rank: Int, dark: Boolean): PodiumStyle? = when (rank) {
         1 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFFFD54F).copy(alpha = 0.45f) else Color(0xFFC9A227).copy(alpha = 0.35f),
-            glowColor = if (dark) Color(0xFFFFCA28) else Color(0xFFC9A227),
-            containerTint = if (dark) Color(0xFF5D4037) else Color(0xFFF5F0E6),
-            rankLabelColor = if (dark) Color(0xFFFFE082).copy(alpha = 0.85f) else Color(0xFF8A6F1F),
+            borderColor = if (dark) Color(0xFFFFD319).copy(alpha = 0.55f) else Color(0xFFC9A000).copy(alpha = 0.45f),
+            glowColor = if (dark) Color(0xFFFFD319) else Color(0xFFE6B800),
+            containerTint = if (dark) Color(0xFF2A2400) else Color(0xFFFFF8E0),
+            rankLabelColor = if (dark) Color(0xFFFFF0A0) else Color(0xFF6A5800),
         )
         2 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFE0E0E0).copy(alpha = 0.4f) else Color(0xFF90A4AE).copy(alpha = 0.32f),
-            glowColor = if (dark) Color(0xFFB0BEC5) else Color(0xFF90A4AE),
-            containerTint = if (dark) Color(0xFF37474F) else Color(0xFFEEF1F2),
-            rankLabelColor = if (dark) Color(0xFFECEFF1).copy(alpha = 0.9f) else Color(0xFF5C6B73),
+            borderColor = if (dark) Color(0xFF00F0FF).copy(alpha = 0.5f) else Color(0xFF007A8C).copy(alpha = 0.4f),
+            glowColor = if (dark) Color(0xFF00F0FF) else Color(0xFF0099AA),
+            containerTint = if (dark) Color(0xFF001828) else Color(0xFFE0F8FF),
+            rankLabelColor = if (dark) Color(0xFFB8FCFF) else Color(0xFF004858),
         )
         3 -> PodiumStyle(
-            borderColor = if (dark) Color(0xFFFFAB91).copy(alpha = 0.45f) else Color(0xFF9A7B6F).copy(alpha = 0.35f),
-            glowColor = if (dark) Color(0xFFFF8A65) else Color(0xFF9A7B6F),
-            containerTint = if (dark) Color(0xFF4E342E) else Color(0xFFF3EEEB),
-            rankLabelColor = if (dark) Color(0xFFFFCCBC).copy(alpha = 0.85f) else Color(0xFF6B5348),
+            borderColor = if (dark) Color(0xFFFF2A6D).copy(alpha = 0.5f) else Color(0xFFC4005A).copy(alpha = 0.4f),
+            glowColor = if (dark) Color(0xFFFF2A6D) else Color(0xFFC4005A),
+            containerTint = if (dark) Color(0xFF280818) else Color(0xFFFFE8F0),
+            rankLabelColor = if (dark) Color(0xFFFFB8D0) else Color(0xFF6A1030),
         )
         else -> null
     }
 
 @Composable
 private fun podiumStyleForRank(rank: Int): PodiumStyle? =
-    podiumStyleForRank(rank, isSystemInDarkTheme())
+    podiumStyleForRank(rank, isRpsDarkTheme())
 
 private fun DrawScope.drawInwardPodiumGlow(
     glowColor: Color,
@@ -99,15 +99,15 @@ fun LeaderboardEntryCard(
         else -> null
     }
     val cornerRadius = 12.dp
-    val glowEdgeStrength = if (isSystemInDarkTheme()) 0.12f else 0.07f
+    val glowEdgeStrength = 0.18f
 
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = shape,
         border = border,
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor.copy(alpha = 0.94f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Box(
             modifier = Modifier
@@ -138,6 +138,6 @@ fun leaderboardRankLabelColor(rank: Int, darkTheme: Boolean): Color =
 @Composable
 fun leaderboardRankLabelColor(rank: Int): Color {
     val fallback = MaterialTheme.colorScheme.onSurface
-    val color = leaderboardRankLabelColor(rank, isSystemInDarkTheme())
+    val color = leaderboardRankLabelColor(rank, isRpsDarkTheme())
     return if (color == Color.Unspecified) fallback else color
 }

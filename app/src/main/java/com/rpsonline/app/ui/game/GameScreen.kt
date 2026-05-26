@@ -1,5 +1,6 @@
 package com.rpsonline.app.ui.game
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,13 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Landscape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +37,7 @@ import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.domain.GameRules
+import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.GameViewModel
 
@@ -264,12 +260,16 @@ private fun MatchScoreCard(
     opponentLabel: String,
     compact: Boolean,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = MaterialTheme.shapes.medium
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f))
+            .border(
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                shape,
+            )
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -322,24 +322,6 @@ private fun RoundResult.choicesFor(userId: String, match: Match): Pair<String?, 
     val myChoice = if (userId == match.player1) player1Choice else player2Choice
     val oppChoice = if (userId == match.player1) player2Choice else player1Choice
     return myChoice to oppChoice
-}
-
-@Composable
-private fun MovePicker(
-    isSubmitting: Boolean,
-    onMove: (Move) -> Unit,
-    compact: Boolean = false,
-) {
-    if (isSubmitting) {
-        CircularProgressIndicator()
-        return
-    }
-    val buttonSpacing = if (compact) 6.dp else 8.dp
-    MoveButton("Rock", Icons.Default.Landscape, compact = compact) { onMove(Move.ROCK) }
-    Spacer(modifier = Modifier.height(buttonSpacing))
-    MoveButton("Paper", Icons.Default.Description, compact = compact) { onMove(Move.PAPER) }
-    Spacer(modifier = Modifier.height(buttonSpacing))
-    MoveButton("Scissors", Icons.Default.ContentCut, compact = compact) { onMove(Move.SCISSORS) }
 }
 
 private enum class MatchScoreSide { YOU, OPPONENT }
@@ -430,20 +412,3 @@ private fun MatchWinProgressBar(
     }
 }
 
-@Composable
-private fun MoveButton(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    compact: Boolean = false,
-    onClick: () -> Unit,
-) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (compact) Modifier.height(44.dp) else Modifier),
-    ) {
-        Icon(icon, contentDescription = label)
-        Text("  $label")
-    }
-}

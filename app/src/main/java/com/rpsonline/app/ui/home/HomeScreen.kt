@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +34,7 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
+import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.leaderboard.PlayerThrowStatsColumn
@@ -114,7 +113,7 @@ fun HomeScreen(
         Text(
             text = "Welcome, ${profile?.displayName ?: DisplayNames.DEFAULT}",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -184,12 +183,9 @@ private fun HomeProfileSummaryCard(
     val throwsScissors = profile?.throwsScissors ?: 0
     val showThrowStats = hasThrowStats(wins, throwsRock, throwsPaper, throwsScissors)
 
-    Card(
+    RpsCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
     ) {
         Column(
             modifier = Modifier

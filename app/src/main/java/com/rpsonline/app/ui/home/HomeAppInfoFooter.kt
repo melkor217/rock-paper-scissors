@@ -10,8 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.SystemUpdate
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import com.rpsonline.app.ui.components.RpsCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -41,15 +40,18 @@ fun HomeAppInfoFooter(
     val showUpdateAction = updatesEnabled && !isDownloadingUpdate
     val pendingUpdate = availableUpdate
 
-    Card(
+    RpsCard(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (pendingUpdate != null) {
-                MaterialTheme.colorScheme.tertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerLow
-            },
-        ),
+        containerColor = if (pendingUpdate != null) {
+            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.94f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.88f)
+        },
+        borderColor = if (pendingUpdate != null) {
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.6f)
+        } else {
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+        },
     ) {
         Row(
             modifier = Modifier

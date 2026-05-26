@@ -45,7 +45,7 @@ fun RoundOutcomeCard(
     val contentSpacing = if (compact) 6.dp else 12.dp
 
     if (compact) {
-        val shape = RoundedCornerShape(12.dp)
+        val shape = MaterialTheme.shapes.medium
         Column(
             modifier = modifier
                 .fillMaxWidth()
