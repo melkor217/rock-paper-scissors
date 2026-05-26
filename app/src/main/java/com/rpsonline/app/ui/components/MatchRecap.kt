@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.data.model.RoundEndReason
 import com.rpsonline.app.data.model.RoundRecap
 
 private val RecapMoveIconSize = 14.dp
@@ -418,8 +419,8 @@ private fun moveIcon(move: Move?): ImageVector? = when (move) {
 fun recapOutcomeLabel(recap: RoundRecap): String = when {
     recap.isCancelled -> "Cancelled"
     recap.isDraw || recap.won == null -> "Draw"
-    recap.opponentTimedOut -> "Win (timeout)"
-    recap.iTimedOut -> "Loss (timeout)"
+    recap.opponentTimedOut -> recapWinTimeoutLabel(recap.endReason)
+    recap.iTimedOut -> recapLossTimeoutLabel(recap.endReason)
     recap.won -> "Win"
     else -> "Loss"
 }
@@ -427,10 +428,34 @@ fun recapOutcomeLabel(recap: RoundRecap): String = when {
 private fun recapOutcomeColumnLabel(recap: RoundRecap): String = when {
     recap.isCancelled -> "—"
     recap.isDraw || recap.won == null -> "Draw"
-    recap.opponentTimedOut -> "W-TO"
-    recap.iTimedOut -> "L-TO"
+    recap.opponentTimedOut -> recapWinTimeoutColumnLabel(recap.endReason)
+    recap.iTimedOut -> recapLossTimeoutColumnLabel(recap.endReason)
     recap.won -> "Win"
     else -> "Loss"
+}
+
+private fun recapWinTimeoutLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "Win (clock)"
+    RoundEndReason.ROUND_TIMEOUT -> "Win (round)"
+    else -> "Win (timeout)"
+}
+
+private fun recapLossTimeoutLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "Loss (clock)"
+    RoundEndReason.ROUND_TIMEOUT -> "Loss (round)"
+    else -> "Loss (timeout)"
+}
+
+private fun recapWinTimeoutColumnLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "W-CLK"
+    RoundEndReason.ROUND_TIMEOUT -> "W-RND"
+    else -> "W-TO"
+}
+
+private fun recapLossTimeoutColumnLabel(reason: RoundEndReason?): String = when (reason) {
+    RoundEndReason.CLOCK_TIMEOUT -> "L-CLK"
+    RoundEndReason.ROUND_TIMEOUT -> "L-RND"
+    else -> "L-TO"
 }
 
 @Composable

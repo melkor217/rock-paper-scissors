@@ -66,4 +66,27 @@ class ResolvedRoundRecapsTest {
         assertEquals(5_000, stub.myMoveMs)
         assertEquals(7_000, stub.opponentMoveMs)
     }
+
+    @Test
+    fun clockTimeout_showsClockLabel_evenWhenOpponentPlayed() {
+        val match = Match(
+            player1 = "me",
+            player2 = "opp",
+            rounds = listOf(
+                RoundResult(
+                    roundNumber = 1,
+                    player1Choice = "ROCK",
+                    player2Choice = "PAPER",
+                    winner = "opp",
+                    endReason = RoundEndReason.CLOCK_TIMEOUT,
+                    resolvedAt = 1_000L,
+                ),
+            ),
+        )
+
+        val recap = match.resolvedRoundRecaps("me").single()
+        assertEquals(RoundEndReason.CLOCK_TIMEOUT, recap.endReason)
+        assertTrue(recap.iTimedOut)
+        assertFalse(recap.opponentTimedOut)
+    }
 }

@@ -50,7 +50,15 @@ interface RoundDoc {
   throwStatsRecorded?: boolean;
   /** Set when roundsWon/Lost/Draw have been incremented for this round. */
   roundStatsRecorded?: boolean;
+  endReason?: RoundEndReason;
 }
+
+type RoundEndReason = "normal" | "round_timeout" | "clock_timeout" | "cancelled";
+
+const PLAYED_ROUND_END_REASON: RoundEndReason = "normal";
+const ROUND_TIMEOUT_END_REASON: RoundEndReason = "round_timeout";
+const CLOCK_TIMEOUT_END_REASON: RoundEndReason = "clock_timeout";
+const CANCELLED_ROUND_END_REASON: RoundEndReason = "cancelled";
 
 interface MatchDoc {
   player1: string;
@@ -299,6 +307,7 @@ function sanitizeRound(round: RoundDoc): RoundDoc {
   if (round.player2MoveMs != null) clean.player2MoveMs = round.player2MoveMs;
   if (round.throwStatsRecorded) clean.throwStatsRecorded = true;
   if (round.roundStatsRecorded) clean.roundStatsRecorded = true;
+  if (round.endReason) clean.endReason = round.endReason;
   return clean;
 }
 
@@ -316,6 +325,7 @@ async function abandonMatch(
   rounds[roundIndex] = sanitizeRound({
     ...rounds[roundIndex],
     resolvedAt: now,
+    endReason: CANCELLED_ROUND_END_REASON,
   });
   const batch = db.batch();
   batch.update(matchRef, {
@@ -410,7 +420,7 @@ async function finalizeMatchDraw(
   batch.update(matchRef, {
     status: "completed",
     winnerId: FieldValue.delete(),
-    endReason: "normal",
+    endReason: PLAYED_ROUND_END_REASON,
     player1Wins,
     player2Wins,
     rounds: sanitizeRounds(rounds),
@@ -457,6 +467,7 @@ async function applySeriesOutcome(
     player2Choice: p2Choice,
     throwStatsRecorded: true,
     roundStatsRecorded: true,
+    endReason: PLAYED_ROUND_END_REASON,
   });
 
   if (outcome.kind === "winner") {
@@ -519,6 +530,7 @@ async function resolveRoundIfReady(
       roundStatsRecorded: true,
       winner,
       resolvedAt: now,
+      endReason: CLOCK_TIMEOUT_END_REASON,
     };
     await recordRoundResolutionStats(match, resolvedRound, winner);
     rounds[roundIndex] = sanitizeRound(resolvedRound);
@@ -539,6 +551,7 @@ async function resolveRoundIfReady(
       roundStatsRecorded: true,
       winner,
       resolvedAt: now,
+      endReason: CLOCK_TIMEOUT_END_REASON,
     };
     await recordRoundResolutionStats(match, resolvedRound, winner);
     rounds[roundIndex] = sanitizeRound(resolvedRound);
@@ -560,6 +573,7 @@ async function resolveRoundIfReady(
         roundStatsRecorded: true,
         winner,
         resolvedAt: now,
+        endReason: CLOCK_TIMEOUT_END_REASON,
       };
       await recordRoundResolutionStats(match, resolvedRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
@@ -580,6 +594,7 @@ async function resolveRoundIfReady(
         roundStatsRecorded: true,
         winner,
         resolvedAt: now,
+        endReason: CLOCK_TIMEOUT_END_REASON,
       };
       await recordRoundResolutionStats(match, resolvedRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
@@ -609,6 +624,7 @@ async function resolveRoundIfReady(
         roundStatsRecorded: true,
         winner,
         resolvedAt: now,
+        endReason: ROUND_TIMEOUT_END_REASON,
       };
       await recordRoundResolutionStats(match, resolvedRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
@@ -629,6 +645,7 @@ async function resolveRoundIfReady(
         roundStatsRecorded: true,
         winner,
         resolvedAt: now,
+        endReason: ROUND_TIMEOUT_END_REASON,
       };
       await recordRoundResolutionStats(match, resolvedRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
@@ -666,6 +683,7 @@ async function resolveRoundIfReady(
     roundStatsRecorded: true,
     winner,
     resolvedAt: now,
+    endReason: PLAYED_ROUND_END_REASON,
   };
   await recordRoundResolutionStats(match, resolvedRound, winner);
 

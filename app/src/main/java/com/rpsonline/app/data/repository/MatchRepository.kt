@@ -9,6 +9,7 @@ import com.google.firebase.firestore.Query
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchEndReason
 import com.rpsonline.app.data.model.MatchStatus
+import com.rpsonline.app.data.model.RoundEndReason
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.domain.GameRules
@@ -199,6 +200,7 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
             player1Choice = map["player1Choice"] as? String,
             player2Choice = map["player2Choice"] as? String,
             winner = map["winner"] as? String,
+            endReason = RoundEndReason.fromString(map["endReason"] as? String),
             resolvedAt = (map["resolvedAt"] as? Timestamp)?.toDate()?.time,
             startedAt = (map["startedAt"] as? Timestamp)?.toDate()?.time,
             deadline = (map["deadline"] as? Timestamp)?.toDate()?.time,
