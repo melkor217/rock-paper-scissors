@@ -180,11 +180,7 @@ class GameViewModel(
                 }
 
                 if (!state.hasSubmittedMove && myMs <= 0L) {
-                    if (timeoutRequestedForRound != openRound.roundNumber ||
-                        (!_uiState.value.isResolvingTimeout && _uiState.value.error != null)
-                    ) {
-                        requestTimeoutResolution(activeMatch, openRound.roundNumber)
-                    }
+                    maybeRequestTimeoutResolution(activeMatch, openRound.roundNumber)
                 }
 
                 delay(100)
@@ -212,10 +208,10 @@ class GameViewModel(
                 val seconds = ((remainingMs + 999) / 1000).toInt().coerceAtLeast(0)
                 _uiState.update { it.copy(countdownSeconds = seconds) }
                 if (seconds <= 0) {
-                    if (timeoutRequestedForRound != roundNumber ||
-                        (!_uiState.value.isResolvingTimeout && _uiState.value.error != null)
-                    ) {
-                        requestTimeoutResolution(match, roundNumber)
+                    val state = _uiState.value
+                    val matchClockWillResolve = !state.hasSubmittedMove && state.myClockSeconds == 0
+                    if (!matchClockWillResolve) {
+                        maybeRequestTimeoutResolution(match, roundNumber)
                     }
                     delay(500)
                     continue
@@ -223,6 +219,19 @@ class GameViewModel(
                 delay(250)
             }
         }
+    }
+
+    /**
+     * Request server resolution once per round. Match clock takes precedence over round
+     * deadline when both expire (server checks clock expiry first).
+     */
+    private fun maybeRequestTimeoutResolution(match: Match, roundNumber: Int) {
+        if (timeoutRequestedForRound == roundNumber) {
+            val state = _uiState.value
+            if (state.isResolvingTimeout) return
+            if (state.error == null) return
+        }
+        requestTimeoutResolution(match, roundNumber)
     }
 
     private fun requestTimeoutResolution(match: Match, roundNumber: Int) {

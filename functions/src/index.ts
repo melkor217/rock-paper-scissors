@@ -200,17 +200,23 @@ async function recordRoundOutcomeStats(
   ]);
 }
 
-/** Throw counts + per-player round W/L/D once per resolved round with a winner. */
+/** Throw counts + per-player round W/L/D; marks stats recorded on returned round. */
 async function recordRoundResolutionStats(
   match: MatchDoc,
   round: RoundDoc,
   winner: string,
-): Promise<void> {
+): Promise<RoundDoc> {
   if (!round.throwStatsRecorded) {
     await recordRoundMoveThrows(match, round);
   }
-  if (round.roundStatsRecorded) return;
-  await recordRoundOutcomeStats(match.player1, match.player2, winner);
+  if (!round.roundStatsRecorded) {
+    await recordRoundOutcomeStats(match.player1, match.player2, winner);
+  }
+  return {
+    ...round,
+    throwStatsRecorded: true,
+    roundStatsRecorded: true,
+  };
 }
 
 async function getUserProfile(uid: string) {
@@ -523,16 +529,14 @@ async function resolveRoundIfReady(
   const expiry = clockExpiry(ticked.player1ClockMs, ticked.player2ClockMs, round);
   if (expiry === "player1") {
     const winner = match.player2;
-    const resolvedRound = {
+    const pendingRound: RoundDoc = {
       ...round,
       ...(p2Choice ? { player2Choice: p2Choice } : {}),
-      throwStatsRecorded: true,
-      roundStatsRecorded: true,
       winner,
       resolvedAt: now,
       endReason: CLOCK_TIMEOUT_END_REASON,
     };
-    await recordRoundResolutionStats(match, resolvedRound, winner);
+    const resolvedRound = await recordRoundResolutionStats(match, pendingRound, winner);
     rounds[roundIndex] = sanitizeRound(resolvedRound);
     await finalizeMatch(
       matchRef,
@@ -544,16 +548,14 @@ async function resolveRoundIfReady(
   }
   if (expiry === "player2") {
     const winner = match.player1;
-    const resolvedRound = {
+    const pendingRound: RoundDoc = {
       ...round,
       ...(p1Choice ? { player1Choice: p1Choice } : {}),
-      throwStatsRecorded: true,
-      roundStatsRecorded: true,
       winner,
       resolvedAt: now,
       endReason: CLOCK_TIMEOUT_END_REASON,
     };
-    await recordRoundResolutionStats(match, resolvedRound, winner);
+    const resolvedRound = await recordRoundResolutionStats(match, pendingRound, winner);
     rounds[roundIndex] = sanitizeRound(resolvedRound);
     await finalizeMatch(
       matchRef,
@@ -566,16 +568,14 @@ async function resolveRoundIfReady(
   if (expiry === "both") {
     if (p1Choice && !p2Choice) {
       const winner = match.player1;
-      const resolvedRound = {
+      const pendingRound: RoundDoc = {
         ...round,
         player1Choice: p1Choice,
-        throwStatsRecorded: true,
-        roundStatsRecorded: true,
         winner,
         resolvedAt: now,
         endReason: CLOCK_TIMEOUT_END_REASON,
       };
-      await recordRoundResolutionStats(match, resolvedRound, winner);
+      const resolvedRound = await recordRoundResolutionStats(match, pendingRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
@@ -587,16 +587,14 @@ async function resolveRoundIfReady(
     }
     if (!p1Choice && p2Choice) {
       const winner = match.player2;
-      const resolvedRound = {
+      const pendingRound: RoundDoc = {
         ...round,
         player2Choice: p2Choice,
-        throwStatsRecorded: true,
-        roundStatsRecorded: true,
         winner,
         resolvedAt: now,
         endReason: CLOCK_TIMEOUT_END_REASON,
       };
-      await recordRoundResolutionStats(match, resolvedRound, winner);
+      const resolvedRound = await recordRoundResolutionStats(match, pendingRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
@@ -617,16 +615,14 @@ async function resolveRoundIfReady(
     // Late player forfeits the entire series (not just the round).
     if (p1Choice && !p2Choice) {
       const winner = match.player1;
-      const resolvedRound = {
+      const pendingRound: RoundDoc = {
         ...round,
         player1Choice: p1Choice,
-        throwStatsRecorded: true,
-        roundStatsRecorded: true,
         winner,
         resolvedAt: now,
         endReason: ROUND_TIMEOUT_END_REASON,
       };
-      await recordRoundResolutionStats(match, resolvedRound, winner);
+      const resolvedRound = await recordRoundResolutionStats(match, pendingRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
@@ -638,16 +634,14 @@ async function resolveRoundIfReady(
     }
     if (!p1Choice && p2Choice) {
       const winner = match.player2;
-      const resolvedRound = {
+      const pendingRound: RoundDoc = {
         ...round,
         player2Choice: p2Choice,
-        throwStatsRecorded: true,
-        roundStatsRecorded: true,
         winner,
         resolvedAt: now,
         endReason: ROUND_TIMEOUT_END_REASON,
       };
-      await recordRoundResolutionStats(match, resolvedRound, winner);
+      const resolvedRound = await recordRoundResolutionStats(match, pendingRound, winner);
       rounds[roundIndex] = sanitizeRound(resolvedRound);
       await finalizeMatch(
         matchRef,
@@ -675,17 +669,15 @@ async function resolveRoundIfReady(
     winner = match.player2;
   }
 
-  const resolvedRound = {
+  const pendingRound: RoundDoc = {
     ...round,
     player1Choice: p1Choice,
     player2Choice: p2Choice,
-    throwStatsRecorded: true,
-    roundStatsRecorded: true,
     winner,
     resolvedAt: now,
     endReason: PLAYED_ROUND_END_REASON,
   };
-  await recordRoundResolutionStats(match, resolvedRound, winner);
+  const resolvedRound = await recordRoundResolutionStats(match, pendingRound, winner);
 
   let player1Wins = match.player1Wins;
   let player2Wins = match.player2Wins;
