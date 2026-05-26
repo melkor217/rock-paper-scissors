@@ -20,8 +20,8 @@ fun RpsTheme(
     content: @Composable () -> Unit,
 ) {
     val colorScheme = colorSchemeFor(style)
-    val typography = if (style == AppThemeStyle.CYBERPUNK) CyberpunkTypography else Typography()
-    val shapes = if (style == AppThemeStyle.CYBERPUNK) CyberpunkShapes else Shapes()
+    val typography = Typography()
+    val shapes = Shapes()
 
     val view = LocalView.current
     if (!view.isInEditMode) {

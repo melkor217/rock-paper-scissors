@@ -20,15 +20,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.data.model.UserProfile
+import com.rpsonline.app.data.preferences.AppThemeStyle
 import com.rpsonline.app.ui.components.MoveStatIconSize
 import com.rpsonline.app.ui.components.ThrowCountRow
+import com.rpsonline.app.ui.theme.currentAppThemeStyle
 import java.util.Locale
 
-private fun throwsPerWin(
+fun throwsPerWin(
     wins: Int,
     throwsRock: Int,
     throwsPaper: Int,
@@ -58,7 +61,11 @@ fun RpsPerWinLabel(
     modifier: Modifier = Modifier,
     iconSize: Dp = MoveStatIconSize,
     textStyle: TextStyle = MaterialTheme.typography.bodySmall,
-    color: Color = rpsPerWinColor(throwsPerWin),
+    color: Color = if (currentAppThemeStyle() == AppThemeStyle.CYBERPUNK) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        rpsPerWinColor(throwsPerWin)
+    },
     showMoveIcons: Boolean = true,
 ) {
     val valueStyle = textStyle.copy(fontWeight = FontWeight.Bold)
@@ -72,6 +79,7 @@ fun RpsPerWinLabel(
             style = valueStyle,
             color = color,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         if (showMoveIcons) {
             Spacer(modifier = Modifier.width(6.dp))
@@ -105,6 +113,7 @@ fun RpsPerWinLabel(
             style = textStyle,
             color = color,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -126,28 +135,18 @@ fun PlayerThrowStatsColumn(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            RpsPerWinLabel(
-                throwsPerWin = throwsPerWin,
-                textStyle = textStyle,
-                showMoveIcons = true,
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            ThrowCountRow(
-                rock = throwsRock,
-                paper = throwsPaper,
-                scissors = throwsScissors,
-                textStyle = textStyle,
-                iconSize = MoveStatIconSize,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            )
-        }
+        RpsPerWinLabel(
+            throwsPerWin = throwsPerWin,
+            textStyle = textStyle,
+            showMoveIcons = true,
+        )
+        ThrowCountRow(
+            rock = throwsRock,
+            paper = throwsPaper,
+            scissors = throwsScissors,
+            textStyle = textStyle,
+            iconSize = MoveStatIconSize,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        )
     }
 }

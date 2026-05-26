@@ -55,10 +55,18 @@ fun MatchmakingScreen(
         }
         when (uiState.status) {
             MatchmakingStatus.SEARCHING -> {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Searching for opponent…", style = MaterialTheme.typography.titleMedium)
-                Text("Matching by similar ELO rating")
+                Text(
+                    text = "Searching for opponent…",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = "Matching by similar ELO rating",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = formatQueueElapsed(uiState.queueElapsedSeconds),
@@ -90,12 +98,21 @@ fun MatchmakingScreen(
             }
 
             MatchmakingStatus.MATCHED -> {
-                CircularProgressIndicator()
-                Text("Match found! Starting game…")
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Match found! Starting game…",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
             }
 
             MatchmakingStatus.IDLE -> {
-                Text("Preparing matchmaking…")
+                Text(
+                    text = "Preparing matchmaking…",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
             }
         }
     }

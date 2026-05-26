@@ -38,6 +38,7 @@ import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.ui.components.MovePicker
+import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.GameViewModel
 
@@ -69,13 +70,7 @@ fun GameScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (match == null || userId == null) {
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+            RpsLoadingColumn(modifier = Modifier.weight(1f))
             return
         }
 

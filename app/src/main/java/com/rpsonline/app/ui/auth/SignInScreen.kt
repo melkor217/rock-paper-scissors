@@ -42,6 +42,7 @@ import kotlinx.coroutines.delay
 import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.AutofillTextField
+import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.excludeFromAutofill
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.home.HomeAppInfoFooter
@@ -104,6 +105,7 @@ fun SignInScreen(
         Text(
             text = "Ranked rock-paper-scissors.\nBest of 3. ELO matchmaking.",
             style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(24.dp))
@@ -174,11 +176,8 @@ private fun SignInLoadingState(isRestoringSession: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CircularProgressIndicator()
-        Text(
-            text = if (isRestoringSession) "Restoring session…" else "Signing in…",
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
+        RpsLoadingColumn(
+            message = if (isRestoringSession) "Restoring session…" else "Signing in…",
         )
         if (!isOnline) {
             Text(

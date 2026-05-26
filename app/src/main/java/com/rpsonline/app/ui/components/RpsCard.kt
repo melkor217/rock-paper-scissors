@@ -20,7 +20,10 @@ fun RpsCard(
 ) {
     val shape = MaterialTheme.shapes.medium
     val border = BorderStroke(1.dp, borderColor)
-    val colors = CardDefaults.cardColors(containerColor = containerColor)
+    val colors = CardDefaults.cardColors(
+        containerColor = containerColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    )
     val elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
 
     if (onClick != null) {
