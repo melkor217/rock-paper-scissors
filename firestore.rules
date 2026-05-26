@@ -21,11 +21,19 @@ service cloud.firestore {
                && modes[0] != modes[1]));
     }
 
+    function validQueueMatchModeField(data) {
+      return !('matchModes' in data) && !('matchMode' in data)
+        || ('matchModes' in data && validQueueMatchModes(data.matchModes))
+        || ('matchMode' in data && (data.matchMode == 'BO3' || data.matchMode == 'BO5'));
+    }
+
+    /** Legacy clients omit matchModes; Cloud Functions default to BO3. */
     function validQueueWrite() {
-      return request.resource.data.keys().hasAll(['joinedAt', 'elo', 'displayName', 'matchModes'])
-        && request.resource.data.elo is int
-        && request.resource.data.displayName is string
-        && validQueueMatchModes(request.resource.data.matchModes);
+      let data = request.resource.data;
+      return data.keys().hasAll(['joinedAt', 'elo', 'displayName'])
+        && data.elo is number
+        && data.displayName is string
+        && validQueueMatchModeField(data);
     }
 
     match /users/{userId} {
