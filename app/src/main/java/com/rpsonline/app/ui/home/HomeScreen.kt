@@ -1,6 +1,7 @@
 package com.rpsonline.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,7 +70,12 @@ fun HomeScreen(
         modifier = Modifier.rpsScreenPadding(),
     ) {
         if (uiState.isLoading && uiState.profile == null) {
-            RpsLoadingColumn(modifier = Modifier.fillMaxSize())
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                RpsLoadingColumn(message = "Loading profile…")
+            }
             return
         }
 
