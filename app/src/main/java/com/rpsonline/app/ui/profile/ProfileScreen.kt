@@ -29,6 +29,7 @@ import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.MatchHistoryCardHeader
+import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.ProfileViewModel
@@ -56,15 +57,11 @@ fun ProfileScreen(
 
         when {
             uiState.isLoading -> {
-                Column(
+                RpsLoadingColumn(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    CircularProgressIndicator()
-                }
+                )
             }
             uiState.error != null -> {
                 Column(

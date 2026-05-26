@@ -30,6 +30,7 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
+import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
@@ -68,13 +69,7 @@ fun HomeScreen(
         modifier = Modifier.rpsScreenPadding(),
     ) {
         if (uiState.isLoading && uiState.profile == null) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+            RpsLoadingColumn(modifier = Modifier.fillMaxSize())
             return
         }
 
@@ -87,6 +82,7 @@ fun HomeScreen(
                 Text(
                     text = uiState.error ?: "Could not load your profile.",
                     style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(16.dp))

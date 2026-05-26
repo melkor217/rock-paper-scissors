@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.WinLossStatLine
+import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
 
@@ -60,15 +61,11 @@ fun LeaderboardScreen(
 
         when {
             uiState.isLoading -> {
-                Column(
+                RpsLoadingColumn(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    CircularProgressIndicator()
-                }
+                )
             }
             uiState.error != null -> {
                 Column(

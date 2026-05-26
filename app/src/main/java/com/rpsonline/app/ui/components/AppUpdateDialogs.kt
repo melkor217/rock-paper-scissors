@@ -59,22 +59,33 @@ fun AppUpdateDialogs(
     if (updateState.isDownloadingUpdate) {
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("Downloading update") },
+            title = {
+                Text(
+                    text = "Downloading update",
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
             text = {
                 Column {
-                    Text("Please keep the app open until the download finishes.")
+                    Text(
+                        text = "Please keep the app open until the download finishes.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     updateState.updateDownloadProgress?.let { progress ->
                         Spacer(modifier = Modifier.height(12.dp))
                         LinearProgressIndicator(
                             progress = { progress },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                    } ?: CircularProgressIndicator()
+                    } ?: CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             },
             confirmButton = {
                 TextButton(onClick = {}, enabled = false) {
-                    Text("Downloading…")
+                    Text(
+                        text = "Downloading…",
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             },
         )
