@@ -10,6 +10,7 @@ import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.domain.DisplayNames
+import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.data.model.RoundResult
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -26,7 +27,7 @@ class MatchRepository(
     /**
      * Join matchmaking via Firestore (not Callable). Writes queue/{uid}; Cloud Function pairs players.
      */
-    suspend fun joinQueue(): String? {
+    suspend fun joinQueue(matchMode: MatchMode = MatchMode.BO3): String? {
         val userId = uid
         val userSnap = firestore.collection("users").document(userId).get().await()
         if (!userSnap.exists()) {
@@ -49,6 +50,7 @@ class MatchRepository(
                 "joinedAt" to FieldValue.serverTimestamp(),
                 "elo" to elo,
                 "displayName" to displayName,
+                "matchMode" to matchMode.name,
             ),
         ).await()
 
@@ -205,6 +207,7 @@ private fun DocumentSnapshot.toMatch(id: String): Match {
         player2 = getString("player2") ?: "",
         player1Name = getString("player1Name") ?: "Player 1",
         player2Name = getString("player2Name") ?: "Player 2",
+        matchMode = MatchMode.fromString(getString("matchMode")),
         status = MatchStatus.fromString(getString("status")),
         currentRound = getLong("currentRound")?.toInt() ?: 1,
         player1Wins = getLong("player1Wins")?.toInt() ?: 0,

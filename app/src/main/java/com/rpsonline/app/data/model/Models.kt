@@ -1,5 +1,7 @@
 package com.rpsonline.app.data.model
 
+import com.rpsonline.app.domain.MatchMode
+
 enum class Move(val label: String) {
     ROCK("Rock"),
     PAPER("Paper"),
@@ -37,6 +39,7 @@ data class Match(
     val player2: String = "",
     val player1Name: String = "",
     val player2Name: String = "",
+    val matchMode: MatchMode = MatchMode.BO3,
     val status: MatchStatus = MatchStatus.ACTIVE,
     val currentRound: Int = 1,
     val player1Wins: Int = 0,
@@ -176,6 +179,7 @@ data class MatchResult(
 
 data class MatchHistoryEntry(
     val matchId: String,
+    val matchMode: MatchMode = MatchMode.BO3,
     val myDisplayName: String,
     val opponentName: String,
     val myElo: Int? = null,
@@ -203,6 +207,7 @@ fun Match.toHistoryEntry(userId: String): MatchHistoryEntry {
     }
     return MatchHistoryEntry(
         matchId = id,
+        matchMode = matchMode,
         myDisplayName = myName(userId),
         opponentName = opponentName(userId),
         myElo = myElo(userId),

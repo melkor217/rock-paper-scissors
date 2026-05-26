@@ -14,10 +14,16 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
+import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
@@ -37,9 +44,10 @@ import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
-    onFindMatch: () -> Unit,
+    onFindMatch: (MatchMode) -> Unit,
     onLeaderboard: () -> Unit,
     onProfile: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
@@ -104,6 +112,7 @@ fun HomeScreen(
         }
 
         val profile = uiState.profile
+        var selectedMode by remember { mutableStateOf(MatchMode.BO3) }
         Text(
             text = "Welcome, ${profile?.displayName ?: DisplayNames.DEFAULT}",
             style = MaterialTheme.typography.headlineMedium,
@@ -117,6 +126,24 @@ fun HomeScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Match format",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MatchMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = selectedMode == mode,
+                    onClick = { selectedMode = mode },
+                    label = { Text(mode.label) },
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
         uiState.onlinePlayerCount?.let { count ->
             PlayersOnlineLabel(
                 count = count,
@@ -126,10 +153,10 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(6.dp))
         }
         Button(
-            onClick = onFindMatch,
+            onClick = { onFindMatch(selectedMode) },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Find Match")
+            Text("Find ${selectedMode.label} Match")
         }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedButton(

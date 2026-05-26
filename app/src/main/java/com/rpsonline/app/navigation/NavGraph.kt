@@ -11,7 +11,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.repository.AuthRepository
+import com.rpsonline.app.domain.MatchMode
+import com.rpsonline.app.viewmodel.MatchmakingViewModel
 import com.rpsonline.app.ui.auth.SignInScreen
 import com.rpsonline.app.ui.game.GameScreen
 import com.rpsonline.app.ui.home.HomeScreen
@@ -23,7 +26,9 @@ import com.rpsonline.app.ui.result.ResultScreen
 object Routes {
     const val SIGN_IN = "sign_in"
     const val HOME = "home"
-    const val MATCHMAKING = "matchmaking"
+    const val MATCHMAKING = "matchmaking/{matchMode}"
+
+    fun matchmaking(matchMode: MatchMode) = "matchmaking/${matchMode.name}"
     const val GAME = "game/{matchId}"
     const val RESULT = "result/{matchId}"
     const val LEADERBOARD = "leaderboard"
@@ -71,7 +76,9 @@ fun RpsNavGraph() {
         composable(Routes.HOME) {
             if (isSignedIn) {
                 HomeScreen(
-                    onFindMatch = { navController.navigate(Routes.MATCHMAKING) },
+                    onFindMatch = { matchMode ->
+                        navController.navigate(Routes.matchmaking(matchMode))
+                    },
                     onLeaderboard = { navController.navigate(Routes.LEADERBOARD) },
                     onProfile = {
                         authRepository.currentUserId?.let { uid ->
@@ -82,8 +89,14 @@ fun RpsNavGraph() {
             }
         }
 
-        composable(Routes.MATCHMAKING) {
+        composable(
+            route = Routes.MATCHMAKING,
+            arguments = listOf(navArgument("matchMode") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val matchMode = MatchMode.fromString(backStackEntry.arguments?.getString("matchMode"))
             MatchmakingScreen(
+                matchMode = matchMode,
+                viewModel = viewModel(factory = MatchmakingViewModel.factory(matchMode)),
                 onMatchFound = { matchId ->
                     navController.navigate(Routes.game(matchId)) {
                         popUpTo(Routes.HOME)
@@ -120,8 +133,8 @@ fun RpsNavGraph() {
             val matchId = backStackEntry.arguments?.getString("matchId") ?: return@composable
             ResultScreen(
                 matchId = matchId,
-                onPlayAgain = {
-                    navController.navigate(Routes.MATCHMAKING) {
+                onPlayAgain = { matchMode ->
+                    navController.navigate(Routes.matchmaking(matchMode)) {
                         popUpTo(Routes.HOME)
                     }
                 },

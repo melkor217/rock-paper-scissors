@@ -1,12 +1,12 @@
 # RPS Online
 
-Online rock–paper–scissors for Android. Match with another player in real time, play best-of-3 rounds, climb an ELO leaderboard, and review match history on player profiles.
+Online rock–paper–scissors for Android. Match with another player in real time, play **best of 3** or **best of 5** series, climb an ELO leaderboard, and review match history on player profiles.
 
 ## How it works
 
 - **Matchmaking** — queue until an opponent is found; pairing prefers players within **±200 ELO**.
 - **Rounds** — each player picks rock, paper, or scissors within **60 seconds**. Same move is a draw and the round is replayed with no point awarded. A short pre-game countdown runs before the first round.
-- **Match** — first to **2** round wins takes the match (best of 3).
+- **Match** — choose **BO3** (first to 2) or **BO5** (first to 3); opponents are paired by format and similar ELO.
 - **Rating** — ELO updates after each completed match.
 - **Profiles** — ELO, wins/losses, throw breakdown (rock / paper / scissors), and match history with per-round recaps. Your profile shows your last **10** matches; other players’ profiles show matches you played together. Open profiles from Home, the leaderboard, or the result screen.
 - **Leaderboard** — ranked players with win/loss and throw tendencies; tap a row to open their profile.

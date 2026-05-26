@@ -2,7 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { calculateElo, isValidMove, Move, resolveRound } from "./game";
+import { calculateElo, isValidMove, MatchMode, Move, parseMatchMode, resolveRound, winsToFinish } from "./game";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -12,7 +12,6 @@ const REGION = "us-central1";
 /** Late player forfeits the whole match after this window. */
 const ROUND_TIMEOUT_MS = 60_000;
 const ELO_WINDOW = 200;
-const WINS_TO_FINISH = 2;
 
 interface RoundDoc {
   roundNumber: number;
@@ -30,6 +29,7 @@ interface MatchDoc {
   player2: string;
   player1Name: string;
   player2Name: string;
+  matchMode: MatchMode;
   status: "active" | "completed" | "abandoned";
   currentRound: number;
   player1Wins: number;
@@ -85,7 +85,7 @@ async function getUserProfile(uid: string) {
   };
 }
 
-async function createMatch(playerA: string, playerB: string): Promise<string> {
+async function createMatch(playerA: string, playerB: string, matchMode: MatchMode): Promise<string> {
   const [userA, userB] = await Promise.all([
     getUserProfile(playerA),
     getUserProfile(playerB),
@@ -100,6 +100,7 @@ async function createMatch(playerA: string, playerB: string): Promise<string> {
     player2: playerB,
     player1Name: userA.displayName,
     player2Name: userB.displayName,
+    matchMode,
     player1Elo: userA.elo,
     player2Elo: userB.elo,
     status: "active",
@@ -127,14 +128,16 @@ async function createMatch(playerA: string, playerB: string): Promise<string> {
   return matchRef.id;
 }
 
-async function tryMatch(uid: string, elo: number): Promise<string | null> {
+async function tryMatch(uid: string, elo: number, matchMode: MatchMode): Promise<string | null> {
   const queueSnap = await db.collection("queue").orderBy("joinedAt", "asc").get();
   for (const doc of queueSnap.docs) {
     const otherId = doc.id;
     if (otherId === uid) continue;
+    const otherMode = parseMatchMode(doc.get("matchMode"));
+    if (otherMode !== matchMode) continue;
     const otherElo = (doc.get("elo") as number) ?? 1000;
     if (Math.abs(otherElo - elo) <= ELO_WINDOW) {
-      return createMatch(uid, otherId);
+      return createMatch(uid, otherId, matchMode);
     }
   }
   return null;
@@ -198,13 +201,14 @@ async function finalizeMatch(
   const p1Score = winnerId === match.player1 ? 1 : 0;
   const elo = calculateElo(p1Elo, p2Elo, p1Score);
 
+  const winsNeeded = winsToFinish(parseMatchMode(match.matchMode));
   let player1Wins = match.player1Wins;
   let player2Wins = match.player2Wins;
   if (options?.forfeit) {
     if (winnerId === match.player1) {
-      player1Wins = Math.max(player1Wins, WINS_TO_FINISH);
+      player1Wins = Math.max(player1Wins, winsNeeded);
     } else {
-      player2Wins = Math.max(player2Wins, WINS_TO_FINISH);
+      player2Wins = Math.max(player2Wins, winsNeeded);
     }
   }
 
@@ -321,7 +325,9 @@ async function resolveRoundIfReady(
   if (winner === match.player1) player1Wins += 1;
   if (winner === match.player2) player2Wins += 1;
 
-  if (player1Wins >= WINS_TO_FINISH) {
+  const winsNeeded = winsToFinish(parseMatchMode(match.matchMode));
+
+  if (player1Wins >= winsNeeded) {
     rounds[roundIndex] = sanitizeRound({
       ...round,
       winner,
@@ -337,7 +343,7 @@ async function resolveRoundIfReady(
     );
     return;
   }
-  if (player2Wins >= WINS_TO_FINISH) {
+  if (player2Wins >= winsNeeded) {
     rounds[roundIndex] = sanitizeRound({
       ...round,
       winner,
@@ -418,7 +424,8 @@ export const onQueueEntry = onDocumentCreated(
     }
 
     const elo = (data.elo as number) ?? profile.elo;
-    await tryMatch(uid, elo);
+    const matchMode = parseMatchMode(data.matchMode);
+    await tryMatch(uid, elo, matchMode);
   },
 );
 

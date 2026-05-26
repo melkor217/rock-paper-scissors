@@ -3,6 +3,7 @@ package com.rpsonline.app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.model.Match
+import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.PresenceRepository
@@ -23,6 +24,7 @@ enum class MatchmakingStatus {
 
 data class MatchmakingUiState(
     val status: MatchmakingStatus = MatchmakingStatus.IDLE,
+    val matchMode: MatchMode = MatchMode.BO3,
     val matchId: String? = null,
     val match: Match? = null,
     val error: String? = null,
@@ -31,12 +33,13 @@ data class MatchmakingUiState(
 )
 
 class MatchmakingViewModel(
+    private val matchMode: MatchMode = MatchMode.BO3,
     private val matchRepository: MatchRepository = MatchRepository(),
     private val authRepository: AuthRepository = AuthRepository(),
     private val presenceRepository: PresenceRepository = PresenceRepository(),
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(MatchmakingUiState())
+    private val _uiState = MutableStateFlow(MatchmakingUiState(matchMode = matchMode))
     val uiState: StateFlow<MatchmakingUiState> = _uiState.asStateFlow()
 
     private var observeJob: Job? = null
@@ -74,7 +77,7 @@ class MatchmakingViewModel(
                     }
                     return@launch
                 }
-                val immediateMatchId = matchRepository.joinQueue()
+                val immediateMatchId = matchRepository.joinQueue(matchMode)
                 if (immediateMatchId != null) {
                     stopQueueTimer()
                     _uiState.update {
@@ -154,5 +157,15 @@ class MatchmakingViewModel(
         observeJob?.cancel()
         stopQueueTimer()
         super.onCleared()
+    }
+
+    companion object {
+        fun factory(matchMode: MatchMode): androidx.lifecycle.ViewModelProvider.Factory =
+            object : androidx.lifecycle.ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                    return MatchmakingViewModel(matchMode = matchMode) as T
+                }
+            }
     }
 }

@@ -37,6 +37,7 @@ import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.domain.GameRules
+import com.rpsonline.app.ui.components.formatMatchMode
 import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -142,7 +143,7 @@ fun GameScreen(
             )
             Spacer(modifier = Modifier.height(if (compactLayout) 4.dp else 8.dp))
             Text(
-                text = "Round ${match.currentRound}  •  Best of 3",
+                text = "Round ${match.currentRound}  •  ${formatMatchMode(match.matchMode)}",
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -164,6 +165,7 @@ fun GameScreen(
             MatchScoreCard(
                 myWins = match.myWins(userId),
                 opponentWins = match.opponentWins(userId),
+                winsToFinish = match.matchMode.winsToFinish,
                 opponentLabel = opponentScoreLabel,
                 compact = compactLayout,
             )
@@ -252,6 +254,7 @@ fun GameScreen(
 private fun MatchScoreCard(
     myWins: Int,
     opponentWins: Int,
+    winsToFinish: Int,
     opponentLabel: String,
     compact: Boolean,
 ) {
@@ -272,6 +275,7 @@ private fun MatchScoreCard(
         ScoreColumn(
             label = "You",
             score = myWins,
+            winsToFinish = winsToFinish,
             progressColor = MaterialTheme.colorScheme.primary,
             progressSide = MatchScoreSide.YOU,
             compact = compact,
@@ -285,6 +289,7 @@ private fun MatchScoreCard(
         ScoreColumn(
             label = opponentLabel,
             score = opponentWins,
+            winsToFinish = winsToFinish,
             progressColor = MaterialTheme.colorScheme.tertiary,
             progressSide = MatchScoreSide.OPPONENT,
             compact = compact,
@@ -325,6 +330,7 @@ private enum class MatchScoreSide { YOU, OPPONENT }
 private fun ScoreColumn(
     label: String,
     score: Int,
+    winsToFinish: Int,
     progressColor: Color,
     progressSide: MatchScoreSide,
     compact: Boolean,
@@ -356,6 +362,7 @@ private fun ScoreColumn(
         Spacer(modifier = Modifier.height(2.dp))
         MatchWinProgressBar(
             wins = score,
+            winsToFinish = winsToFinish,
             fillColor = progressColor,
             side = progressSide,
         )
@@ -365,11 +372,12 @@ private fun ScoreColumn(
 @Composable
 private fun MatchWinProgressBar(
     wins: Int,
+    winsToFinish: Int,
     fillColor: Color,
     side: MatchScoreSide,
     modifier: Modifier = Modifier,
 ) {
-    val slots = GameRules.WINS_TO_FINISH
+    val slots = winsToFinish
     val segmentShape = RoundedCornerShape(3.dp)
     val emptyFill = MaterialTheme.colorScheme.surface
     val emptyBorder = MaterialTheme.colorScheme.outline

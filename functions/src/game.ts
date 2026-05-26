@@ -1,5 +1,15 @@
 export type Move = "ROCK" | "PAPER" | "SCISSORS";
 
+export type MatchMode = "BO3" | "BO5";
+
+export function parseMatchMode(value: unknown): MatchMode {
+  return value === "BO5" ? "BO5" : "BO3";
+}
+
+export function winsToFinish(mode: MatchMode): number {
+  return mode === "BO5" ? 3 : 2;
+}
+
 export function resolveRound(p1: Move, p2: Move): "player1" | "player2" | "tie" {
   if (p1 === p2) return "tie";
   if (
