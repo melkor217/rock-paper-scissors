@@ -4,7 +4,7 @@
 set -euo pipefail
 
 PROJECT="${1:-rps-online-9771e}"
-REGION="${2:-us-central1}"
+REGION="${2:-europe-west1}"
 
 echo "Granting public invoker on Cloud Run services for project $PROJECT ($REGION)..."
 

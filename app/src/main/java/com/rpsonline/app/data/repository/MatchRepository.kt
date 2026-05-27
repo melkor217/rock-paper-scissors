@@ -209,15 +209,20 @@ class MatchRepository(
         return null
     }
 
-    /** Keeps the queue entry alive while the user is actively waiting for a match. */
-    suspend fun sendQueueHeartbeat() {
-        val userId = auth.currentUser?.uid ?: return
-        runCatching {
+    /**
+     * Keeps the queue entry alive while the user is actively waiting for a match.
+     * On failure, removes the queue doc so the user is not left as a stale matchmaking entry.
+     */
+    suspend fun sendQueueHeartbeat(): Boolean {
+        val userId = auth.currentUser?.uid ?: return false
+        return runCatching {
             awaitFirestoreAuth()
             firestore.collection("queue").document(userId)
                 .update(mapOf("lastHeartbeatAt" to FieldValue.serverTimestamp()))
                 .await()
-        }
+        }.onFailure {
+            runCatching { leaveQueue() }
+        }.isSuccess
     }
 
     suspend fun leaveQueue() {

@@ -6,6 +6,7 @@ import android.net.NetworkCapabilities
 import android.os.SystemClock
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.functions.FirebaseFunctions
+import com.rpsonline.app.data.repository.FUNCTIONS_REGION
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -18,7 +19,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Measures round-trip latency to Firebase Cloud Functions (us-central1).
+ * Measures round-trip latency to the regional `ping` Cloud Function.
  * Firestore document reads were too fast (1–7ms) when the user doc was already
  * synced via active listeners; a callable forces a real network round trip.
  */
@@ -73,7 +74,6 @@ class FirebaseConnectionMonitor(
     }
 
     companion object {
-        private const val FUNCTIONS_REGION = "us-central1"
         private const val PING_FUNCTION = "ping"
         private const val PROBE_INTERVAL_MS = 12_000L
         private const val PROBE_TIMEOUT_MS = 8_000L
