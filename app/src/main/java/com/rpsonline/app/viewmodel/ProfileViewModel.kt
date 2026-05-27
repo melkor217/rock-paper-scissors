@@ -2,6 +2,7 @@ package com.rpsonline.app.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
@@ -28,8 +29,9 @@ data class ProfileUiState(
     val matchHistory: List<MatchHistoryEntry> = emptyList(),
     val weeklyEloChart: List<DailyEloDelta> = emptyList(),
     val hasMoreMatches: Boolean = true,
-    val isOwnProfile: Boolean = true,
+    val isOwnProfile: Boolean = false,
     val error: String? = null,
+    val matchHistoryError: String? = null,
 )
 
 class ProfileViewModel(
@@ -51,6 +53,7 @@ class ProfileViewModel(
         loadJob?.cancel()
         loadMoreJob?.cancel()
         profileJob?.cancel()
+        val isOwnProfile = userId == authRepository.currentUserId
         profileJob = viewModelScope.launch {
             userRepository.observeUserProfile(userId).collect { profile ->
                 if (profile != null) {
@@ -67,7 +70,7 @@ class ProfileViewModel(
                         isLoading = true,
                         isMatchHistoryLoading = true,
                         isWeeklyChartLoading = true,
-                        isOwnProfile = userId == authRepository.currentUserId,
+                        isOwnProfile = isOwnProfile,
                     )
                 }
             } else {
@@ -76,6 +79,8 @@ class ProfileViewModel(
                         isLoading = showFullScreenLoading,
                         isMatchHistoryLoading = true,
                         isWeeklyChartLoading = true,
+                        isOwnProfile = isOwnProfile,
+                        matchHistoryError = null,
                         error = null,
                     )
                 }
@@ -85,21 +90,15 @@ class ProfileViewModel(
                     ?: throw IllegalStateException("Not signed in")
                 val profile = userRepository.getUserProfile(userId)
                     ?: throw IllegalStateException("Player not found")
-                val isOwnProfile = userId == viewerId
                 cachedViewerId = viewerId
                 val sinceMs = weeklyChartWindowStartMs()
-                val weeklyMatches = if (isOwnProfile) {
-                    matchRepository.getRecentMatchesForUserSince(
-                        userId = viewerId,
-                        sinceMs = sinceMs,
-                    )
-                } else {
-                    matchRepository.getRecentSharedMatchesSince(
-                        viewerId = viewerId,
-                        opponentId = userId,
-                        sinceMs = sinceMs,
-                    )
-                }
+                val matchPool = fetchMatchPool(
+                    isOwnProfile = isOwnProfile,
+                    viewerId = viewerId,
+                    profileUserId = userId,
+                    limit = PROFILE_MATCH_POOL_SIZE,
+                )
+                val weeklyMatches = matchPool.filter { it.lastActivityAt >= sinceMs }
                 val weeklyEloChart = weeklyEloDailyDeltas(
                     enrichMatchHistoryWithOpponentElos(
                         viewerId = userId,
@@ -107,18 +106,7 @@ class ProfileViewModel(
                         matches = weeklyMatches,
                     ),
                 )
-                val matches = if (isOwnProfile) {
-                    matchRepository.getRecentMatchesForUser(
-                        userId = viewerId,
-                        limit = MATCH_HISTORY_PAGE_SIZE,
-                    )
-                } else {
-                    matchRepository.getRecentSharedMatches(
-                        viewerId = viewerId,
-                        opponentId = userId,
-                        limit = MATCH_HISTORY_PAGE_SIZE,
-                    )
-                }
+                val historyMatches = matchPool.take(MATCH_HISTORY_PAGE_SIZE)
                 val historySubjectElo = if (isOwnProfile) {
                     profile.elo
                 } else {
@@ -127,7 +115,7 @@ class ProfileViewModel(
                 val history = enrichMatchHistoryWithOpponentElos(
                     viewerId = viewerId,
                     myCurrentElo = historySubjectElo,
-                    matches = matches,
+                    matches = historyMatches,
                 )
                 loadedUserId = userId
                 _uiState.update {
@@ -139,8 +127,9 @@ class ProfileViewModel(
                         profile = profile,
                         matchHistory = history,
                         weeklyEloChart = weeklyEloChart,
-                        hasMoreMatches = matches.size >= MATCH_HISTORY_PAGE_SIZE,
+                        hasMoreMatches = historyMatches.size >= MATCH_HISTORY_PAGE_SIZE,
                         isOwnProfile = isOwnProfile,
+                        matchHistoryError = null,
                     )
                 }
             } catch (e: Exception) {
@@ -172,22 +161,16 @@ class ProfileViewModel(
 
         loadMoreJob?.cancel()
         loadMoreJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingMore = true) }
+            _uiState.update { it.copy(isLoadingMore = true, matchHistoryError = null) }
             try {
                 val profile = state.profile ?: return@launch
                 val nextLimit = state.matchHistory.size + MATCH_HISTORY_PAGE_SIZE
-                val matches = if (state.isOwnProfile) {
-                    matchRepository.getRecentMatchesForUser(
-                        userId = currentViewerId,
-                        limit = nextLimit,
-                    )
-                } else {
-                    matchRepository.getRecentSharedMatches(
-                        viewerId = currentViewerId,
-                        opponentId = userId,
-                        limit = nextLimit,
-                    )
-                }
+                val matches = fetchMatchPool(
+                    isOwnProfile = state.isOwnProfile,
+                    viewerId = currentViewerId,
+                    profileUserId = userId,
+                    limit = nextLimit,
+                )
                 val historySubjectElo = if (state.isOwnProfile) {
                     profile.elo
                 } else {
@@ -203,12 +186,36 @@ class ProfileViewModel(
                         isLoadingMore = false,
                         matchHistory = history,
                         hasMoreMatches = matches.size >= nextLimit,
+                        matchHistoryError = null,
                     )
                 }
-            } catch (_: Exception) {
-                _uiState.update { it.copy(isLoadingMore = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoadingMore = false,
+                        matchHistoryError = e.message ?: "Couldn't load more matches",
+                    )
+                }
             }
         }
+    }
+
+    private suspend fun fetchMatchPool(
+        isOwnProfile: Boolean,
+        viewerId: String,
+        profileUserId: String,
+        limit: Int,
+    ): List<Match> = if (isOwnProfile) {
+        matchRepository.getRecentMatchesForUser(
+            userId = viewerId,
+            limit = limit,
+        )
+    } else {
+        matchRepository.getSharedMatchesBetween(
+            userId = viewerId,
+            opponentId = profileUserId,
+            limit = limit,
+        )
     }
 
     override fun onCleared() {
@@ -220,5 +227,12 @@ class ProfileViewModel(
 
     private companion object {
         const val MATCH_HISTORY_PAGE_SIZE = 10
+
+        /**
+         * Per-side Firestore cap when loading profile matches. The weekly chart only
+         * includes the last seven days from this pool; very active players may have
+         * incomplete chart data beyond this count.
+         */
+        const val PROFILE_MATCH_POOL_SIZE = 200
     }
 }

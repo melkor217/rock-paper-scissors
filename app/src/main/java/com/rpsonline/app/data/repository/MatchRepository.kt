@@ -25,6 +25,11 @@ class MatchRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
+    companion object {
+        /** Default per-side cap for time-bounded match queries (see [getRecentMatchesForUserSince]). */
+        const val DEFAULT_SINCE_MATCH_LIMIT = 200
+    }
+
     private val uid: String
         get() = auth.currentUser?.uid ?: error("Not signed in")
 
@@ -148,7 +153,7 @@ class MatchRepository(
     suspend fun getRecentMatchesForUserSince(
         userId: String,
         sinceMs: Long,
-        limit: Int = 200,
+        limit: Int = MatchRepository.DEFAULT_SINCE_MATCH_LIMIT,
     ): List<Match> {
         val since = Timestamp(Date(sinceMs))
         val perSide = limit.coerceAtLeast(1)
@@ -199,7 +204,7 @@ class MatchRepository(
         userId: String,
         opponentId: String,
         sinceMs: Long,
-        limit: Int = 200,
+        limit: Int = DEFAULT_SINCE_MATCH_LIMIT,
     ): List<Match> {
         val since = Timestamp(Date(sinceMs))
         val perSide = limit.coerceAtLeast(1)
@@ -238,7 +243,7 @@ class MatchRepository(
         viewerId: String,
         opponentId: String,
         sinceMs: Long,
-        limit: Int = 200,
+        limit: Int = MatchRepository.DEFAULT_SINCE_MATCH_LIMIT,
     ): List<Match> = getSharedMatchesBetweenSince(
         userId = viewerId,
         opponentId = opponentId,

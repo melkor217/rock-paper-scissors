@@ -161,6 +161,15 @@ fun ProfileScreen(
                                 }
                             }
                         }
+                        uiState.matchHistoryError?.let { message ->
+                            item(key = "match_history_error") {
+                                Text(
+                                    text = message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
                     }
                 }
             }
