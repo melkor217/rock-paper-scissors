@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.MatchHistoryEntry
+import com.rpsonline.app.data.model.ViewerMatchResolution
 import com.rpsonline.app.domain.MatchMode
 import java.time.Instant
 import java.time.ZoneId
@@ -34,10 +35,25 @@ private val MatchDateTimeCompactFormat = DateTimeFormatter.ofPattern("M/d HH:mm"
 fun MatchHistoryCardHeader(
     entry: MatchHistoryEntry,
     lastActivityAt: Long,
-    outcomeLabel: String,
-    outcomeColor: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier,
 ) {
+    MatchHistoryCardHeaderContent(
+        entry = entry,
+        lastActivityAt = lastActivityAt,
+        resolution = entry.resolution,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun MatchHistoryCardHeaderContent(
+    entry: MatchHistoryEntry,
+    lastActivityAt: Long,
+    resolution: ViewerMatchResolution,
+    modifier: Modifier = Modifier,
+) {
+    val outcomeLabel = viewerMatchResolutionLabel(resolution)
+    val outcomeColor = viewerMatchResolutionColor(resolution)
     val mutedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val playerNameStyle = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold)
     val playerNameColor = MaterialTheme.colorScheme.onSurface

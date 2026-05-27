@@ -2,8 +2,9 @@ package com.rpsonline.app.domain
 
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchHistoryEntry
-import com.rpsonline.app.data.model.MatchStatus
+import com.rpsonline.app.data.model.ViewerMatchResolution
 import com.rpsonline.app.data.model.toHistoryEntry
+import com.rpsonline.app.data.model.viewerResolution
 import kotlin.math.log10
 import kotlin.math.roundToInt
 
@@ -20,18 +21,13 @@ fun inferOpponentPreMatchElo(
     return opponentPre.roundToInt().coerceAtLeast(0)
 }
 
-fun Match.myScore(userId: String): Double? {
-    if (status == MatchStatus.ABANDONED) return null
-    val scorePlayer1 = when (winnerId) {
-        null -> {
-            if (player1Wins == player2Wins) 0.5 else return null
-        }
-        player1 -> 1.0
-        player2 -> 0.0
-        else -> return null
+fun Match.myScore(userId: String): Double? =
+    when (viewerResolution(userId)) {
+        ViewerMatchResolution.WIN -> 1.0
+        ViewerMatchResolution.LOSS -> 0.0
+        ViewerMatchResolution.DRAW -> 0.5
+        ViewerMatchResolution.ABANDONED, null -> null
     }
-    return if (userId == player1) scorePlayer1 else 1.0 - scorePlayer1
-}
 
 fun Match.opponentEloAtMatch(userId: String, myCurrentElo: Int): Int? {
     opponentElo(userId)?.let { return it }

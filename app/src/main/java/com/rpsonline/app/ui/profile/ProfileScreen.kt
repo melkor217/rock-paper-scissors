@@ -31,8 +31,6 @@ import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchHistoryLoadingSection
 import com.rpsonline.app.ui.components.MatchRecapCard
-import com.rpsonline.app.ui.components.viewerMatchResolutionColor
-import com.rpsonline.app.ui.components.viewerMatchResolutionLabel
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.MatchHistoryCardHeader
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -223,8 +221,6 @@ private fun MatchHistoryCard(
             MatchHistoryCardHeader(
                 entry = entry,
                 lastActivityAt = entry.lastActivityAt,
-                outcomeLabel = viewerMatchResolutionLabel(entry.resolution),
-                outcomeColor = viewerMatchResolutionColor(entry.resolution),
             )
             if (entry.recaps.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

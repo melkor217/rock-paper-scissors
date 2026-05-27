@@ -1,6 +1,7 @@
 package com.rpsonline.app.data.model
 
 import com.rpsonline.app.domain.MatchMode
+import com.rpsonline.app.domain.myScore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -37,6 +38,25 @@ class MatchResolutionTest {
         val match = completedMatch(status = MatchStatus.ACTIVE)
         assertNull(match.resolvedOutcome())
         assertNull(match.viewerResolution("p1"))
+    }
+
+    @Test
+    fun myScore_usesResolutionField() {
+        val win = Match(
+            player1 = "p1",
+            player2 = "p2",
+            status = MatchStatus.COMPLETED,
+            resolution = MatchResolution.PLAYER1_WIN,
+        )
+        assertEquals(1.0, win.myScore("p1"))
+        assertEquals(0.0, win.myScore("p2"))
+
+        val draw = win.copy(
+            resolution = MatchResolution.DRAW,
+            winnerId = null,
+        )
+        assertEquals(0.5, draw.myScore("p1"))
+        assertEquals(0.5, draw.myScore("p2"))
     }
 
     @Test
