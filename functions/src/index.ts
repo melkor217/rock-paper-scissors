@@ -1,5 +1,5 @@
 import * as admin from "firebase-admin";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -33,10 +33,11 @@ import {
 } from "./moveTiming";
 
 admin.initializeApp();
-const db = admin.firestore();
+const FIRESTORE_DATABASE_ID = "europe-west1";
+const db = getFirestore(admin.app(), FIRESTORE_DATABASE_ID);
 db.settings({ ignoreUndefinedProperties: true });
 
-const REGION = "us-central1";
+const REGION = "europe-west1";
 const ELO_WINDOW = 300;
 
 interface RoundDoc {
@@ -727,7 +728,7 @@ async function resolveRoundIfReady(
 
 /** Client writes queue/{uid}; this trigger runs matchmaking (no Callable / Cloud Run IAM). */
 export const onQueueEntry = onDocumentCreated(
-  { document: "queue/{userId}", region: REGION },
+  { document: "queue/{userId}", region: REGION, database: FIRESTORE_DATABASE_ID },
   async (event) => {
     const uid = event.params.userId;
     const data = event.data?.data();
@@ -885,7 +886,11 @@ async function resolveExpiredOpenRound(matchId: string, match: MatchDoc): Promis
 
 /** Client writes when the round timer hits zero; resolves immediately (scheduler is backup). */
 export const onRoundTimeout = onDocumentCreated(
-  { document: "matches/{matchId}/rounds/{roundNumber}/timeoutRequests/{requestId}", region: REGION },
+  {
+    document: "matches/{matchId}/rounds/{roundNumber}/timeoutRequests/{requestId}",
+    region: REGION,
+    database: FIRESTORE_DATABASE_ID,
+  },
   async (event) => {
     const matchId = event.params.matchId;
     const roundNumber = parseInt(event.params.roundNumber, 10);
@@ -912,7 +917,11 @@ export const onRoundTimeout = onDocumentCreated(
 
 /** Client writes matches/{id}/rounds/{round}/choices/{uid}; server applies move to the match doc. */
 export const onPlayerChoice = onDocumentCreated(
-  { document: "matches/{matchId}/rounds/{roundNumber}/choices/{userId}", region: REGION },
+  {
+    document: "matches/{matchId}/rounds/{roundNumber}/choices/{userId}",
+    region: REGION,
+    database: FIRESTORE_DATABASE_ID,
+  },
   async (event) => {
     const matchId = event.params.matchId;
     const uid = event.params.userId;
