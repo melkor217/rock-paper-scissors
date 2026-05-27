@@ -110,21 +110,19 @@ fun RpsApp() {
                         .windowInsetsPadding(
                             WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
                         )
-                        .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                        .padding(top = 6.dp, start = 4.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     FirebasePingMeter(status = connectionStatus)
-                    if (currentRoute?.startsWith("home") != true) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        QueueOrMatchStatusChip(
-                            activeMatch = activeMatch,
-                            queueJoinedAtMs = queueJoinedAtMs,
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    QueueOrMatchStatusChip(
+                        activeMatch = activeMatch,
+                        queueJoinedAtMs = queueJoinedAtMs,
+                    )
                     Spacer(modifier = Modifier.weight(1f))
                     CompositionLocalProvider(
-                        LocalMinimumInteractiveComponentSize provides 52.dp,
+                        LocalMinimumInteractiveComponentSize provides 36.dp,
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -277,7 +275,7 @@ private fun QueueOrMatchStatusChip(
             style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
         )
     }
 }
