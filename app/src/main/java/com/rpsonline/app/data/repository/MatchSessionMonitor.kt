@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object MatchSessionMonitor {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = appFirestore()
 
     private val _activeMatch = MutableStateFlow<Match?>(null)
     val activeMatch: StateFlow<Match?> = _activeMatch.asStateFlow()

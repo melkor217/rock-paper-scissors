@@ -30,7 +30,7 @@ import java.util.Date
 
 class MatchRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val firestore: FirebaseFirestore = appFirestore(),
 ) {
     companion object {
         /** Default per-side cap for time-bounded match queries (see [getRecentMatchesForUserSince]). */

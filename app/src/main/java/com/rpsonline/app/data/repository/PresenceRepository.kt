@@ -10,7 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class PresenceRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
+    private val firestore: FirebaseFirestore = appFirestore(),
 ) {
     /** Best-effort heartbeat; failures must never crash the app. */
     suspend fun touchPresence(uid: String) {
