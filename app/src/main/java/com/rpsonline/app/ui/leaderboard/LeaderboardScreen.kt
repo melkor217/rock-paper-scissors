@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import com.rpsonline.app.ui.theme.isRpsDarkTheme
 import androidx.compose.runtime.Composable
@@ -28,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.LeaderboardEntry
+import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -38,7 +38,7 @@ private const val LeaderboardEntryContentType = 0
 
 @Composable
 fun LeaderboardScreen(
-    onBackToHome: () -> Unit,
+    onHome: () -> Unit,
     onPlayerProfile: (userId: String) -> Unit,
     viewModel: LeaderboardViewModel = viewModel(),
 ) {
@@ -99,12 +99,7 @@ fun LeaderboardScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onBackToHome,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Back to Home")
-        }
+        HomeOutlinedButton(onClick = onHome, label = "Back to Home")
     }
 }
 

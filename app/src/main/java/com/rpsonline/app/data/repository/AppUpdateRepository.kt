@@ -6,6 +6,8 @@ import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.update.AppUpdateInfo
 import com.rpsonline.app.data.update.AppUpdateInstaller
 import com.rpsonline.app.data.update.GitHubReleaseClient
+import com.rpsonline.app.data.update.ReleaseChangelogEntry
+import com.rpsonline.app.data.update.ReleaseChangelogPage
 import java.io.File
 
 sealed class UpdateCheckOutcome {
@@ -34,6 +36,9 @@ class AppUpdateRepository(
 
     fun fetchInstalledReleaseNotes(): String? =
         releaseClient.fetchReleaseNotesForVersion(currentVersionName())
+
+    fun fetchChangelogPage(page: Int): ReleaseChangelogPage =
+        releaseClient.fetchReleasesPage(page)
 
     fun shouldSkipAutoUpdateCheck(): Boolean {
         val lastCheckMs = prefs.getLong(KEY_LAST_AUTO_CHECK_NO_UPDATE_MS, 0L)

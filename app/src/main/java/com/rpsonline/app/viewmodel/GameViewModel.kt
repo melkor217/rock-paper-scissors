@@ -5,15 +5,26 @@ import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
+import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+data class RoundResolutionSound(
+    val move: Move,
+    val repetitions: Int,
+)
 
 data class GameUiState(
     val match: Match? = null,
@@ -45,6 +56,11 @@ class GameViewModel(
     private var lockedMoveRound: Int? = null
     private var matchSnapshotAtTimeoutRequest: String? = null
     private var resolvingRetryJob: Job? = null
+    private var roundSoundBaselineInitialized = false
+    private var lastPlayedRoundSoundKey: String? = null
+
+    private val _roundResolvedSound = MutableSharedFlow<RoundResolutionSound>(extraBufferCapacity = 1)
+    val roundResolvedSound: SharedFlow<RoundResolutionSound> = _roundResolvedSound.asSharedFlow()
 
     init {
         observeJob = viewModelScope.launch {
@@ -101,9 +117,48 @@ class GameViewModel(
                 }
                 syncCountdown(match)
                 syncMatchClocks(match, userId)
+                trackRoundResolutionSound(match, userId)
             }
         }
     }
+
+    private fun trackRoundResolutionSound(match: Match?, userId: String?) {
+        if (match == null || userId == null) return
+
+        val resolved = match.lastResolvedRound()
+        if (resolved == null || resolved.player1Choice == null || resolved.player2Choice == null) {
+            if (!roundSoundBaselineInitialized) {
+                roundSoundBaselineInitialized = true
+            }
+            return
+        }
+
+        val key = "${resolved.roundNumber}:${resolved.resolvedAt}"
+        if (!roundSoundBaselineInitialized) {
+            roundSoundBaselineInitialized = true
+            lastPlayedRoundSoundKey = key
+            return
+        }
+
+        if (key == lastPlayedRoundSoundKey) return
+
+        lastPlayedRoundSoundKey = key
+        val myChoice = if (userId == match.player1) resolved.player1Choice else resolved.player2Choice
+        val move = Move.fromString(myChoice) ?: return
+        _roundResolvedSound.tryEmit(
+            RoundResolutionSound(
+                move = move,
+                repetitions = soundRepetitions(resolved, userId),
+            ),
+        )
+    }
+
+    private fun soundRepetitions(resolved: RoundResult, userId: String): Int =
+        when (resolved.winner) {
+            "tie" -> 2
+            userId -> 3
+            else -> 1
+        }
 
     private fun matchFingerprint(match: Match): String {
         val open = match.openRound()
@@ -246,11 +301,18 @@ class GameViewModel(
                 }
                 try {
                     matchRepository.requestRoundTimeout(matchId, roundNumber)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    if (isIgnorableFirestoreRace(e)) {
+                        matchSnapshotAtTimeoutRequest = null
+                        _uiState.update { it.copy(isResolvingTimeout = false, error = null) }
+                        return@launch
+                    }
                     _uiState.update {
                         it.copy(
                             isResolvingTimeout = false,
-                            error = e.message ?: "Failed to resolve timeout",
+                            error = userFacingGameError(e, "Failed to resolve timeout"),
                         )
                     }
                     matchSnapshotAtTimeoutRequest = null
@@ -287,9 +349,15 @@ class GameViewModel(
                 _uiState.update {
                     it.copy(hasSubmittedMove = true, lockedMove = move, isSubmitting = false)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (isIgnorableFirestoreRace(e)) {
+                    _uiState.update { it.copy(isSubmitting = false, error = null) }
+                    return@launch
+                }
                 _uiState.update {
-                    it.copy(isSubmitting = false, error = e.message ?: "Failed to submit move")
+                    it.copy(isSubmitting = false, error = userFacingGameError(e, "Failed to submit move"))
                 }
             }
         }
@@ -312,4 +380,32 @@ class GameViewModel(
                 }
             }
     }
+}
+
+/** Round already advanced or listener cancelled — not worth showing to the player. */
+private fun isIgnorableFirestoreRace(error: Throwable): Boolean {
+    if (error is CancellationException) return true
+    if (error is FirebaseFirestoreException &&
+        error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+    ) {
+        return true
+    }
+    val message = error.message.orEmpty()
+    if (message.contains("PERMISSION_DENIED", ignoreCase = true)) return true
+    if (message.contains("StandaloneCoroutine was cancelled", ignoreCase = true)) return true
+    val cause = error.cause ?: return false
+    if (cause === error) return false
+    return isIgnorableFirestoreRace(cause)
+}
+
+private fun userFacingGameError(error: Throwable, fallback: String): String {
+    if (error is FirebaseFirestoreException) {
+        return when (error.code) {
+            FirebaseFirestoreException.Code.UNAVAILABLE,
+            FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+            -> "Connection issue. Check your network and try again."
+            else -> fallback
+        }
+    }
+    return error.message?.takeIf { it.isNotBlank() } ?: fallback
 }

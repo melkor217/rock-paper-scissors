@@ -24,6 +24,14 @@ export function winsToFinish(mode: MatchMode): number {
   }
 }
 
+/** Count resolved rounds won by a player (excludes ties). */
+export function countRoundWins(
+  rounds: Array<{ resolvedAt?: unknown; winner?: string }>,
+  playerId: string,
+): number {
+  return rounds.filter((round) => round.resolvedAt != null && round.winner === playerId).length;
+}
+
 export function bestOfRounds(mode: MatchMode): number {
   switch (mode) {
     case "BO5":

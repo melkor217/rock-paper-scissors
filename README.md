@@ -4,7 +4,7 @@ Online rock–paper–scissors for Android. Match with another player in real ti
 
 ## How it works
 
-- **Matchmaking** — on Home, select **Best of 3**, **Best of 5**, or both (saved for next time). Queue until an opponent is found; pairing requires overlapping format and prefers players within **±200 ELO**.
+- **Matchmaking** — on Home, select **Best of 3**, **Best of 5**, or both (saved for next time). Queue until an opponent is found; pairing requires overlapping format and prefers players within **±300 ELO**.
 - **Rounds** — each player picks rock, paper, or scissors within **60 seconds**. Same move is a draw and the round is replayed with no point awarded. A short pre-game countdown runs before the first round.
 - **Match** — **BO3** (first to 2) or **BO5** (first to 3); opponents are paired by overlapping format and similar ELO.
 - **Rating** — ELO updates after each completed match.

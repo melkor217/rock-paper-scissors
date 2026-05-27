@@ -2,6 +2,7 @@ package com.rpsonline.app.data.update
 
 import com.rpsonline.app.domain.versionCodeFromTag
 import com.rpsonline.app.domain.versionLabelFromTag
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -14,14 +15,7 @@ class GitHubReleaseClient(
         val tag = ReleaseChangelog.tagForInstalledVersion(versionName)
         var connection: HttpURLConnection? = null
         return try {
-            connection = (URL("https://api.github.com/repos/$owner/$repo/releases/tags/$tag")
-                .openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 5_000
-                readTimeout = 10_000
-                setRequestProperty("Accept", "application/vnd.github+json")
-                setRequestProperty("User-Agent", "RpsOnline-Android")
-            }
+            connection = openGetConnection("https://api.github.com/repos/$owner/$repo/releases/tags/$tag")
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 return null
             }
@@ -36,17 +30,63 @@ class GitHubReleaseClient(
         }
     }
 
+    fun fetchReleasesPage(page: Int, perPage: Int = RELEASES_PAGE_SIZE): ReleaseChangelogPage {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = openGetConnection(
+                "https://api.github.com/repos/$owner/$repo/releases?page=$page&per_page=$perPage",
+            )
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                return ReleaseChangelogPage(entries = emptyList(), hasMore = false)
+            }
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val entries = parseReleaseList(body)
+            ReleaseChangelogPage(
+                entries = entries,
+                hasMore = entries.size >= perPage,
+            )
+        } catch (_: Exception) {
+            ReleaseChangelogPage(entries = emptyList(), hasMore = false)
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private fun parseReleaseList(json: String): List<ReleaseChangelogEntry> {
+        val releases = JSONArray(json)
+        return buildList {
+            for (i in 0 until releases.length()) {
+                val release = releases.optJSONObject(i) ?: continue
+                if (release.optBoolean("draft")) continue
+                val tag = release.optString("tag_name").takeIf { it.isNotBlank() } ?: continue
+                val rawBody = release.optString("body")
+                val notes = rawBody.takeIf { it.isNotBlank() }
+                    ?.let(ReleaseChangelog::simplifyMarkdownForDisplay)
+                    ?: "No release notes."
+                add(
+                    ReleaseChangelogEntry(
+                        tag = tag,
+                        versionLabel = versionLabelFromTag(tag),
+                        notes = notes,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun openGetConnection(url: String): HttpURLConnection =
+        (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 5_000
+            readTimeout = 10_000
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("User-Agent", "RpsOnline-Android")
+        }
+
     fun fetchLatestRelease(installedVersionName: String): AppUpdateInfo? {
         var connection: HttpURLConnection? = null
         return try {
-            connection = (URL("https://api.github.com/repos/$owner/$repo/releases/latest")
-                .openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 5_000
-                readTimeout = 10_000
-                setRequestProperty("Accept", "application/vnd.github+json")
-                setRequestProperty("User-Agent", "RpsOnline-Android")
-            }
+            connection = openGetConnection("https://api.github.com/repos/$owner/$repo/releases/latest")
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 return null
             }
@@ -104,14 +144,9 @@ class GitHubReleaseClient(
         var connection: HttpURLConnection? = null
         return try {
             val compareRef = "$baseTag...$headTag"
-            connection = (URL("https://api.github.com/repos/$owner/$repo/compare/$compareRef")
-                .openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 5_000
-                readTimeout = 10_000
-                setRequestProperty("Accept", "application/vnd.github+json")
-                setRequestProperty("User-Agent", "RpsOnline-Android")
-            }
+            connection = openGetConnection(
+                "https://api.github.com/repos/$owner/$repo/compare/$compareRef",
+            )
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 return null
             }
@@ -123,5 +158,9 @@ class GitHubReleaseClient(
         } finally {
             connection?.disconnect()
         }
+    }
+
+    companion object {
+        const val RELEASES_PAGE_SIZE = 10
     }
 }

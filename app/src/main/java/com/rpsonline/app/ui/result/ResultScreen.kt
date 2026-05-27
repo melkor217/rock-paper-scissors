@@ -13,11 +13,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material3.Button
+import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.RpsCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Match
+import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
@@ -98,11 +99,12 @@ fun ResultScreen(
         val currentMatch = match!!
         val myWins = userId?.let { currentMatch.myWins(it) } ?: 0
         val opponentWins = userId?.let { currentMatch.opponentWins(it) } ?: 0
+        val isCancelled = currentMatch.status == MatchStatus.ABANDONED
         val won = userId != null && currentMatch.winnerId == userId
-        val isDraw = userId != null &&
+        val isDraw = !isCancelled && userId != null &&
             currentMatch.winnerId == null &&
             myWins == opponentWins
-        val eloDelta = userId?.let { currentMatch.myEloDelta(it) } ?: 0
+        val eloDelta = userId?.let { currentMatch.myEloDelta(it) }
         val opponentName = userId?.let { currentMatch.opponentName(it) } ?: "Opponent"
         val opponentId = userId?.let { currentMatch.opponentId(it) }
         val opponentElo = userId?.let { uid ->
@@ -122,7 +124,33 @@ fun ResultScreen(
                 .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        if (isDraw) {
+        if (isCancelled) {
+            RpsCard(
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.94f),
+                borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Cancelled",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "This match was cancelled",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else if (isDraw) {
             RpsCard(
                 modifier = Modifier.fillMaxWidth(),
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.94f),
@@ -218,12 +246,7 @@ fun ResultScreen(
             Text("Play Again")
         }
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onHome,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Home")
-        }
+        HomeOutlinedButton(onClick = onHome)
     }
 }
 
@@ -232,7 +255,7 @@ private fun FinalScoreCard(
     myWins: Int,
     opponentWins: Int,
     postMatchElo: Int?,
-    eloDelta: Int,
+    eloDelta: Int?,
 ) {
     RpsCard(modifier = Modifier.fillMaxWidth()) {
         Row(

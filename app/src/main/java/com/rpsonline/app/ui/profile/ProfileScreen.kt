@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
+import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchHistoryLoadingSection
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.RpsCard
@@ -37,7 +37,7 @@ import com.rpsonline.app.viewmodel.ProfileViewModel
 @Composable
 fun ProfileScreen(
     userId: String,
-    onBack: () -> Unit,
+    onHome: () -> Unit,
     viewModel: ProfileViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -134,12 +134,7 @@ fun ProfileScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Back")
-        }
+        HomeOutlinedButton(onClick = onHome)
     }
 }
 

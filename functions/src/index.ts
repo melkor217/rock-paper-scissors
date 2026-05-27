@@ -13,7 +13,7 @@ import {
   pickSharedMatchMode,
   resolveRound,
   seriesOutcomeAfterRound,
-  winsToFinish,
+  countRoundWins,
 } from "./game";
 import {
   applyClockIncrement,
@@ -34,7 +34,7 @@ const db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 
 const REGION = "us-central1";
-const ELO_WINDOW = 200;
+const ELO_WINDOW = 300;
 
 interface RoundDoc {
   roundNumber: number;
@@ -363,15 +363,11 @@ async function finalizeMatch(
   const p1Score = winnerId === match.player1 ? 1 : 0;
   const elo = calculateElo(p1Elo, p2Elo, p1Score);
 
-  const winsNeeded = winsToFinish(parseMatchMode(match.matchMode));
   let player1Wins = match.player1Wins;
   let player2Wins = match.player2Wins;
   if (options?.forfeit) {
-    if (winnerId === match.player1) {
-      player1Wins = Math.max(player1Wins, winsNeeded);
-    } else {
-      player2Wins = Math.max(player2Wins, winsNeeded);
-    }
+    player1Wins = countRoundWins(match.rounds, match.player1);
+    player2Wins = countRoundWins(match.rounds, match.player2);
   }
 
   const endReason: MatchEndReason = options?.endReason ?? "normal";
