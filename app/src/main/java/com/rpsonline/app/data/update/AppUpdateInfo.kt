@@ -1,5 +1,7 @@
 package com.rpsonline.app.data.update
 
+import java.time.LocalDate
+
 data class AppUpdateInfo(
     val tag: String,
     val versionCode: Int,
@@ -12,6 +14,7 @@ data class ReleaseChangelogEntry(
     val tag: String,
     val versionLabel: String,
     val notes: String,
+    val publishedDay: LocalDate,
 )
 
 data class ReleaseChangelogPage(
