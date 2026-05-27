@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
@@ -18,6 +18,7 @@ import com.rpsonline.app.ui.theme.isRpsDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.graphics.Color
@@ -43,10 +44,28 @@ fun LeaderboardScreen(
     viewModel: LeaderboardViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val listState = rememberLazyListState()
 
     LifecycleResumeEffect(Unit) {
         viewModel.load()
         onPauseOrDispose { }
+    }
+
+    LaunchedEffect(
+        listState.firstVisibleItemIndex,
+        listState.layoutInfo.totalItemsCount,
+        uiState.hasMore,
+        uiState.isLoading,
+        uiState.isAppending,
+        uiState.entries.size,
+    ) {
+        if (!uiState.hasMore || uiState.isLoading || uiState.isAppending) return@LaunchedEffect
+        val layoutInfo = listState.layoutInfo
+        if (layoutInfo.totalItemsCount == 0) return@LaunchedEffect
+        val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+        if (lastVisibleIndex >= layoutInfo.totalItemsCount - 2) {
+            viewModel.loadMore()
+        }
     }
 
     Column(
@@ -81,6 +100,7 @@ fun LeaderboardScreen(
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
+                    state = listState,
                 ) {
                     itemsIndexed(
                         items = uiState.entries,
@@ -93,6 +113,19 @@ fun LeaderboardScreen(
                             isCurrentUser = entry.uid == uiState.currentUserId,
                             onClick = { onPlayerProfile(entry.uid) },
                         )
+                    }
+
+                    item {
+                        if (uiState.isAppending) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
                     }
                 }
             }
