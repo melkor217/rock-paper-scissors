@@ -96,12 +96,12 @@ class GitHubReleaseClient(
     fun fetchLatestRelease(installedVersionName: String): AppUpdateInfo? {
         var connection: HttpURLConnection? = null
         return try {
-            connection = openGetConnection("https://api.github.com/repos/$owner/$repo/releases/latest")
+            connection = openGetConnection("https://api.github.com/repos/$owner/$repo/releases?per_page=$RELEASES_PAGE_SIZE")
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 return null
             }
             val body = connection.inputStream.bufferedReader().use { it.readText() }
-            parseRelease(body, installedVersionName)
+            parseLatestInstallableRelease(body, installedVersionName)
         } catch (_: Exception) {
             null
         } finally {
@@ -109,41 +109,47 @@ class GitHubReleaseClient(
         }
     }
 
-    private fun parseRelease(json: String, installedVersionName: String): AppUpdateInfo? {
+    private fun parseLatestInstallableRelease(json: String, installedVersionName: String): AppUpdateInfo? {
         return try {
-            val root = JSONObject(json)
-            val tag = root.optString("tag_name")
-            if (tag.isBlank()) return null
+            val releases = JSONArray(json)
+            for (i in 0 until releases.length()) {
+                val root = releases.optJSONObject(i) ?: continue
+                if (root.optBoolean("draft")) continue
 
-            val assets = root.optJSONArray("assets") ?: return null
-            var apkUrl: String? = null
-            for (i in 0 until assets.length()) {
-                val asset = assets.getJSONObject(i)
-                val name = asset.optString("name")
-                if (name.endsWith(".apk")) {
-                    apkUrl = asset.optString("browser_download_url")
-                    break
+                val tag = root.optString("tag_name")
+                if (tag.isBlank()) continue
+
+                val assets = root.optJSONArray("assets") ?: continue
+                var apkUrl: String? = null
+                for (j in 0 until assets.length()) {
+                    val asset = assets.optJSONObject(j) ?: continue
+                    val name = asset.optString("name")
+                    if (name.endsWith(".apk")) {
+                        apkUrl = asset.optString("browser_download_url")
+                        if (!apkUrl.isNullOrBlank()) break
+                    }
                 }
-            }
-            val url = apkUrl?.takeIf { it.isNotBlank() } ?: return null
+                val url = apkUrl?.takeIf { it.isNotBlank() } ?: continue
 
-            val releaseBody = root.optString("body").takeIf { it.isNotBlank() }
-            val (baseTag, headTag) = releaseBody?.let { ReleaseChangelog.parseCompareRangeFromReleaseBody(it) }
-                ?: (ReleaseChangelog.tagForInstalledVersion(installedVersionName) to tag)
-            val compareSection = if (baseTag != headTag) {
-                fetchCompareChangelog(baseTag, headTag)
-            } else {
-                null
-            }
-            val changelog = ReleaseChangelog.buildDisplayText(releaseBody, compareSection)
+                val releaseBody = root.optString("body").takeIf { it.isNotBlank() }
+                val (baseTag, headTag) = releaseBody?.let { ReleaseChangelog.parseCompareRangeFromReleaseBody(it) }
+                    ?: (ReleaseChangelog.tagForInstalledVersion(installedVersionName) to tag)
+                val compareSection = if (baseTag != headTag) {
+                    fetchCompareChangelog(baseTag, headTag)
+                } else {
+                    null
+                }
+                val changelog = ReleaseChangelog.buildDisplayText(releaseBody, compareSection)
 
-            AppUpdateInfo(
-                tag = tag,
-                versionCode = versionCodeFromTag(tag),
-                versionLabel = versionLabelFromTag(tag),
-                apkUrl = url,
-                releaseNotes = changelog,
-            )
+                return AppUpdateInfo(
+                    tag = tag,
+                    versionCode = versionCodeFromTag(tag),
+                    versionLabel = versionLabelFromTag(tag),
+                    apkUrl = url,
+                    releaseNotes = changelog,
+                )
+            }
+            null
         } catch (_: Exception) {
             null
         }
