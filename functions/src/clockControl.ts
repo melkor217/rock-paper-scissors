@@ -1,10 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
+import { CLOCK_INCREMENT_MS, INITIAL_CLOCK_MS } from "./gameRules";
 
-/** Initial thinking budget per player for the whole match. */
-export const INITIAL_CLOCK_MS = 90_000;
-
-/** Bonus time added to both players after each resolved round. */
-export const CLOCK_INCREMENT_MS = 5_000;
+export { CLOCK_INCREMENT_MS, INITIAL_CLOCK_MS };
 
 export interface ClockFields {
   player1ClockMs?: number;

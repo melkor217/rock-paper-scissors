@@ -12,7 +12,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.rpsonline.app.data.repository.AuthRepository
@@ -75,17 +74,10 @@ private fun MatchFoundNavigationEffect(navController: NavHostController) {
 }
 
 @Composable
-fun RpsNavGraph(
-    onRouteChanged: (String?) -> Unit = {},
-) {
+fun RpsNavGraph() {
     val navController = rememberNavController()
     val authRepository = remember { AuthRepository() }
     var isSignedIn by remember { mutableStateOf(authRepository.currentUser != null) }
-    val currentBackStackEntry by navController.currentBackStackEntryAsState()
-
-    LaunchedEffect(currentBackStackEntry?.destination?.route) {
-        onRouteChanged(currentBackStackEntry?.destination?.route)
-    }
 
     LaunchedEffect(Unit) {
         authRepository.authStateFlow().collect { user ->

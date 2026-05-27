@@ -1,6 +1,8 @@
 export type Move = "ROCK" | "PAPER" | "SCISSORS";
 
-export type MatchMode = "BO3" | "BO5" | "BO10";
+import { GAME_RULES, type MatchModeName } from "./gameRules";
+
+export type MatchMode = MatchModeName;
 
 export type SeriesOutcome =
   | { kind: "continue" }
@@ -14,14 +16,7 @@ export function parseMatchMode(value: unknown): MatchMode {
 }
 
 export function winsToFinish(mode: MatchMode): number {
-  switch (mode) {
-    case "BO5":
-      return 3;
-    case "BO10":
-      return 6;
-    default:
-      return 2;
-  }
+  return GAME_RULES.matchModes[mode].winsToFinish;
 }
 
 /** Count resolved rounds won by a player (excludes ties). */
@@ -33,14 +28,7 @@ export function countRoundWins(
 }
 
 export function bestOfRounds(mode: MatchMode): number {
-  switch (mode) {
-    case "BO5":
-      return 5;
-    case "BO10":
-      return 10;
-    default:
-      return 3;
-  }
+  return GAME_RULES.matchModes[mode].bestOfRounds;
 }
 
 /** BO10 can end tied when all rounds are played with equal wins. */

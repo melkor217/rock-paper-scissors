@@ -1,0 +1,21 @@
+{
+  "roundTimeoutSeconds": 60,
+  "roundTimeoutMs": 60000,
+  "initialClockMs": 90000,
+  "clockIncrementMs": 5000,
+  "matchModes": {
+    "BO3": {
+      "winsToFinish": 2,
+      "bestOfRounds": 3
+    },
+    "BO5": {
+      "winsToFinish": 3,
+      "bestOfRounds": 5
+    },
+    "BO10": {
+      "winsToFinish": 6,
+      "bestOfRounds": 10,
+      "tiedSeriesScore": 5
+    }
+  }
+}

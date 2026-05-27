@@ -28,9 +28,10 @@ Pre-built APKs are attached to [GitHub Releases](https://github.com/melkor217/ro
 | `firestore.rules` | Firestore security rules |
 | `firestore.indexes.json` | Composite indexes for queries |
 | `docs/` | Architecture notes and GitHub Pages assets (e.g. App Links) |
+| `shared/` | `game-rules.json` — round timeout, clocks, match formats (used by app + functions) |
 | `scripts/` | Deploy, auth, backfill, and environment helpers |
 
-See [docs/STRUCTURE.md](docs/STRUCTURE.md) for packages, Firestore paths, screen flow, and how client and backend interact.
+See [docs/STRUCTURE.md](docs/STRUCTURE.md) for architecture and Firestore flow; [docs/UI.md](docs/UI.md) for UI conventions.
 
 ## Build the app (local)
 
@@ -56,7 +57,7 @@ Deploy Firestore rules, indexes, and Cloud Functions:
 
 **Deploy order for match-format changes:** deploy **Cloud Functions and Firestore rules before** (or together with) shipping an app build that writes `matchModes` on the queue. Older functions ignore `matchModes` and treat everyone as BO3 until updated.
 
-Match rules in the app (`MatchMode` / `GameRules`) must stay aligned with `functions/` (wins to finish, round timeout, match clocks). After rule changes, redeploy functions and ship an app update if the client copy changes.
+Edit [shared/game-rules.json](shared/game-rules.json) for timing and match-format constants (app and functions read the same file). After rule changes, redeploy functions and ship an app update.
 
 Run Cloud Functions unit tests:
 

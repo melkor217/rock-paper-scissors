@@ -9,6 +9,7 @@ import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.preferences.MatchModePreferences
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
+import com.rpsonline.app.data.repository.MatchSessionMonitor
 import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.MatchMode
@@ -147,9 +148,10 @@ class HomeViewModel(
     }
 
     private fun observeQueue() {
+        MatchSessionMonitor.ensureStarted()
         queueObserveJob?.cancel()
         queueObserveJob = viewModelScope.launch {
-            matchRepository.observeQueue().collect { joinedAtMs ->
+            MatchSessionMonitor.queueJoinedAtMs.collect { joinedAtMs ->
                 if (joinedAtMs == null) {
                     stopQueueTimer()
                     if (awaitingMatchFromQueue || _navigateToGameMatchId.value != null) {
@@ -184,9 +186,10 @@ class HomeViewModel(
     }
 
     private fun observeActiveMatch() {
+        MatchSessionMonitor.ensureStarted()
         activeMatchJob?.cancel()
         activeMatchJob = viewModelScope.launch {
-            matchRepository.observeActiveMatch().collect { match ->
+            MatchSessionMonitor.activeMatch.collect { match ->
                 val isActive = match?.status == MatchStatus.ACTIVE
                 val shouldAutoNavigate = isActive &&
                     (awaitingMatchFromQueue || _uiState.value.isInQueue)
