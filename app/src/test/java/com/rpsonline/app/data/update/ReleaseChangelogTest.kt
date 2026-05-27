@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 
 class ReleaseChangelogTest {
 
@@ -89,5 +90,46 @@ class ReleaseChangelogTest {
             result,
         )
         assertFalse(result.contains(" in"))
+    }
+
+    @Test
+    fun simplifyMarkdownForDisplay_stripsNewContributorsHeading() {
+        val raw = """
+            ## What's Changed
+            * Fix bug
+
+            ## New Contributors
+            * @newbie made their first contribution
+        """.trimIndent()
+
+        val result = ReleaseChangelog.simplifyMarkdownForDisplay(raw)
+
+        assertFalse(result.contains("New Contributors", ignoreCase = true))
+        assertTrue(result.contains("Fix bug"))
+    }
+
+    @Test
+    fun notesToListItems_splitsLinesAndStripsBullets() {
+        assertEquals(
+            listOf("Add sounds", "Fix timer"),
+            ReleaseChangelog.notesToListItems("Add sounds\n• Fix timer"),
+        )
+    }
+
+    @Test
+    fun mergeEntriesByDay_combinesNotesUnderNewestVersion() {
+        val day = LocalDate.of(2026, 5, 27)
+        val merged = ReleaseChangelog.mergeEntriesByDay(
+            listOf(
+                ReleaseChangelogEntry("v0.6.5", "0.6.5", "New feature", day),
+                ReleaseChangelogEntry("v0.6.4", "0.6.4", "Hotfix", day),
+                ReleaseChangelogEntry("v0.6.3", "0.6.3", "Older day", day.minusDays(1)),
+            ),
+        )
+
+        assertEquals(2, merged.size)
+        assertEquals("0.6.5", merged[0].versionLabel)
+        assertEquals("New feature\nHotfix", merged[0].notes)
+        assertEquals("0.6.3", merged[1].versionLabel)
     }
 }

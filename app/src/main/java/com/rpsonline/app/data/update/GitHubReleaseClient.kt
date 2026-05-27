@@ -6,6 +6,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.LocalDate
 
 class GitHubReleaseClient(
     private val owner: String,
@@ -59,15 +60,19 @@ class GitHubReleaseClient(
                 val release = releases.optJSONObject(i) ?: continue
                 if (release.optBoolean("draft")) continue
                 val tag = release.optString("tag_name").takeIf { it.isNotBlank() } ?: continue
+                val publishedDay = release.optString("published_at")
+                    .let(ReleaseChangelog::publishedDayFromIso)
+                    ?: LocalDate.EPOCH
                 val rawBody = release.optString("body")
                 val notes = rawBody.takeIf { it.isNotBlank() }
                     ?.let(ReleaseChangelog::simplifyMarkdownForDisplay)
-                    ?: "No release notes."
+                    ?: ReleaseChangelog.NO_RELEASE_NOTES
                 add(
                     ReleaseChangelogEntry(
                         tag = tag,
                         versionLabel = versionLabelFromTag(tag),
                         notes = notes,
+                        publishedDay = publishedDay,
                     ),
                 )
             }

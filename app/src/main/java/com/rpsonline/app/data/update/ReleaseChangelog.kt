@@ -2,6 +2,9 @@ package com.rpsonline.app.data.update
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 object ReleaseChangelog {
     fun tagForInstalledVersion(versionName: String): String =
@@ -53,6 +56,34 @@ object ReleaseChangelog {
             .joinToString("\n")
             .trim()
 
+    fun notesToListItems(notes: String): List<String> =
+        notes.lines()
+            .map { it.trim().removePrefix("•").removePrefix("-").removePrefix("*").trim() }
+            .filter { it.isNotBlank() }
+
+    fun mergeEntriesByDay(entries: List<ReleaseChangelogEntry>): List<ReleaseChangelogEntry> {
+        if (entries.isEmpty()) return emptyList()
+        val byDay = linkedMapOf<LocalDate, MutableList<ReleaseChangelogEntry>>()
+        for (entry in entries) {
+            byDay.getOrPut(entry.publishedDay) { mutableListOf() }.add(entry)
+        }
+        return byDay.map { (_, dayEntries) ->
+            val primary = dayEntries.first()
+            val combinedNotes = dayEntries
+                .map { it.notes }
+                .filter { it != NO_RELEASE_NOTES }
+                .distinct()
+                .joinToString("\n")
+                .ifBlank { NO_RELEASE_NOTES }
+            primary.copy(notes = combinedNotes)
+        }
+    }
+
+    fun publishedDayFromIso(isoTimestamp: String): LocalDate? =
+        runCatching {
+            Instant.parse(isoTimestamp).atZone(ZoneOffset.UTC).toLocalDate()
+        }.getOrNull()
+
     fun parseCompareRangeFromReleaseBody(body: String): Pair<String, String>? {
         val match = Regex("""compare/([^/\s]+)\.\.\.([^\s)]+)""").find(body) ?: return null
         val base = match.groupValues[1]
@@ -71,6 +102,7 @@ object ReleaseChangelog {
 
         if (FULL_CHANGELOG_LINE.matches(line)) return null
         if (WHATS_HEADING.matches(line)) return null
+        if (NEW_CONTRIBUTORS_HEADING.matches(line)) return null
 
         line = stripMarkdownLinks(line)
         line = stripAuthorAttribution(line)
@@ -78,11 +110,18 @@ object ReleaseChangelog {
         line = line.removePrefix("*").removePrefix("-").trim()
         line = line.removePrefix("•").trim()
 
-        if (line.isBlank() || FULL_CHANGELOG_LINE.matches(line) || WHATS_HEADING.matches(line)) {
+        if (
+            line.isBlank() ||
+            FULL_CHANGELOG_LINE.matches(line) ||
+            WHATS_HEADING.matches(line) ||
+            NEW_CONTRIBUTORS_HEADING.matches(line)
+        ) {
             return null
         }
         return line
     }
+
+    const val NO_RELEASE_NOTES = "No release notes."
 
     private fun stripMarkdownLinks(text: String): String =
         IN_MARKDOWN_PULL_REQUEST.replace(text, "")
@@ -113,6 +152,8 @@ object ReleaseChangelog {
         Regex("""(?i)^\*{0,2}full changelog\*{0,2}\s*:.*$""")
     private val WHATS_HEADING =
         Regex("""(?i)^what'?s (changed|added|new)\s*:?\s*$""")
+    private val NEW_CONTRIBUTORS_HEADING =
+        Regex("""(?i)^\*{0,2}new contributors?\*{0,2}\s*:?\s*$""")
     private val BY_AUTHOR = Regex("""\s+by\s+@[\w-]+""", RegexOption.IGNORE_CASE)
     private val IN_PULL_REQUEST =
         Regex("""\s+in\s+https://github\.com/[^\s]+/pull/\d+""", RegexOption.IGNORE_CASE)

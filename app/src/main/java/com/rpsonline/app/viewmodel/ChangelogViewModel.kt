@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rpsonline.app.data.repository.AppUpdateRepository
+import com.rpsonline.app.data.update.ReleaseChangelog
 import com.rpsonline.app.data.update.ReleaseChangelogEntry
 import com.rpsonline.app.ui.util.NetworkUtils
 import kotlinx.coroutines.Dispatchers
@@ -100,7 +101,8 @@ class ChangelogViewModel : ViewModel() {
 
             currentPage = page
             _uiState.update { state ->
-                val entries = if (reset) result.entries else state.entries + result.entries
+                val rawEntries = if (reset) result.entries else state.entries + result.entries
+                val entries = ReleaseChangelog.mergeEntriesByDay(rawEntries)
                 state.copy(
                     isLoading = false,
                     isLoadingMore = false,
