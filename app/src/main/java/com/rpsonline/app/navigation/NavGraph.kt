@@ -16,6 +16,7 @@ import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.viewmodel.MatchmakingViewModel
 import com.rpsonline.app.ui.auth.SignInScreen
+import com.rpsonline.app.ui.changelog.ChangelogScreen
 import com.rpsonline.app.ui.game.GameScreen
 import com.rpsonline.app.ui.home.HomeScreen
 import com.rpsonline.app.ui.leaderboard.LeaderboardScreen
@@ -33,6 +34,7 @@ object Routes {
     const val GAME = "game/{matchId}"
     const val RESULT = "result/{matchId}"
     const val LEADERBOARD = "leaderboard"
+    const val CHANGELOG = "changelog"
     const val PROFILE = "profile/{userId}"
 
     fun game(matchId: String) = "game/$matchId"
@@ -71,6 +73,7 @@ fun RpsNavGraph() {
                         popUpTo(Routes.SIGN_IN) { inclusive = true }
                     }
                 },
+                onChangelog = { navController.navigate(Routes.CHANGELOG) },
             )
         }
 
@@ -86,6 +89,7 @@ fun RpsNavGraph() {
                             navController.navigate(Routes.profile(uid))
                         }
                     },
+                    onChangelog = { navController.navigate(Routes.CHANGELOG) },
                 )
             }
         }
@@ -157,6 +161,10 @@ fun RpsNavGraph() {
                     navController.navigate(Routes.profile(userId))
                 },
             )
+        }
+
+        composable(Routes.CHANGELOG) {
+            ChangelogScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

@@ -55,6 +55,7 @@ import com.rpsonline.app.viewmodel.SignInViewModel
 @Composable
 fun SignInScreen(
     onSignedIn: () -> Unit,
+    onChangelog: () -> Unit = {},
     viewModel: SignInViewModel = viewModel(),
     updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
@@ -156,6 +157,7 @@ fun SignInScreen(
                 activity?.let { updateViewModel.downloadAndInstallUpdate(it) }
                     ?: updateViewModel.showUpdatePrompt()
             },
+            onVersionClick = onChangelog,
         )
     }
 }

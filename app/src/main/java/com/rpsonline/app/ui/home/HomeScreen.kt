@@ -48,6 +48,7 @@ fun HomeScreen(
     onFindMatch: (Set<MatchMode>) -> Unit,
     onLeaderboard: () -> Unit,
     onProfile: () -> Unit,
+    onChangelog: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
     updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
@@ -214,6 +215,7 @@ fun HomeScreen(
                 activity?.let { updateViewModel.downloadAndInstallUpdate(it) }
                     ?: updateViewModel.showUpdatePrompt()
             },
+            onVersionClick = onChangelog,
         )
         Spacer(modifier = Modifier.height(12.dp))
         OutlinedButton(
