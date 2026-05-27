@@ -35,7 +35,7 @@ See [docs/STRUCTURE.md](docs/STRUCTURE.md) for architecture and Firestore flow; 
 
 ## Build the app (local)
 
-Requirements: **JDK 17**, **Android SDK (API 35)**, and a `google-services.json` from your Firebase project in `app/`.
+Requirements: **JDK 21**, **Android SDK (API 35)**, and a `google-services.json` from your Firebase project in `app/`.
 
 `JAVA_HOME` is optional: `./gradlew` auto-detects Android Studio’s bundled JBR on macOS/Windows (default install locations) before falling back to `java` on `PATH`.
 
