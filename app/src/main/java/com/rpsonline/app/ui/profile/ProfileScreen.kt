@@ -31,6 +31,8 @@ import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchHistoryLoadingSection
 import com.rpsonline.app.ui.components.MatchRecapCard
+import com.rpsonline.app.ui.components.viewerMatchResolutionColor
+import com.rpsonline.app.ui.components.viewerMatchResolutionLabel
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.MatchHistoryCardHeader
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -221,8 +223,8 @@ private fun MatchHistoryCard(
             MatchHistoryCardHeader(
                 entry = entry,
                 lastActivityAt = entry.lastActivityAt,
-                outcomeLabel = matchOutcomeLabel(entry),
-                outcomeColor = matchOutcomeColor(entry),
+                outcomeLabel = viewerMatchResolutionLabel(entry.resolution),
+                outcomeColor = viewerMatchResolutionColor(entry.resolution),
             )
             if (entry.recaps.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -241,20 +243,3 @@ private fun profileTitle(displayName: String?, isOwnProfile: Boolean): String =
         append(displayName ?: "Profile")
         if (isOwnProfile) append(" (you)")
     }
-
-private fun matchOutcomeLabel(entry: MatchHistoryEntry): String = when {
-    entry.isAbandoned -> "Cancelled"
-    entry.isDraw -> "Draw"
-    entry.won == true -> "Win"
-    entry.won == false -> "Loss"
-    else -> "—"
-}
-
-@Composable
-private fun matchOutcomeColor(entry: MatchHistoryEntry): androidx.compose.ui.graphics.Color = when {
-    entry.isAbandoned -> MaterialTheme.colorScheme.onSurfaceVariant
-    entry.isDraw -> MaterialTheme.colorScheme.tertiary
-    entry.won == true -> MaterialTheme.colorScheme.primary
-    entry.won == false -> MaterialTheme.colorScheme.error
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
-}

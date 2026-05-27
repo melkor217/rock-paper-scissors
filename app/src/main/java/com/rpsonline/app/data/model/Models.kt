@@ -109,6 +109,7 @@ data class Match(
     val clocksUpdatedAt: Long = 0L,
     val rounds: List<RoundResult> = emptyList(),
     val winnerId: String? = null,
+    val resolution: MatchResolution? = null,
     val endReason: MatchEndReason? = null,
     val player1EloDelta: Int? = null,
     val player2EloDelta: Int? = null,
@@ -322,9 +323,7 @@ data class MatchHistoryEntry(
     val opponentElo: Int? = null,
     val myWins: Int,
     val opponentWins: Int,
-    val won: Boolean?,
-    val isDraw: Boolean,
-    val isAbandoned: Boolean,
+    val resolution: ViewerMatchResolution,
     val eloDelta: Int?,
     val lastActivityAt: Long,
     val recaps: List<RoundRecap>,
@@ -353,14 +352,8 @@ internal fun roundElapsedMsAtTimeout(round: RoundResult): Int {
 fun Match.toHistoryEntry(userId: String): MatchHistoryEntry {
     val myWins = myWins(userId)
     val opponentWins = opponentWins(userId)
-    val abandoned = status == MatchStatus.ABANDONED
-    val draw = !abandoned && winnerId == null && myWins == opponentWins
-    val won = when {
-        abandoned -> null
-        draw -> null
-        winnerId == userId -> true
-        else -> false
-    }
+    val resolution = viewerResolution(userId)
+        ?: error("Match history requires a resolved match")
     return MatchHistoryEntry(
         matchId = id,
         matchMode = matchMode,
@@ -370,9 +363,7 @@ fun Match.toHistoryEntry(userId: String): MatchHistoryEntry {
         opponentElo = opponentElo(userId),
         myWins = myWins,
         opponentWins = opponentWins,
-        won = won,
-        isDraw = draw,
-        isAbandoned = abandoned,
+        resolution = resolution,
         eloDelta = myEloDelta(userId),
         lastActivityAt = lastActivityAt,
         recaps = resolvedRoundRecaps(userId),

@@ -4,6 +4,7 @@ import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchEndReason
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.RoundResult
+import com.rpsonline.app.data.model.ViewerMatchResolution
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -18,7 +19,7 @@ class MatchResultDetailTest {
         val match = completedMatch(endReason = MatchEndReason.ROUND_TIMEOUT)
         assertEquals(
             "Won on round timeout — opponent didn't play in time",
-            matchResultOutcomeDetail(match, won = true, isDraw = false),
+            matchResultOutcomeDetail(match, resolution = ViewerMatchResolution.WIN),
         )
     }
 
@@ -27,7 +28,7 @@ class MatchResultDetailTest {
         val match = completedMatch(endReason = MatchEndReason.CLOCK_TIMEOUT, winnerId = opp)
         assertEquals(
             "Lost on clock timeout — your match clock ran out",
-            matchResultOutcomeDetail(match, won = false, isDraw = false),
+            matchResultOutcomeDetail(match, resolution = ViewerMatchResolution.LOSS),
         )
     }
 
@@ -45,7 +46,7 @@ class MatchResultDetailTest {
                 ),
             ),
         )
-        assertNull(matchResultOutcomeDetail(match, won = true, isDraw = false))
+        assertNull(matchResultOutcomeDetail(match, resolution = ViewerMatchResolution.WIN))
     }
 
     @Test
@@ -63,7 +64,7 @@ class MatchResultDetailTest {
         )
         assertEquals(
             "Won on timeout",
-            matchResultOutcomeDetail(match, won = true, isDraw = false),
+            matchResultOutcomeDetail(match, resolution = ViewerMatchResolution.WIN),
         )
     }
 

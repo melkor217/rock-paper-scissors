@@ -82,6 +82,8 @@ interface MatchDoc {
   player2ClockMs?: number;
   clocksUpdatedAt?: Timestamp;
   winnerId?: string;
+  /** Absolute match outcome for UI and queries. */
+  resolution?: MatchResolution;
   /** Why the match ended: normal series, round deadline forfeit, or match clock forfeit. */
   endReason?: "normal" | "round_timeout" | "clock_timeout";
   player1EloDelta?: number;
@@ -337,6 +339,7 @@ async function abandonMatch(
   const batch = db.batch();
   batch.update(matchRef, {
     status: "abandoned",
+    resolution: "abandoned",
     rounds: sanitizeRounds(rounds),
     lastActivityAt: FieldValue.serverTimestamp(),
   });
@@ -346,6 +349,11 @@ async function abandonMatch(
 }
 
 type MatchEndReason = "normal" | "round_timeout" | "clock_timeout";
+type MatchResolution = "player1_win" | "player2_win" | "draw" | "abandoned";
+
+function matchResolutionForWinner(match: MatchDoc, winnerId: string): MatchResolution {
+  return winnerId === match.player1 ? "player1_win" : "player2_win";
+}
 
 async function finalizeMatch(
   matchRef: FirebaseFirestore.DocumentReference,
@@ -377,6 +385,7 @@ async function finalizeMatch(
     status: "completed",
     winnerId,
     endReason,
+    resolution: matchResolutionForWinner(match, winnerId),
     player1Wins,
     player2Wins,
     rounds: sanitizeRounds(match.rounds),
@@ -424,6 +433,7 @@ async function finalizeMatchDraw(
     status: "completed",
     winnerId: FieldValue.delete(),
     endReason: PLAYED_ROUND_END_REASON,
+    resolution: "draw",
     player1Wins,
     player2Wins,
     rounds: sanitizeRounds(rounds),
