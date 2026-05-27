@@ -3,14 +3,9 @@ package com.rpsonline.app.domain
 import com.rpsonline.app.data.model.Move
 
 object GameRules {
-    /** Must match Cloud Functions `ROUND_TIMEOUT_MS` (60s). Late player forfeits the series. */
-    const val ROUND_TIMEOUT_SECONDS = 60
-
-    /** Must match Cloud Functions `INITIAL_CLOCK_MS`. */
-    const val INITIAL_CLOCK_MS = 90_000L
-
-    /** Must match Cloud Functions `CLOCK_INCREMENT_MS`. */
-    const val CLOCK_INCREMENT_MS = 5_000L
+    const val ROUND_TIMEOUT_SECONDS = GeneratedGameRules.ROUND_TIMEOUT_SECONDS
+    const val INITIAL_CLOCK_MS = GeneratedGameRules.INITIAL_CLOCK_MS
+    const val CLOCK_INCREMENT_MS = GeneratedGameRules.CLOCK_INCREMENT_MS
 
     /**
      * Returns winner move on victory, null on tie.

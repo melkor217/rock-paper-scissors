@@ -32,7 +32,6 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
-import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchSessionMonitor
 import com.rpsonline.app.data.monitoring.FirebaseConnectionMonitor
@@ -48,7 +47,7 @@ import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.ui.util.formatQueueTime
 import com.rpsonline.app.ui.theme.RpsTheme
 import com.rpsonline.app.ui.util.ClockTickPlayer
-import com.rpsonline.app.ui.util.MoveSoundPlayer
+import com.rpsonline.app.ui.util.RoundResolutionSoundEffect
 import kotlinx.coroutines.delay
 
 @Composable
@@ -59,8 +58,6 @@ fun RpsApp() {
     val soundPreferences = remember { SoundPreferences(context) }
     var themeStyle by remember { mutableStateOf(themePreferences.get()) }
     var clockSoundMuted by remember { mutableStateOf(soundPreferences.isClockMuted()) }
-    var currentRoute by remember { mutableStateOf<String?>(null) }
-
     val scope = rememberCoroutineScope()
     val connectionMonitor = remember { FirebaseConnectionMonitor(context) }
     val connectionStatus by connectionMonitor.status.collectAsStateWithLifecycle()
@@ -95,14 +92,12 @@ fun RpsApp() {
                 userId = user?.uid,
                 muted = clockSoundMuted,
             )
-            GlobalRoundResolutionBackgroundSoundEffect(
+            RoundResolutionSoundEffect(
                 activeMatch = activeMatch,
                 userId = user?.uid,
-                muted = clockSoundMuted,
-                currentRoute = currentRoute,
             )
             Box(modifier = Modifier.fillMaxSize()) {
-                RpsNavGraph(onRouteChanged = { route -> currentRoute = route })
+                RpsNavGraph()
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -147,64 +142,6 @@ fun RpsApp() {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun GlobalRoundResolutionBackgroundSoundEffect(
-    activeMatch: Match?,
-    userId: String?,
-    muted: Boolean,
-    currentRoute: String?,
-) {
-    val context = LocalContext.current
-    val moveSoundPlayer = remember(context) { MoveSoundPlayer(context) }
-
-    var baselineInitialized by remember(userId) { mutableStateOf(false) }
-    var lastPlayedRoundKey by remember(userId) { mutableStateOf<String?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose { moveSoundPlayer.release() }
-    }
-
-    LaunchedEffect(userId) {
-        baselineInitialized = false
-        lastPlayedRoundKey = null
-    }
-
-    LaunchedEffect(activeMatch, userId, muted, currentRoute) {
-        if (userId == null) return@LaunchedEffect
-
-        val match = activeMatch
-        val resolved = match?.lastResolvedRound() ?: run {
-            if (!baselineInitialized) baselineInitialized = true
-            return@LaunchedEffect
-        }
-        if (resolved.player1Choice == null || resolved.player2Choice == null) {
-            if (!baselineInitialized) baselineInitialized = true
-            return@LaunchedEffect
-        }
-
-        val key = "${match.id}:${resolved.roundNumber}:${resolved.resolvedAt}"
-        if (!baselineInitialized) {
-            baselineInitialized = true
-            lastPlayedRoundKey = key
-            return@LaunchedEffect
-        }
-        if (key == lastPlayedRoundKey) return@LaunchedEffect
-
-        lastPlayedRoundKey = key
-        val onGameScreen = currentRoute?.startsWith("game/") == true
-        if (muted || onGameScreen) return@LaunchedEffect
-
-        val myChoice = if (userId == match.player1) resolved.player1Choice else resolved.player2Choice
-        val move = Move.fromString(myChoice) ?: return@LaunchedEffect
-        val repetitions = when (resolved.winner) {
-            "tie" -> 2
-            userId -> 3
-            else -> 1
-        }
-        moveSoundPlayer.play(move, repetitions)
     }
 }
 

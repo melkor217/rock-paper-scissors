@@ -1,6 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
+import { ROUND_TIMEOUT_MS } from "./gameRules";
 
-export const ROUND_TIMEOUT_MS = 60_000;
+export { ROUND_TIMEOUT_MS };
 
 export interface RoundTimingFields {
   roundNumber: number;

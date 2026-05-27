@@ -1,17 +1,26 @@
 package com.rpsonline.app.domain
 
 /**
- * Series format for ranked matches. [winsToFinish] must stay aligned with Cloud Functions.
+ * Series format for ranked matches. Values are generated from [shared/game-rules.json].
  */
 enum class MatchMode(
     val winsToFinish: Int,
     val bestOfRounds: Int,
-    /** When set, a tied score after all rounds ends the series as a draw (BO10 only). */
     val tiedSeriesScore: Int? = null,
 ) {
-    BO3(winsToFinish = 2, bestOfRounds = 3),
-    BO5(winsToFinish = 3, bestOfRounds = 5),
-    BO10(winsToFinish = 6, bestOfRounds = 10, tiedSeriesScore = 5),
+    BO3(
+        winsToFinish = GeneratedGameRules.Mode.BO3.winsToFinish,
+        bestOfRounds = GeneratedGameRules.Mode.BO3.bestOfRounds,
+    ),
+    BO5(
+        winsToFinish = GeneratedGameRules.Mode.BO5.winsToFinish,
+        bestOfRounds = GeneratedGameRules.Mode.BO5.bestOfRounds,
+    ),
+    BO10(
+        winsToFinish = GeneratedGameRules.Mode.BO10.winsToFinish,
+        bestOfRounds = GeneratedGameRules.Mode.BO10.bestOfRounds,
+        tiedSeriesScore = GeneratedGameRules.Mode.BO10.tiedSeriesScore,
+    ),
     ;
 
     val label: String get() = "Best of $bestOfRounds"
@@ -40,7 +49,6 @@ enum class MatchMode(
         fun encodeRouteArg(modes: Set<MatchMode>): String =
             modes.sortedBy { it.ordinal }.joinToString(",") { it.name }
 
-        /** At least one mode must stay selected; deselecting the only one switches to the other(s). */
         fun toggleInSelection(current: Set<MatchMode>, mode: MatchMode): Set<MatchMode> =
             when {
                 mode !in current -> current + mode

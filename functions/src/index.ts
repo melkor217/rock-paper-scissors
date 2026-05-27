@@ -827,12 +827,14 @@ async function clearChoicesForRound(matchId: string, roundNumber: number) {
   await batch.commit();
 }
 
-/** Copy pending subcollection choices onto the match doc before timeout/forfeit resolution. */
-async function mergeChoicesFromSubcollection(
+/**
+ * Applies any pending choice docs still in the subcollection (trigger may lag).
+ * Subcollections are the client write path; the match doc is the sole read model.
+ */
+async function syncPendingChoicesFromSubcollection(
   matchId: string,
   roundNumber: number,
-): Promise<MatchDoc | null> {
-  const matchRef = db.collection("matches").doc(matchId);
+): Promise<void> {
   const choicesSnap = await db
     .collection("matches")
     .doc(matchId)
@@ -841,71 +843,42 @@ async function mergeChoicesFromSubcollection(
     .collection("choices")
     .get();
 
-  if (choicesSnap.empty) {
-    const snap = await matchRef.get();
-    return snap.exists ? (snap.data() as MatchDoc) : null;
+  for (const doc of choicesSnap.docs) {
+    const choice = doc.get("choice") as string;
+    if (!isValidMove(choice)) continue;
+    await applyPlayerChoice(matchId, doc.id, choice, roundNumber);
   }
+}
 
-  const outcome = await db.runTransaction(async (tx) => {
-    const snap = await tx.get(matchRef);
-    if (!snap.exists) return null;
+async function loadActiveMatch(matchId: string): Promise<{ ref: FirebaseFirestore.DocumentReference; match: MatchDoc } | null> {
+  const matchRef = db.collection("matches").doc(matchId);
+  const snap = await matchRef.get();
+  if (!snap.exists) return null;
+  const match = snap.data() as MatchDoc;
+  if (match.status !== "active") return null;
+  return { ref: matchRef, match };
+}
 
-    const match = snap.data() as MatchDoc;
-    if (match.status !== "active") {
-      return { match, recorded: [] as Array<{ uid: string; move: Move }> };
-    }
+/** Resolve an open round when the deadline passed (scheduler backstop). */
+async function resolveExpiredOpenRound(matchId: string, match: MatchDoc): Promise<void> {
+  const open = getOpenRound(match);
+  if (!open?.deadline) return;
+  if (open.deadline.toMillis() > Timestamp.now().toMillis()) return;
 
-    const rounds = [...match.rounds];
-    const idx = rounds.findIndex((r) => r.roundNumber === roundNumber && !r.resolvedAt);
-    if (idx < 0) return { match, recorded: [] as Array<{ uid: string; move: Move }> };
-
-    const recorded: Array<{ uid: string; move: Move }> = [];
-    const timings: RecordedMoveTiming[] = [];
-    const now = Timestamp.now();
-    let current = { ...rounds[idx] };
-    const ticked = tickClocks(match, current, now);
-    for (const doc of choicesSnap.docs) {
-      const uid = doc.id;
-      const choice = doc.get("choice") as string;
-      if (!isValidMove(choice)) continue;
-      if (uid === match.player1 && !current.player1Choice) {
-        const stamped = recordMoveTiming(current, match, uid, now);
-        if (stamped) {
-          current = stamped.round;
-          timings.push(stamped.timing);
-        }
-        current.player1Choice = choice;
-        recorded.push({ uid, move: choice });
-      } else if (uid === match.player2 && !current.player2Choice) {
-        const stamped = recordMoveTiming(current, match, uid, now);
-        if (stamped) {
-          current = stamped.round;
-          timings.push(stamped.timing);
-        }
-        current.player2Choice = choice;
-        recorded.push({ uid, move: choice });
-      }
-    }
-
-    if (recorded.length === 0) return { match, recorded };
-
-    rounds[idx] = sanitizeRound(current);
-    tx.update(matchRef, {
-      rounds: sanitizeRounds(rounds),
-      player1ClockMs: ticked.player1ClockMs,
-      player2ClockMs: ticked.player2ClockMs,
-      clocksUpdatedAt: ticked.clocksUpdatedAt,
-      lastActivityAt: FieldValue.serverTimestamp(),
-      ...matchTimingIncrements(timings),
-    });
-    applyRecordedTimingsToTransaction(tx, timings);
-    return {
-      match: { ...match, ...ticked, rounds: sanitizeRounds(rounds) },
-      recorded,
-    };
+  await syncPendingChoicesFromSubcollection(matchId, open.roundNumber);
+  const refreshed = await db.collection("matches").doc(matchId).get();
+  if (!refreshed.exists) return;
+  const updated = refreshed.data() as MatchDoc;
+  await resolveRoundIfReady(db.collection("matches").doc(matchId), updated, {
+    forceDeadline: true,
   });
-
-  return outcome?.match ?? null;
+  const after = await db.collection("matches").doc(matchId).get();
+  if (!after.exists) return;
+  const afterMatch = after.data() as MatchDoc;
+  const stillOpen = getOpenRound(afterMatch);
+  if (stillOpen && stillOpen.roundNumber === open.roundNumber) {
+    await clearChoicesForRound(matchId, open.roundNumber);
+  }
 }
 
 /** Client writes when the round timer hits zero; resolves immediately (scheduler is backup). */
@@ -916,13 +889,16 @@ export const onRoundTimeout = onDocumentCreated(
     const roundNumber = parseInt(event.params.roundNumber, 10);
     if (Number.isNaN(roundNumber)) return;
 
-    const matchRef = db.collection("matches").doc(matchId);
-    const merged = await mergeChoicesFromSubcollection(matchId, roundNumber);
-    if (!merged) return;
+    const loaded = await loadActiveMatch(matchId);
+    if (!loaded) return;
 
-    await resolveRoundIfReady(matchRef, merged, { forceDeadline: true });
+    await syncPendingChoicesFromSubcollection(matchId, roundNumber);
+    const refreshed = await loaded.ref.get();
+    if (!refreshed.exists) return;
 
-    const after = await matchRef.get();
+    await resolveRoundIfReady(loaded.ref, refreshed.data() as MatchDoc, { forceDeadline: true });
+
+    const after = await loaded.ref.get();
     if (!after.exists) return;
     const match = after.data() as MatchDoc;
     const open = getOpenRound(match);
@@ -947,22 +923,17 @@ export const onPlayerChoice = onDocumentCreated(
   },
 );
 
+/** Backstop when no client writes a timeout request (offline / crashed app). */
 export const resolveTimedOutRounds = onSchedule(
   { schedule: "every 1 minutes", region: REGION },
   async () => {
-  const activeMatches = await db.collection("matches")
-    .where("status", "==", "active")
-    .get();
+    const activeMatches = await db.collection("matches")
+      .where("status", "==", "active")
+      .get();
 
-  for (const doc of activeMatches.docs) {
-    const match = doc.data() as MatchDoc;
-    const open = getOpenRound(match);
-    if (!open) continue;
-    const merged = await mergeChoicesFromSubcollection(doc.id, open.roundNumber);
-    if (merged) {
-      await resolveRoundIfReady(doc.ref, merged);
+    for (const doc of activeMatches.docs) {
+      await resolveExpiredOpenRound(doc.id, doc.data() as MatchDoc);
     }
-  }
   },
 );
 

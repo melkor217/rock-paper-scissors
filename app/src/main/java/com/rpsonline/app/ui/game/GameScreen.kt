@@ -18,17 +18,14 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,10 +41,7 @@ import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.util.MoveSoundPlayer
-import com.rpsonline.app.ui.LocalClockSoundMuted
 import com.rpsonline.app.viewmodel.GameViewModel
-import com.rpsonline.app.viewmodel.RoundResolutionSound
 
 @Composable
 fun GameScreen(
@@ -77,8 +71,6 @@ fun GameScreen(
         if (match == null || userId == null) {
             RpsLoadingColumn(modifier = Modifier.weight(1f))
         } else {
-        RoundResolutionSoundEffect(viewModel = viewModel)
-
         val currentRound = match.currentRoundData()
         val drawReplay = match.pendingDrawReplay()
         val pendingOutcome = match.pendingRoundOutcome()
@@ -251,25 +243,6 @@ fun GameScreen(
                 }
             }
         }
-        }
-    }
-}
-
-@Composable
-private fun RoundResolutionSoundEffect(viewModel: GameViewModel) {
-    val context = LocalContext.current
-    val soundMuted = LocalClockSoundMuted.current
-    val moveSoundPlayer = remember(context) { MoveSoundPlayer(context) }
-
-    DisposableEffect(Unit) {
-        onDispose { moveSoundPlayer.release() }
-    }
-
-    LaunchedEffect(viewModel, soundMuted) {
-        viewModel.roundResolvedSound.collect { sound ->
-            if (!soundMuted) {
-                moveSoundPlayer.play(sound.move, sound.repetitions)
-            }
         }
     }
 }

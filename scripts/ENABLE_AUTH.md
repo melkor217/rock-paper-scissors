@@ -43,3 +43,7 @@ Release builds need [**Digital Asset Links**](https://developer.android.com/iden
 - Guest accounts get a random display name (`Guest abc123`). ELO and match history are tied to that Firebase UID.
 - Email users need a password of at least 6 characters (Firebase default).
 - Firestore rules only require `request.auth != null`, so all providers work with matchmaking and gameplay.
+
+## App Check (debug builds)
+
+Debug builds install the **App Check debug provider**. On first run, filter Logcat for `DebugAppCheckProvider`, copy the debug token, and register it in Firebase Console → **App Check** → your Android app → **Manage debug tokens**. Release builds should use Play Integrity or your production App Check provider when you enable enforcement.

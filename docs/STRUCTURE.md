@@ -1,6 +1,6 @@
 # Project structure
 
-High-level map of the repository. For setup and builds, see [README.md](../README.md).
+High-level map of the repository. User-facing overview: [README.md](../README.md). UI conventions: [UI.md](UI.md).
 
 ## Repository
 
@@ -8,14 +8,16 @@ High-level map of the repository. For setup and builds, see [README.md](../READM
 rock-paper-scissors/
 ├── app/                 # Android client (Kotlin, Jetpack Compose)
 ├── functions/           # Firebase Cloud Functions (TypeScript)
-├── firestore.rules      # Firestore security rules
-├── docs/                # Docs and GitHub Pages assets (e.g. asset links)
-├── scripts/             # Deploy and environment helpers
-├── .github/workflows/   # CI: APK on PR, release on version tags
-├── gradle/              # Gradle wrapper
-├── LICENSE
+├── shared/              # game-rules.json — timing + match formats (client + server)
+├── firestore.rules
+├── docs/
+├── scripts/
 └── README.md
 ```
+
+## Shared game rules (`shared/game-rules.json`)
+
+Single source for round timeout, match clocks, and BO3/BO5/BO10 win targets. After edits, run `./scripts/sync-game-rules.sh`, then `./gradlew :app:testDebugUnitTest` and `cd functions && npm test` (functions `npm run build` copies the JSON into `lib/` for deploy).
 
 ## Android app (`app/`)
 
@@ -25,86 +27,54 @@ Package root: `com.rpsonline.app`.
 |-------|------|------|
 | Entry | `MainActivity.kt`, `RpsApplication.kt` | Activity, Firebase init |
 | Navigation | `navigation/NavGraph.kt` | Routes and screen flow |
-| UI | `ui/` | Compose screens and components — see [UI.md](UI.md) |
-| ViewModel | `viewmodel/` | Screen state, Firestore listeners |
+| UI | `ui/` | Compose screens — see [UI.md](UI.md) |
+| ViewModel | `viewmodel/` | Screen state |
 | Data | `data/repository/`, `data/model/` | Firebase access, DTOs |
-| Domain | `domain/GameRules.kt` | Client-side rules (must match server) |
-| Update | `data/update/` | GitHub release check / APK install |
+| Domain | `domain/` | `MatchMode`, `GameRules`, display helpers |
+| Session | `data/repository/MatchSessionMonitor.kt` | One listener for queue + active match |
+| Monitoring | `data/monitoring/` | Callable `ping` for RTT meter |
+| Update | `data/update/` | GitHub releases, APK install, changelog |
 
-### Screens (`ui/`)
+`RpsApp` wraps the nav graph with ping meter, queue/match chip, theme, and sound mute. Round-resolution sounds use `RoundResolutionSoundEffect` on the same active-match flow.
 
-Full screen list, navigation graph, and shared widgets: **[docs/UI.md](UI.md)**.
-
-| Screen | Package | Purpose |
-|--------|---------|---------|
-| Sign in | `ui/auth/` | Google, email, guest |
-| Home | `ui/home/` | Play, inline queue, profile summary, app info |
-| Game | `ui/game/` | Round play, timer, score, moves |
-| Result | `ui/result/` | Final score, ELO, match recap |
-| Leaderboard | `ui/leaderboard/` | Top players, podium |
-| Profile | `ui/profile/` | Stats + match history (any user) |
-
-Flow: **Sign in → Home → Game → Result** (queue and match-found happen on Home). **Leaderboard** and **Profile** are reachable from Home, leaderboard rows, and result opponent link.
-
-ViewModels load data via repositories (`AuthRepository`, `UserRepository`, `MatchRepository`, `AppUpdateRepository`) and expose `StateFlow` / UI state to Composables.
+ViewModels use repositories (`AuthRepository`, `UserRepository`, `MatchRepository`, `PresenceRepository`, `AppUpdateRepository`). Home and global UI read queue/active match from `MatchSessionMonitor` only.
 
 ## Backend (`functions/`)
 
 | File | Role |
 |------|------|
-| `src/index.ts` | Firestore triggers, schedulers, match lifecycle |
-| `src/game.ts` | Move validation, round resolution, ELO math, match resolution inference |
-| `src/game.test.ts` | Unit tests for game logic |
+| `src/index.ts` | Triggers, schedulers, match lifecycle |
+| `src/game.ts` | Round/series resolution, ELO |
+| `src/gameRules.ts` | Loads `shared/game-rules.json` |
+| `src/clockControl.ts` | Match clocks |
+| `src/moveTiming.ts` | Round deadline + move timing |
 
-### Cloud Functions (triggers)
+### Cloud Functions
 
 | Export | Trigger | Purpose |
 |--------|---------|---------|
-| `onQueueEntry` | `queue/{userId}` created | ELO-based pairing, create `matches` doc |
-| `onPlayerChoice` | `matches/.../choices/{userId}` created | Apply move, resolve round, advance match |
-| `onRoundTimeout` | `matches/.../timeoutRequests/{id}` created | Resolve round when time runs out |
-| `resolveTimedOutRounds` | Scheduled | Backstop for missed timeouts |
-| `cleanupStale` | Scheduled | Stale queue entries and abandoned matches |
+| `onQueueEntry` | `queue/{userId}` created | Pair players, create match |
+| `onPlayerChoice` | `matches/.../rounds/{n}/choices/{uid}` created | Apply move to match doc |
+| `onRoundTimeout` | `matches/.../rounds/{n}/timeoutRequests/{id}` created | Resolve when client reports expiry |
+| `resolveTimedOutRounds` | Scheduled (1 min) | Backstop if no timeout request |
+| `cleanupStale` | Scheduled (5 min) | Stale queue / abandoned matches |
+| `ping` | HTTPS Callable | Auth-gated RTT probe |
 
-The client does **not** call HTTPS Callable functions for matchmaking or moves. It writes Firestore documents; functions react and update `matches` (clients read only).
+Clients **write** choice and timeout-request subcollections; functions **update** the match document. Clients **read** only the match doc (embedded `rounds[]`). Subcollections are not a second source of truth—`applyPlayerChoice` merges any pending choice docs before timeout resolution.
 
-## Firestore data model
+## Firestore paths
 
-| Collection / path | Written by | Read by |
-|-------------------|------------|---------|
-| `users/{uid}` | Client (profile create, `lastSeen` heartbeat); server (ELO, wins, losses, draws, move timing totals, throw counts, `activeMatchId`, `lastSeen`) | Client, functions |
-| `queue/{uid}` | Client (join/leave matchmaking) | Client (own doc), functions |
-| `matches/{id}` | Functions only | Both players |
-| `matches/{id}/rounds/{n}/choices/{uid}` | Client (move) | Functions merge into match |
-| `matches/{id}/rounds/{n}/timeoutRequests/{id}` | Client (timeout signal) | Functions |
+| Path | Writer | Reader |
+|------|--------|--------|
+| `users/{uid}` | Client + server | Client, functions |
+| `queue/{uid}` | Client | Functions |
+| `matches/{id}` | Functions | Clients |
+| `matches/{id}/rounds/{n}/choices/{uid}` | Client (move) | Functions |
+| `matches/{id}/rounds/{n}/timeoutRequests/{id}` | Client | Functions |
 
-Match document holds embedded `rounds[]` (choices, winner, deadlines, per-player `player1MoveMs` / `player2MoveMs`) plus match-level `player1MoveTimeMs` / `player2MoveTimeMs` (and move counts). Subcollections are the write path; the match doc is the source of truth for the UI listener. Each submitted move also increments `users/{uid}.moveTimeMs` and `moveCount`.
-
-Security: [firestore.rules](../firestore.rules) — users cannot write `matches` directly or change their own ELO.
-
-One-off migrations (require ADC; use `--dry-run` first):
-- `users.lastSeen`: `./scripts/backfill-user-last-seen.sh`
-- Move timing (5s per historical move): `./scripts/backfill-move-timing.sh`
-- Match `resolution` field: `./scripts/backfill-match-resolution.sh`
-
-## Rules kept in sync
-
-These values must match between client and server:
-
-| Constant | App (`GameRules`) | Server (`functions/src/index.ts` / `game.ts`) |
-|----------|-------------------|-----------------------------------------------|
-| Wins to finish | `MatchMode.winsToFinish` (BO3=2, BO5=3, BO10=6) | `winsToFinish(mode)` in `game.ts` |
-| Series draw | BO10 only: 5–5 after 10 rounds (`tiedSeriesScore`) | `seriesOutcomeAfterRound()` in `game.ts` |
-| Match format | `matchModes` on queue + match docs | Same; queue pairs overlapping `matchModes` (random among shared BO3/BO5/BO10) |
-| Round timeout | `ROUND_TIMEOUT_SECONDS = 60` | `ROUND_TIMEOUT_MS = 60_000` |
-| Match clocks | `INITIAL_CLOCK_MS = 90_000`, `CLOCK_INCREMENT_MS = 5_000` | `clockControl.ts` (`player1ClockMs`, `player2ClockMs`, `clocksUpdatedAt`) |
-| Move resolution | `resolveRound()` | `resolveRound()` in `game.ts` |
-
-After changing rules, update both sides and redeploy functions.
-
-**Deploy order:** when adding or changing match formats, deploy Cloud Functions and `firestore.rules` before (or with) an app release that writes `matchModes` on `queue/{uid}`. Until functions are updated, new clients still queue but pairing falls back to BO3-only behavior on the server.
+Security: [firestore.rules](../firestore.rules).
 
 ## Related docs
 
-- [scripts/ENABLE_AUTH.md](../scripts/ENABLE_AUTH.md) — Firebase Auth providers and SHA-1
-- [scripts/FIX_UNAUTHENTICATED.md](../scripts/FIX_UNAUTHENTICATED.md) — Deploy / IAM issues
+- [scripts/ENABLE_AUTH.md](../scripts/ENABLE_AUTH.md) — Auth providers, App Check debug
+- [scripts/deploy-backend.sh](../scripts/deploy-backend.sh) — Deploy functions + rules
