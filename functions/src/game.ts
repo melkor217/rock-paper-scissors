@@ -42,8 +42,16 @@ export function seriesOutcomeAfterRound(
   if (player1Wins >= need) return { kind: "winner", player: "player1" };
   if (player2Wins >= need) return { kind: "winner", player: "player2" };
 
-  if (mode !== "BO10" || completedRoundNumber < bestOfRounds(mode)) {
+  const rules = GAME_RULES.matchModes[mode];
+  const totalRounds = bestOfRounds(mode);
+
+  if (completedRoundNumber < totalRounds) {
     return { kind: "continue" };
+  }
+
+  const tiedSeriesScore = rules.tiedSeriesScore;
+  if (tiedSeriesScore != null && player1Wins === tiedSeriesScore && player2Wins === tiedSeriesScore) {
+    return { kind: "draw" };
   }
 
   if (player1Wins === player2Wins) return { kind: "draw" };
