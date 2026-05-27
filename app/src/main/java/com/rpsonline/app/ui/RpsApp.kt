@@ -92,7 +92,7 @@ fun RpsApp() {
         if (queueJoinedAtMs == null) return@LaunchedEffect
         while (true) {
             delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
-            matchRepository.sendQueueHeartbeat()
+            if (!matchRepository.sendQueueHeartbeat()) break
         }
     }
 

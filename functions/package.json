@@ -1,18 +1,12 @@
 {
   "name": "functions",
   "scripts": {
-    "build": "cp ../shared/game-rules.json src/game-rules.json && tsc && tsc -p tsconfig.scripts.json && cp src/game-rules.json lib/game-rules.json",
+    "build": "cp ../shared/game-rules.json src/game-rules.json && tsc && cp src/game-rules.json lib/game-rules.json",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "deploy": "firebase deploy --only functions,firestore:rules,firestore:indexes",
     "lint": "eslint --ext .js,.ts .",
-    "test": "npm run build && node --test lib/*.test.js",
-    "backfill-last-seen": "npm run build && node lib/scripts/backfill-user-last-seen.js",
-    "backfill-throw-stats": "npm run build && node lib/scripts/backfill-throw-stats.js",
-    "backfill-move-timing": "npm run build && node lib/scripts/backfill-move-timing.js",
-    "backfill-round-stats": "npm run build && node lib/scripts/backfill-round-stats.js",
-    "backfill-round-end-reason": "npm run build && node lib/scripts/backfill-round-end-reason.js",
-    "backfill-match-resolution": "npm run build && node lib/scripts/backfill-match-resolution.js"
+    "test": "npm run build && node --test lib/*.test.js"
   },
   "engines": {
     "node": "22"

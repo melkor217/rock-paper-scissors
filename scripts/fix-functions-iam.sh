@@ -8,7 +8,7 @@ REGION="${2:-us-central1}"
 
 echo "Granting public invoker on Cloud Run services for project $PROJECT ($REGION)..."
 
-for SERVICE in joinqueue leavequeue submitmove; do
+for SERVICE in ping; do
   echo "→ $SERVICE"
   gcloud run services add-iam-policy-binding "$SERVICE" \
     --project="$PROJECT" \
@@ -18,4 +18,4 @@ for SERVICE in joinqueue leavequeue submitmove; do
     --quiet || echo "  (skip if service name differs — check Cloud Run console)"
 done
 
-echo "Done. Retry Find Match in the app."
+echo "Done. Retry the in-app ping meter (signed in)."

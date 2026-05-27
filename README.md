@@ -29,7 +29,7 @@ Pre-built APKs are attached to [GitHub Releases](https://github.com/melkor217/ro
 | `firestore.indexes.json` | Composite indexes for queries |
 | `docs/` | Architecture notes and GitHub Pages assets (e.g. App Links) |
 | `shared/` | `game-rules.json` — round timeout, clocks, match formats (used by app + functions) |
-| `scripts/` | Deploy, auth, backfill, and environment helpers |
+| `scripts/` | Deploy, auth, and environment helpers |
 
 See [docs/STRUCTURE.md](docs/STRUCTURE.md) for architecture and Firestore flow; [docs/UI.md](docs/UI.md) for UI conventions.
 
