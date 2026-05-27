@@ -539,8 +539,8 @@ private fun JSONObject.toMatch(): Match {
         player2 = optString("player2", ""),
         player1Name = optString("player1Name", ""),
         player2Name = optString("player2Name", ""),
-        matchMode = MatchMode.fromString(optString("matchMode", null)),
-        status = MatchStatus.fromString(optString("status", null)),
+        matchMode = MatchMode.fromString(optNullableString("matchMode")),
+        status = MatchStatus.fromString(optNullableString("status")),
         currentRound = optInt("currentRound", 1),
         player1Wins = optInt("player1Wins", 0),
         player2Wins = optInt("player2Wins", 0),
@@ -552,9 +552,9 @@ private fun JSONObject.toMatch(): Match {
         player2ClockMs = optLong("player2ClockMs", GameRules.INITIAL_CLOCK_MS),
         clocksUpdatedAt = optLong("clocksUpdatedAt", 0L),
         rounds = rounds,
-        winnerId = optString("winnerId", null),
-        resolution = MatchResolution.fromString(optString("resolution", null)),
-        endReason = MatchEndReason.fromString(optString("endReason", null)),
+        winnerId = optNullableString("winnerId"),
+        resolution = MatchResolution.fromString(optNullableString("resolution")),
+        endReason = MatchEndReason.fromString(optNullableString("endReason")),
         player1EloDelta = optNullableInt("player1EloDelta"),
         player2EloDelta = optNullableInt("player2EloDelta"),
         player1Elo = optNullableInt("player1Elo"),
@@ -582,16 +582,19 @@ private fun RoundResult.toJson(): JSONObject {
 private fun JSONObject.toRoundResult(): RoundResult =
     RoundResult(
         roundNumber = optInt("roundNumber", 0),
-        player1Choice = optString("player1Choice", null),
-        player2Choice = optString("player2Choice", null),
-        winner = optString("winner", null),
-        endReason = RoundEndReason.fromString(optString("endReason", null)),
+        player1Choice = optNullableString("player1Choice"),
+        player2Choice = optNullableString("player2Choice"),
+        winner = optNullableString("winner"),
+        endReason = RoundEndReason.fromString(optNullableString("endReason")),
         resolvedAt = optNullableLong("resolvedAt"),
         startedAt = optNullableLong("startedAt"),
         deadline = optNullableLong("deadline"),
         player1MoveMs = optNullableInt("player1MoveMs"),
         player2MoveMs = optNullableInt("player2MoveMs"),
     )
+
+private fun JSONObject.optNullableString(name: String): String? =
+    if (has(name) && !isNull(name)) optString(name) else null
 
 private fun JSONObject.optNullableInt(name: String): Int? =
     if (has(name) && !isNull(name)) optInt(name) else null
