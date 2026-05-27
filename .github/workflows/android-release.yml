@@ -89,7 +89,6 @@ jobs:
         with:
           name: RPS Online ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          generate_release_notes: false
-          body: RPS Online ${{ github.ref_name }}
+          generate_release_notes: true
           files: rps-online-${{ github.ref_name }}.apk
           fail_on_unmatched_files: true
