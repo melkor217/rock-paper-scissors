@@ -16,7 +16,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.viewmodel.AppUpdateUiState
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 
@@ -35,14 +37,14 @@ fun AppUpdateDialogs(
 
         AlertDialog(
             onDismissRequest = { viewModel.dismissUpdate() },
-            title = { Text("Update available") },
+            title = { Text(stringResource(R.string.update_available_title)) },
             text = {
                 Column {
-                    Text("Version ${pendingUpdate.versionLabel} is available on GitHub.")
+                    Text(stringResource(R.string.update_available_body, pendingUpdate.versionLabel))
                     pendingUpdate.releaseNotes?.let { notes ->
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "What's new",
+                            text = stringResource(R.string.whats_new),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -62,12 +64,12 @@ fun AppUpdateDialogs(
                 TextButton(
                     onClick = { viewModel.downloadAndInstallUpdate(activity) },
                 ) {
-                    Text("Download & install")
+                    Text(stringResource(R.string.download_install))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissUpdate() }) {
-                    Text("Later")
+                    Text(stringResource(R.string.later))
                 }
             },
         )
@@ -78,14 +80,14 @@ fun AppUpdateDialogs(
             onDismissRequest = {},
             title = {
                 Text(
-                    text = "Downloading update",
+                    text = stringResource(R.string.downloading_update_title),
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             },
             text = {
                 Column {
                     Text(
-                        text = "Please keep the app open until the download finishes.",
+                        text = stringResource(R.string.keep_app_open),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     updateState.updateDownloadProgress?.let { progress ->
@@ -100,7 +102,7 @@ fun AppUpdateDialogs(
             confirmButton = {
                 TextButton(onClick = {}, enabled = false) {
                     Text(
-                        text = "Downloading…",
+                        text = stringResource(R.string.downloading),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }

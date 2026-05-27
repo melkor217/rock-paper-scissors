@@ -19,11 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.R
 
 @Composable
 fun WaitingForOpponentCard(
@@ -33,6 +35,8 @@ fun WaitingForOpponentCard(
     var revealed by remember(myChoice) { mutableStateOf(false) }
     val moveLabel = Move.fromString(myChoice)?.label ?: myChoice.replaceFirstChar { it.titlecase() }
     val maskedMoveText = "•".repeat(MOVE_MASK_LENGTH)
+    val revealedDescription = stringResource(R.string.your_move_revealed, moveLabel)
+    val hiddenDescription = stringResource(R.string.your_move_hidden)
 
     RpsCard(
         modifier = modifier.fillMaxWidth(),
@@ -47,7 +51,7 @@ fun WaitingForOpponentCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Your move",
+                text = stringResource(R.string.your_move),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
@@ -57,9 +61,9 @@ fun WaitingForOpponentCard(
                     .clickable(enabled = !revealed) { revealed = true }
                     .semantics {
                         contentDescription = if (revealed) {
-                            "Your move: $moveLabel"
+                            revealedDescription
                         } else {
-                            "Your move hidden"
+                            hiddenDescription
                         }
                     },
                 style = MaterialTheme.typography.headlineMedium,
@@ -72,7 +76,7 @@ fun WaitingForOpponentCard(
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Text(
-                text = "Waiting for opponent…",
+                text = stringResource(R.string.waiting_for_opponent),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )

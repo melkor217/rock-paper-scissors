@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Zaloguj przez Google</string>
+    <string name="continue_as_guest">Kontynuuj jako gosc</string>
+    <string name="sign_out">Wyloguj</string>
+    <string name="leaderboard">Ranking</string>
+    <string name="find_match">Znajdz mecz</string>
+    <string name="in_queue">W kolejce</string>
+    <string name="in_match">W meczu</string>
+    <string name="waiting_for_opponent">Czekanie na przeciwnika…</string>
+    <string name="play_again">Zagraj ponownie</string>
+    <string name="retry">Sprobuj ponownie</string>
+    <string name="email">E-mail</string>
+    <string name="password">Haslo</string>
+    <string name="register">Rejestracja</string>
+    <string name="sign_in">Zaloguj</string>
+    <string name="create_account">Utworz konto</string>
+    <string name="update">Aktualizuj</string>
+    <string name="later">Pozniej</string>
+    <string name="check">Sprawdz</string>
+    <string name="back_to_home">Wstecz</string>
+    <string name="you">Ty</string>
+    <string name="opponent">Przeciwnik</string>
+    <string name="round_label">Runda</string>
+    <string name="welcome_user">Witaj, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (ty)</string>
+    <string name="this_week">W tym tygodniu</string>
+    <string name="loading_release_notes">Ladowanie informacji o wydaniu…</string>
+    <string name="loading_weekly_chart">Ladowanie tygodniowego wykresu</string>
+    <string name="matches_you_played_against">Twoje imie vs imie przeciwnika</string>
+    <string name="matches">Mecze</string>
+    <string name="elo_label">Ranking</string>
+    <string name="elo_with_delta">Ranking %1$s</string>
+    <string name="finding_opponent">Szukanie przeciwnika…</string>
+    <string name="leave_queue">Opusc kolejke</string>
+    <string name="loading_profile">Ladowanie profilu…</string>
+    <string name="players_online_count">%1$d graczy online</string>
+</resources>

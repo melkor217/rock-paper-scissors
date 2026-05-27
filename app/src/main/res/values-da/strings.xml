@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Log ind med Google</string>
+    <string name="continue_as_guest">Fortsat som gaest</string>
+    <string name="sign_out">Log ud</string>
+    <string name="leaderboard">Leaderboard</string>
+    <string name="find_match">Find kamp</string>
+    <string name="in_queue">I ko</string>
+    <string name="in_match">I kamp</string>
+    <string name="waiting_for_opponent">Venter pa modstander…</string>
+    <string name="play_again">Spil igen</string>
+    <string name="retry">Prov igen</string>
+    <string name="email">E-mail</string>
+    <string name="password">Adgangskode</string>
+    <string name="register">Registrer</string>
+    <string name="sign_in">Log ind</string>
+    <string name="create_account">Opret konto</string>
+    <string name="update">Opdater</string>
+    <string name="later">Senere</string>
+    <string name="check">Tjek</string>
+    <string name="back_to_home">Tilbage</string>
+    <string name="you">Dig</string>
+    <string name="opponent">Modstander</string>
+    <string name="round_label">Runde</string>
+    <string name="welcome_user">Velkommen, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (dig)</string>
+    <string name="this_week">Denne uge</string>
+    <string name="loading_release_notes">Indlaeser udgivelsesnoter…</string>
+    <string name="loading_weekly_chart">Indlaeser ugediagram</string>
+    <string name="matches_you_played_against">Dit navn vs modstanderens navn</string>
+    <string name="matches">Kampe</string>
+    <string name="elo_label">Rating</string>
+    <string name="elo_with_delta">Rating %1$s</string>
+    <string name="finding_opponent">Finder modstander…</string>
+    <string name="leave_queue">Forlad ko</string>
+    <string name="loading_profile">Indlaeser profil…</string>
+    <string name="players_online_count">%1$d spillere online</string>
+</resources>

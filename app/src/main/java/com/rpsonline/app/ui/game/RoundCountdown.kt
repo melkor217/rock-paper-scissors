@@ -10,13 +10,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.domain.GameRules
 
 @Composable
 fun RoundCountdown(
     secondsRemaining: Int?,
-    label: String = "Round",
+    label: String = "",
     isRunning: Boolean = true,
     isResolvingTimeout: Boolean = false,
     hasSubmittedMove: Boolean = false,
@@ -41,9 +43,9 @@ fun RoundCountdown(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = if (hasSubmittedMove) {
-                        "Opponent timed out — resolving…"
+                        stringResource(R.string.opponent_timed_out_resolving)
                     } else {
-                        "Time's up — resolving round…"
+                        stringResource(R.string.times_up_resolving_round)
                     },
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
@@ -88,11 +90,11 @@ fun RoundCountdown(
             }
             Text(
                 text = when {
-                    atZero -> "Time's up — resolving round…"
-                    hasSubmittedMove -> "Waiting for opponent's pick"
-                    urgent -> "Critical — round or match clock can forfeit!"
-                    warning -> "Hurry — clocks are running low."
-                    else -> "Seconds to pick"
+                    atZero -> stringResource(R.string.times_up_resolving_round)
+                    hasSubmittedMove -> stringResource(R.string.waiting_opponent_pick)
+                    urgent -> stringResource(R.string.critical_clock_warning)
+                    warning -> stringResource(R.string.hurry_clock_warning)
+                    else -> stringResource(R.string.seconds_to_pick)
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = footerColor,

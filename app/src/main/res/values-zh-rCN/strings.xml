@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS 在线</string>
+    <string name="sign_in_with_google">使用 Google 登录</string>
+    <string name="continue_as_guest">以游客身份继续</string>
+    <string name="sign_out">退出登录</string>
+    <string name="leaderboard">排行榜</string>
+    <string name="find_match">寻找对局</string>
+    <string name="in_queue">排队中</string>
+    <string name="in_match">对局中</string>
+    <string name="waiting_for_opponent">正在等待对手…</string>
+    <string name="play_again">再来一局</string>
+    <string name="retry">重试</string>
+    <string name="email">邮箱</string>
+    <string name="password">密码</string>
+    <string name="register">注册</string>
+    <string name="sign_in">登录</string>
+    <string name="create_account">创建账户</string>
+    <string name="update">更新</string>
+    <string name="later">稍后</string>
+    <string name="check">检查</string>
+    <string name="back_to_home">返回</string>
+    <string name="you">你</string>
+    <string name="opponent">对手</string>
+    <string name="round_label">回合</string>
+    <string name="welcome_user">欢迎，%1$s</string>
+    <string name="profile">个人资料</string>
+    <string name="profile_title_own">%1$s（你）</string>
+    <string name="this_week">本周</string>
+    <string name="loading_release_notes">正在加载更新说明…</string>
+    <string name="loading_weekly_chart">正在加载周图表</string>
+    <string name="matches_you_played_against">你的名字 vs 对手名字</string>
+    <string name="matches">场次</string>
+    <string name="elo_label">等级分</string>
+    <string name="elo_with_delta">等级分 %1$s</string>
+    <string name="finding_opponent">正在寻找对手…</string>
+    <string name="leave_queue">离开队列</string>
+    <string name="loading_profile">正在加载个人资料…</string>
+    <string name="players_online_count">%1$d 名玩家在线</string>
+</resources>

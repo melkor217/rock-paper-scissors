@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">حجر ورقة مقص اونلاين</string>
+    <string name="sign_in_with_google">تسجيل الدخول عبر Google</string>
+    <string name="continue_as_guest">المتابعة كضيف</string>
+    <string name="sign_out">تسجيل الخروج</string>
+    <string name="leaderboard">لوحة الصدارة</string>
+    <string name="find_match">ابحث عن مباراة</string>
+    <string name="in_queue">في الطابور</string>
+    <string name="in_match">في مباراة</string>
+    <string name="waiting_for_opponent">بانتظار الخصم…</string>
+    <string name="play_again">العب مجددا</string>
+    <string name="retry">اعادة المحاولة</string>
+    <string name="email">البريد الالكتروني</string>
+    <string name="password">كلمة المرور</string>
+    <string name="register">تسجيل</string>
+    <string name="sign_in">تسجيل الدخول</string>
+    <string name="create_account">انشاء حساب</string>
+    <string name="update">تحديث</string>
+    <string name="later">لاحقا</string>
+    <string name="check">تحقق</string>
+    <string name="back_to_home">رجوع</string>
+    <string name="you">انت</string>
+    <string name="opponent">الخصم</string>
+    <string name="round_label">جولة</string>
+    <string name="welcome_user">مرحبا، %1$s</string>
+    <string name="profile">الملف الشخصي</string>
+    <string name="profile_title_own">%1$s (انت)</string>
+    <string name="this_week">هذا الاسبوع</string>
+    <string name="loading_release_notes">جار تحميل ملاحظات الاصدار…</string>
+    <string name="loading_weekly_chart">جار تحميل المخطط الاسبوعي</string>
+    <string name="matches_you_played_against">اسمك vs اسم الخصم</string>
+    <string name="matches">المباريات</string>
+    <string name="elo_label">التصنيف</string>
+    <string name="elo_with_delta">التصنيف %1$s</string>
+    <string name="finding_opponent">جاري البحث عن خصم…</string>
+    <string name="leave_queue">مغادرة الطابور</string>
+    <string name="loading_profile">جار تحميل الملف الشخصي…</string>
+    <string name="players_online_count">%1$d لاعب متصل</string>
+</resources>

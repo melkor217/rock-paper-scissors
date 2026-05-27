@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS En Ligne</string>
+    <string name="sign_in_with_google">Se connecter avec Google</string>
+    <string name="continue_as_guest">Continuer en invite</string>
+    <string name="sign_out">Se deconnecter</string>
+    <string name="leaderboard">Classement</string>
+    <string name="find_match">Trouver un match</string>
+    <string name="in_queue">En file</string>
+    <string name="in_match">En match</string>
+    <string name="waiting_for_opponent">En attente adversaire…</string>
+    <string name="play_again">Rejouer</string>
+    <string name="retry">Reessayer</string>
+    <string name="email">E-mail</string>
+    <string name="password">Mot de passe</string>
+    <string name="register">Inscription</string>
+    <string name="sign_in">Se connecter</string>
+    <string name="create_account">Creer un compte</string>
+    <string name="update">Mettre a jour</string>
+    <string name="later">Plus tard</string>
+    <string name="check">Verifier</string>
+    <string name="back_to_home">Retour</string>
+    <string name="you">Vous</string>
+    <string name="opponent">Adversaire</string>
+    <string name="round_label">Manche</string>
+    <string name="welcome_user">Bienvenue, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (vous)</string>
+    <string name="this_week">Cette semaine</string>
+    <string name="loading_release_notes">Chargement des notes de version…</string>
+    <string name="loading_weekly_chart">Chargement du graphique hebdomadaire</string>
+    <string name="matches_you_played_against">Votre nom vs nom adverse</string>
+    <string name="matches">Matchs</string>
+    <string name="elo_label">Classement</string>
+    <string name="elo_with_delta">Classement %1$s</string>
+    <string name="finding_opponent">Recherche adversaire…</string>
+    <string name="leave_queue">Quitter la file</string>
+    <string name="loading_profile">Chargement profil…</string>
+    <string name="players_online_count">%1$d joueurs en ligne</string>
+</resources>

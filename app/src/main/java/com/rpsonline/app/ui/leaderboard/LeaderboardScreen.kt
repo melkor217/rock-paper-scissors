@@ -24,9 +24,11 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.R
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.EloRatingText
@@ -72,7 +74,7 @@ fun LeaderboardScreen(
         modifier = Modifier.rpsScreenPadding(),
     ) {
         Text(
-            text = "Leaderboard",
+            text = stringResource(R.string.leaderboard),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -132,7 +134,7 @@ fun LeaderboardScreen(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        HomeOutlinedButton(onClick = onHome, label = "Back to Home")
+        HomeOutlinedButton(onClick = onHome, label = stringResource(R.string.back_to_home))
     }
 }
 

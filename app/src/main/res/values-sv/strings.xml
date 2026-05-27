@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Logga in med Google</string>
+    <string name="continue_as_guest">Fortsatt som gast</string>
+    <string name="sign_out">Logga ut</string>
+    <string name="leaderboard">Topplista</string>
+    <string name="find_match">Hitta match</string>
+    <string name="in_queue">I ko</string>
+    <string name="in_match">I match</string>
+    <string name="waiting_for_opponent">Vantar pa motstandare…</string>
+    <string name="play_again">Spela igen</string>
+    <string name="retry">Forsok igen</string>
+    <string name="email">E-post</string>
+    <string name="password">Losenord</string>
+    <string name="register">Registrera</string>
+    <string name="sign_in">Logga in</string>
+    <string name="create_account">Skapa konto</string>
+    <string name="update">Uppdatera</string>
+    <string name="later">Senare</string>
+    <string name="check">Kontrollera</string>
+    <string name="back_to_home">Tillbaka</string>
+    <string name="you">Du</string>
+    <string name="opponent">Motstandare</string>
+    <string name="round_label">Runda</string>
+    <string name="welcome_user">Valkommen, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (du)</string>
+    <string name="this_week">Denna vecka</string>
+    <string name="loading_release_notes">Laddar versionsanteckningar…</string>
+    <string name="loading_weekly_chart">Laddar veckograf</string>
+    <string name="matches_you_played_against">Ditt namn vs motstandarens namn</string>
+    <string name="matches">Matcher</string>
+    <string name="elo_label">Betyg</string>
+    <string name="elo_with_delta">Betyg %1$s</string>
+    <string name="finding_opponent">Soker motstandare…</string>
+    <string name="leave_queue">Lamna ko</string>
+    <string name="loading_profile">Laddar profil…</string>
+    <string name="players_online_count">%1$d spelare online</string>
+</resources>

@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">आरपीएस ऑनलाइन</string>
+    <string name="sign_in_with_google">Google से साइन इन करें</string>
+    <string name="continue_as_guest">अतिथि के रूप में जारी रखें</string>
+    <string name="sign_out">साइन आउट</string>
+    <string name="leaderboard">लीडरबोर्ड</string>
+    <string name="find_match">मैच खोजें</string>
+    <string name="in_queue">कतार में</string>
+    <string name="in_match">मैच में</string>
+    <string name="waiting_for_opponent">प्रतिद्वंद्वी की प्रतीक्षा…</string>
+    <string name="play_again">फिर से खेलें</string>
+    <string name="retry">पुनः प्रयास करें</string>
+    <string name="email">ईमेल</string>
+    <string name="password">पासवर्ड</string>
+    <string name="register">पंजीकरण</string>
+    <string name="sign_in">साइन इन</string>
+    <string name="create_account">खाता बनाएं</string>
+    <string name="update">अपडेट</string>
+    <string name="later">बाद में</string>
+    <string name="check">जांचें</string>
+    <string name="back_to_home">वापस</string>
+    <string name="you">आप</string>
+    <string name="opponent">प्रतिद्वंद्वी</string>
+    <string name="round_label">राउंड</string>
+    <string name="welcome_user">स्वागत है, %1$s</string>
+    <string name="profile">प्रोफाइल</string>
+    <string name="profile_title_own">%1$s (आप)</string>
+    <string name="this_week">इस सप्ताह</string>
+    <string name="loading_release_notes">रिलीज नोट्स लोड हो रहे हैं…</string>
+    <string name="loading_weekly_chart">साप्ताहिक चार्ट लोड हो रहा है</string>
+    <string name="matches_you_played_against">आपका नाम vs प्रतिद्वंद्वी का नाम</string>
+    <string name="matches">मैच</string>
+    <string name="elo_label">रेटिंग</string>
+    <string name="elo_with_delta">रेटिंग %1$s</string>
+    <string name="finding_opponent">प्रतिद्वंद्वी खोजा जा रहा है…</string>
+    <string name="leave_queue">कतार छोड़ें</string>
+    <string name="loading_profile">प्रोफाइल लोड हो रही है…</string>
+    <string name="players_online_count">%1$d खिलाड़ी ऑनलाइन</string>
+</resources>

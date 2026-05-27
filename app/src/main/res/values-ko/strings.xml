@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS 온라인</string>
+    <string name="sign_in_with_google">Google로 로그인</string>
+    <string name="continue_as_guest">게스트로 계속</string>
+    <string name="sign_out">로그아웃</string>
+    <string name="leaderboard">리더보드</string>
+    <string name="find_match">매치 찾기</string>
+    <string name="in_queue">대기열</string>
+    <string name="in_match">경기 중</string>
+    <string name="waiting_for_opponent">상대를 기다리는 중…</string>
+    <string name="play_again">다시 플레이</string>
+    <string name="retry">다시 시도</string>
+    <string name="email">이메일</string>
+    <string name="password">비밀번호</string>
+    <string name="register">가입</string>
+    <string name="sign_in">로그인</string>
+    <string name="create_account">계정 만들기</string>
+    <string name="update">업데이트</string>
+    <string name="later">나중에</string>
+    <string name="check">확인</string>
+    <string name="back_to_home">뒤로</string>
+    <string name="you">나</string>
+    <string name="opponent">상대</string>
+    <string name="round_label">라운드</string>
+    <string name="welcome_user">환영합니다, %1$s</string>
+    <string name="profile">프로필</string>
+    <string name="profile_title_own">%1$s (나)</string>
+    <string name="this_week">이번 주</string>
+    <string name="loading_release_notes">릴리스 노트 불러오는 중…</string>
+    <string name="loading_weekly_chart">주간 차트 로딩 중</string>
+    <string name="matches_you_played_against">내 이름 vs 상대 이름</string>
+    <string name="matches">경기</string>
+    <string name="elo_label">레이팅</string>
+    <string name="elo_with_delta">레이팅 %1$s</string>
+    <string name="finding_opponent">상대를 찾는 중…</string>
+    <string name="leave_queue">대기열 나가기</string>
+    <string name="loading_profile">프로필 불러오는 중…</string>
+    <string name="players_online_count">온라인 플레이어 %1$d명</string>
+</resources>

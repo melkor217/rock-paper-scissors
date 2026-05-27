@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Uviyty z Google</string>
+    <string name="continue_as_guest">Prodovzhyty yak hist</string>
+    <string name="sign_out">Vyity</string>
+    <string name="leaderboard">Reitynh</string>
+    <string name="find_match">Znayty match</string>
+    <string name="in_queue">U cherzi</string>
+    <string name="in_match">U matchi</string>
+    <string name="waiting_for_opponent">Ochikuvannya suprotyvnyka…</string>
+    <string name="play_again">Hraty znovu</string>
+    <string name="retry">Sprobuvaty znovu</string>
+    <string name="email">Email</string>
+    <string name="password">Parol</string>
+    <string name="register">Reyestratsiya</string>
+    <string name="sign_in">Uviyty</string>
+    <string name="create_account">Stvoryty akaunt</string>
+    <string name="update">Onovyty</string>
+    <string name="later">Piznishe</string>
+    <string name="check">Pereviryty</string>
+    <string name="back_to_home">Nazad</string>
+    <string name="you">Ty</string>
+    <string name="opponent">Supernyk</string>
+    <string name="round_label">Raud</string>
+    <string name="welcome_user">Laskavo prosymo, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (ty)</string>
+    <string name="this_week">Tsyoho tyzhnya</string>
+    <string name="loading_release_notes">Zavantazhennya notatok relizu…</string>
+    <string name="loading_weekly_chart">Zavantazhennya tyzhnevoho grafika</string>
+    <string name="matches_you_played_against">Tvoye imya vs imya supernyka</string>
+    <string name="matches">Matchi</string>
+    <string name="elo_label">Reitynh</string>
+    <string name="elo_with_delta">Reitynh %1$s</string>
+    <string name="finding_opponent">Poshuk supernyka…</string>
+    <string name="leave_queue">Pokynuty cherhu</string>
+    <string name="loading_profile">Zavantazhennya profilyu…</string>
+    <string name="players_online_count">%1$d hravtsiv online</string>
+</resources>

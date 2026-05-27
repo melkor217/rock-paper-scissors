@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Inloggen met Google</string>
+    <string name="continue_as_guest">Doorgaan als gast</string>
+    <string name="sign_out">Uitloggen</string>
+    <string name="leaderboard">Ranglijst</string>
+    <string name="find_match">Match zoeken</string>
+    <string name="in_queue">In wachtrij</string>
+    <string name="in_match">In match</string>
+    <string name="waiting_for_opponent">Wachten op tegenstander…</string>
+    <string name="play_again">Opnieuw spelen</string>
+    <string name="retry">Opnieuw proberen</string>
+    <string name="email">E-mail</string>
+    <string name="password">Wachtwoord</string>
+    <string name="register">Registreren</string>
+    <string name="sign_in">Inloggen</string>
+    <string name="create_account">Account maken</string>
+    <string name="update">Bijwerken</string>
+    <string name="later">Later</string>
+    <string name="check">Controleren</string>
+    <string name="back_to_home">Terug</string>
+    <string name="you">Jij</string>
+    <string name="opponent">Tegenstander</string>
+    <string name="round_label">Ronde</string>
+    <string name="welcome_user">Welkom, %1$s</string>
+    <string name="profile">Profiel</string>
+    <string name="profile_title_own">%1$s (jij)</string>
+    <string name="this_week">Deze week</string>
+    <string name="loading_release_notes">Release-opmerkingen laden…</string>
+    <string name="loading_weekly_chart">Wekelijkse grafiek laden</string>
+    <string name="matches_you_played_against">Jouw naam vs naam tegenstander</string>
+    <string name="matches">Matches</string>
+    <string name="elo_label">Rating</string>
+    <string name="elo_with_delta">Rating %1$s</string>
+    <string name="finding_opponent">Tegenstander zoeken…</string>
+    <string name="leave_queue">Wachtrij verlaten</string>
+    <string name="loading_profile">Profiel laden…</string>
+    <string name="players_online_count">%1$d spelers online</string>
+</resources>

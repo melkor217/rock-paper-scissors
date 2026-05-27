@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Kirjaudu Googlella</string>
+    <string name="continue_as_guest">Jatka vieraana</string>
+    <string name="sign_out">Kirjaudu ulos</string>
+    <string name="leaderboard">Tulostaulu</string>
+    <string name="find_match">Etsi ottelu</string>
+    <string name="in_queue">Jonossa</string>
+    <string name="in_match">Ottelussa</string>
+    <string name="waiting_for_opponent">Odotetaan vastustajaa…</string>
+    <string name="play_again">Pelaa uudelleen</string>
+    <string name="retry">Yrita uudelleen</string>
+    <string name="email">Sahkoposti</string>
+    <string name="password">Salasana</string>
+    <string name="register">Rekisteroidy</string>
+    <string name="sign_in">Kirjaudu</string>
+    <string name="create_account">Luo tili</string>
+    <string name="update">Paivita</string>
+    <string name="later">Myohemmin</string>
+    <string name="check">Tarkista</string>
+    <string name="back_to_home">Takaisin</string>
+    <string name="you">Sinä</string>
+    <string name="opponent">Vastustaja</string>
+    <string name="round_label">Era</string>
+    <string name="welcome_user">Tervetuloa, %1$s</string>
+    <string name="profile">Profiili</string>
+    <string name="profile_title_own">%1$s (sinä)</string>
+    <string name="this_week">Tama viikko</string>
+    <string name="loading_release_notes">Ladataan julkaisutiedot…</string>
+    <string name="loading_weekly_chart">Ladataan viikkokaavio</string>
+    <string name="matches_you_played_against">Nimesi vs vastustajan nimi</string>
+    <string name="matches">Ottelut</string>
+    <string name="elo_label">Luokitus</string>
+    <string name="elo_with_delta">Luokitus %1$s</string>
+    <string name="finding_opponent">Etsitaan vastustajaa…</string>
+    <string name="leave_queue">Poistu jonosta</string>
+    <string name="loading_profile">Ladataan profiilia…</string>
+    <string name="players_online_count">%1$d pelaajaa verkossa</string>
+</resources>

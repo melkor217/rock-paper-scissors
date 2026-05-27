@@ -14,8 +14,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.ui.leaderboard.RpsPerRoundLabel
 import com.rpsonline.app.ui.leaderboard.hasThrowStats
 import com.rpsonline.app.ui.leaderboard.throwsPerRound
@@ -104,7 +106,7 @@ private fun ProfileSummaryStatsBody(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = headerTitle ?: "Profile",
+                    text = headerTitle ?: stringResource(R.string.profile),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -141,7 +143,7 @@ private fun ProfileSummaryStatsBody(
                         style = MaterialTheme.typography.headlineSmall,
                     )
                     Text(
-                        text = "ELO",
+                        text = stringResource(R.string.elo_label),
                         style = statStyle,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

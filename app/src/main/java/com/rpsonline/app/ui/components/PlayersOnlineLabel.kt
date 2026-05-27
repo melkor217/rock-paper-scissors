@@ -4,13 +4,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-
-fun playersOnlineLabel(count: Int): String = when (count) {
-    1 -> "1 player online"
-    else -> "$count players online"
-}
+import com.rpsonline.app.R
 
 @Composable
 fun PlayersOnlineLabel(
@@ -19,7 +16,7 @@ fun PlayersOnlineLabel(
     emphasized: Boolean = false,
 ) {
     Text(
-        text = playersOnlineLabel(count),
+        text = stringResource(R.string.players_online_count, count),
         modifier = modifier,
         style = if (emphasized) {
             MaterialTheme.typography.titleMedium

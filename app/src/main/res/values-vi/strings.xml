@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Dang nhap bang Google</string>
+    <string name="continue_as_guest">Tiep tuc voi khach</string>
+    <string name="sign_out">Dang xuat</string>
+    <string name="leaderboard">Bang xep hang</string>
+    <string name="find_match">Tim tran</string>
+    <string name="in_queue">Dang cho</string>
+    <string name="in_match">Dang dau</string>
+    <string name="waiting_for_opponent">Dang cho doi thu…</string>
+    <string name="play_again">Choi lai</string>
+    <string name="retry">Thu lai</string>
+    <string name="email">Email</string>
+    <string name="password">Mat khau</string>
+    <string name="register">Dang ky</string>
+    <string name="sign_in">Dang nhap</string>
+    <string name="create_account">Tao tai khoan</string>
+    <string name="update">Cap nhat</string>
+    <string name="later">De sau</string>
+    <string name="check">Kiem tra</string>
+    <string name="back_to_home">Quay lai</string>
+    <string name="you">Ban</string>
+    <string name="opponent">Doi thu</string>
+    <string name="round_label">Vong</string>
+    <string name="welcome_user">Chao mung, %1$s</string>
+    <string name="profile">Ho so</string>
+    <string name="profile_title_own">%1$s (ban)</string>
+    <string name="this_week">Tuan nay</string>
+    <string name="loading_release_notes">Dang tai ghi chu phien ban…</string>
+    <string name="loading_weekly_chart">Dang tai bieu do tuan</string>
+    <string name="matches_you_played_against">Ten ban vs ten doi thu</string>
+    <string name="matches">Tran dau</string>
+    <string name="elo_label">Xep hang</string>
+    <string name="elo_with_delta">Xep hang %1$s</string>
+    <string name="finding_opponent">Dang tim doi thu…</string>
+    <string name="leave_queue">Roi hang doi</string>
+    <string name="loading_profile">Dang tai ho so…</string>
+    <string name="players_online_count">%1$d nguoi choi truc tuyen</string>
+</resources>

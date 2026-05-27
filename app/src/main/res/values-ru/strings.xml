@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">КНБ Онлайн</string>
+    <string name="sign_in_with_google">Войти через Google</string>
+    <string name="continue_as_guest">Продолжить как гость</string>
+    <string name="sign_out">Выйти</string>
+    <string name="leaderboard">Таблица лидеров</string>
+    <string name="find_match">Найти матч</string>
+    <string name="in_queue">В очереди</string>
+    <string name="in_match">В матче</string>
+    <string name="waiting_for_opponent">Ожидание соперника…</string>
+    <string name="play_again">Играть снова</string>
+    <string name="retry">Повторить</string>
+    <string name="email">Эл. почта</string>
+    <string name="password">Пароль</string>
+    <string name="register">Регистрация</string>
+    <string name="sign_in">Войти</string>
+    <string name="create_account">Создать аккаунт</string>
+    <string name="update">Обновить</string>
+    <string name="later">Позже</string>
+    <string name="check">Проверить</string>
+    <string name="back_to_home">Назад</string>
+    <string name="you">Вы</string>
+    <string name="opponent">Соперник</string>
+    <string name="round_label">Раунд</string>
+    <string name="welcome_user">Добро пожаловать, %1$s</string>
+    <string name="profile">Профиль</string>
+    <string name="profile_title_own">%1$s (вы)</string>
+    <string name="this_week">На этой неделе</string>
+    <string name="loading_release_notes">Загрузка заметок к релизу…</string>
+    <string name="loading_weekly_chart">Загрузка недельного графика</string>
+    <string name="matches_you_played_against">Ваше имя vs имя соперника</string>
+    <string name="matches">Матчи</string>
+    <string name="elo_label">Рейтинг</string>
+    <string name="elo_with_delta">Рейтинг %1$s</string>
+    <string name="finding_opponent">Поиск соперника…</string>
+    <string name="leave_queue">Покинуть очередь</string>
+    <string name="loading_profile">Загрузка профиля…</string>
+    <string name="players_online_count">%1$d игроков онлайн</string>
+</resources>

@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Google ile giris yap</string>
+    <string name="continue_as_guest">Misafir olarak devam et</string>
+    <string name="sign_out">Cikis yap</string>
+    <string name="leaderboard">Liderlik tablosu</string>
+    <string name="find_match">Mac bul</string>
+    <string name="in_queue">Kuyrukta</string>
+    <string name="in_match">Macta</string>
+    <string name="waiting_for_opponent">Rakip bekleniyor…</string>
+    <string name="play_again">Tekrar oyna</string>
+    <string name="retry">Tekrar dene</string>
+    <string name="email">E-posta</string>
+    <string name="password">Sifre</string>
+    <string name="register">Kayit ol</string>
+    <string name="sign_in">Giris yap</string>
+    <string name="create_account">Hesap olustur</string>
+    <string name="update">Guncelle</string>
+    <string name="later">Daha sonra</string>
+    <string name="check">Kontrol et</string>
+    <string name="back_to_home">Geri</string>
+    <string name="you">Sen</string>
+    <string name="opponent">Rakip</string>
+    <string name="round_label">Raunt</string>
+    <string name="welcome_user">Hos geldin, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (sen)</string>
+    <string name="this_week">Bu hafta</string>
+    <string name="loading_release_notes">Surum notlari yukleniyor…</string>
+    <string name="loading_weekly_chart">Haftalik grafik yukleniyor</string>
+    <string name="matches_you_played_against">Senin adin vs rakip adi</string>
+    <string name="matches">Maclar</string>
+    <string name="elo_label">Puan</string>
+    <string name="elo_with_delta">Puan %1$s</string>
+    <string name="finding_opponent">Rakip aranıyor…</string>
+    <string name="leave_queue">Kuyruktan ayril</string>
+    <string name="loading_profile">Profil yukleniyor…</string>
+    <string name="players_online_count">%1$d oyuncu cevrimici</string>
+</resources>

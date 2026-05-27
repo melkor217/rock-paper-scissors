@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Masuk dengan Google</string>
+    <string name="continue_as_guest">Lanjut sebagai tamu</string>
+    <string name="sign_out">Keluar</string>
+    <string name="leaderboard">Papan peringkat</string>
+    <string name="find_match">Cari pertandingan</string>
+    <string name="in_queue">Dalam antrean</string>
+    <string name="in_match">Dalam pertandingan</string>
+    <string name="waiting_for_opponent">Menunggu lawan…</string>
+    <string name="play_again">Main lagi</string>
+    <string name="retry">Coba lagi</string>
+    <string name="email">Email</string>
+    <string name="password">Kata sandi</string>
+    <string name="register">Daftar</string>
+    <string name="sign_in">Masuk</string>
+    <string name="create_account">Buat akun</string>
+    <string name="update">Perbarui</string>
+    <string name="later">Nanti</string>
+    <string name="check">Cek</string>
+    <string name="back_to_home">Kembali</string>
+    <string name="you">Kamu</string>
+    <string name="opponent">Lawan</string>
+    <string name="round_label">Ronde</string>
+    <string name="welcome_user">Selamat datang, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (kamu)</string>
+    <string name="this_week">Minggu ini</string>
+    <string name="loading_release_notes">Memuat catatan rilis…</string>
+    <string name="loading_weekly_chart">Memuat grafik mingguan</string>
+    <string name="matches_you_played_against">Namamu vs nama lawan</string>
+    <string name="matches">Pertandingan</string>
+    <string name="elo_label">Peringkat</string>
+    <string name="elo_with_delta">Peringkat %1$s</string>
+    <string name="finding_opponent">Mencari lawan…</string>
+    <string name="leave_queue">Keluar antrean</string>
+    <string name="loading_profile">Memuat profil…</string>
+    <string name="players_online_count">%1$d pemain online</string>
+</resources>

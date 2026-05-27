@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS En Linea</string>
+    <string name="sign_in_with_google">Iniciar sesion con Google</string>
+    <string name="continue_as_guest">Continuar como invitado</string>
+    <string name="sign_out">Cerrar sesion</string>
+    <string name="leaderboard">Clasificacion</string>
+    <string name="find_match">Buscar partida</string>
+    <string name="in_queue">En cola</string>
+    <string name="in_match">En partida</string>
+    <string name="waiting_for_opponent">Esperando al oponente…</string>
+    <string name="play_again">Jugar de nuevo</string>
+    <string name="retry">Reintentar</string>
+    <string name="email">Correo</string>
+    <string name="password">Contrasena</string>
+    <string name="register">Registrarse</string>
+    <string name="sign_in">Iniciar sesion</string>
+    <string name="create_account">Crear cuenta</string>
+    <string name="update">Actualizar</string>
+    <string name="later">Mas tarde</string>
+    <string name="check">Comprobar</string>
+    <string name="back_to_home">Atras</string>
+    <string name="you">Tu</string>
+    <string name="opponent">Oponente</string>
+    <string name="round_label">Ronda</string>
+    <string name="welcome_user">Bienvenido, %1$s</string>
+    <string name="profile">Perfil</string>
+    <string name="profile_title_own">%1$s (tu)</string>
+    <string name="this_week">Esta semana</string>
+    <string name="loading_release_notes">Cargando notas de version…</string>
+    <string name="loading_weekly_chart">Cargando grafico semanal</string>
+    <string name="matches_you_played_against">Tu nombre vs nombre del oponente</string>
+    <string name="matches">Partidas</string>
+    <string name="elo_label">Puntuacion</string>
+    <string name="elo_with_delta">Puntuacion %1$s</string>
+    <string name="finding_opponent">Buscando oponente…</string>
+    <string name="leave_queue">Salir de la cola</string>
+    <string name="loading_profile">Cargando perfil…</string>
+    <string name="players_online_count">%1$d jugadores en linea</string>
+</resources>

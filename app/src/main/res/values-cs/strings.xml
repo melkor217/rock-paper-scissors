@@ -1,0 +1,40 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPS Online</string>
+    <string name="sign_in_with_google">Prihlasit se pres Google</string>
+    <string name="continue_as_guest">Pokracovat jako host</string>
+    <string name="sign_out">Odhlasit se</string>
+    <string name="leaderboard">Zebricek</string>
+    <string name="find_match">Najit zapas</string>
+    <string name="in_queue">Ve fronte</string>
+    <string name="in_match">V zapase</string>
+    <string name="waiting_for_opponent">Cekani na soupere…</string>
+    <string name="play_again">Hrat znovu</string>
+    <string name="retry">Zkusit znovu</string>
+    <string name="email">E-mail</string>
+    <string name="password">Heslo</string>
+    <string name="register">Registrovat</string>
+    <string name="sign_in">Prihlasit se</string>
+    <string name="create_account">Vytvorit ucet</string>
+    <string name="update">Aktualizovat</string>
+    <string name="later">Pozdeji</string>
+    <string name="check">Zkontrolovat</string>
+    <string name="back_to_home">Zpet</string>
+    <string name="you">Ty</string>
+    <string name="opponent">Souper</string>
+    <string name="round_label">Kolo</string>
+    <string name="welcome_user">Vitej, %1$s</string>
+    <string name="profile">Profil</string>
+    <string name="profile_title_own">%1$s (ty)</string>
+    <string name="this_week">Tento tyden</string>
+    <string name="loading_release_notes">Nacitani poznamek k vydani…</string>
+    <string name="loading_weekly_chart">Nacitani tydenniho grafu</string>
+    <string name="matches_you_played_against">Tve jmeno vs jmeno soupere</string>
+    <string name="matches">Zapasy</string>
+    <string name="elo_label">Hodnoceni</string>
+    <string name="elo_with_delta">Hodnoceni %1$s</string>
+    <string name="finding_opponent">Hledani soupere…</string>
+    <string name="leave_queue">Opustit frontu</string>
+    <string name="loading_profile">Nacitani profilu…</string>
+    <string name="players_online_count">%1$d hracu online</string>
+</resources>
