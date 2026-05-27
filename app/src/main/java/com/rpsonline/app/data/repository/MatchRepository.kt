@@ -42,7 +42,7 @@ class MatchRepository(
          * The cache is in-memory and only stores matches that are already concluded
          * (COMPLETED or ABANDONED). Entries older than this will be refreshed from Firestore.
          */
-        private const val CONCLUDED_MATCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000L
+        private const val CONCLUDED_MATCH_CACHE_TTL_MS = 2 * 60 * 1000L
 
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
@@ -57,7 +57,7 @@ class MatchRepository(
         private val concludedMatchCache =
             mutableMapOf<String, ConcludedMatchCacheEntry>()
 
-        private var cacheVersionCode: Int = BuildConfig.VERSION_CODE
+        private var cacheVersionCode: Int? = null
 
         private val prefs: SharedPreferences
             get() = FirebaseApp.getInstance().applicationContext
@@ -120,16 +120,18 @@ class MatchRepository(
         }
 
         private fun ensureCacheVersion() {
-            if (cacheVersionCode == BuildConfig.VERSION_CODE) return
+            val currentVersionCode = BuildConfig.VERSION_CODE
+            if (cacheVersionCode == currentVersionCode) return
+
             val storedVersion = prefs.getInt(PREF_KEY_VERSION_CODE, -1)
-            if (storedVersion != BuildConfig.VERSION_CODE) {
+            if (storedVersion != currentVersionCode) {
                 prefs.edit()
                     .clear()
-                    .putInt(PREF_KEY_VERSION_CODE, BuildConfig.VERSION_CODE)
+                    .putInt(PREF_KEY_VERSION_CODE, currentVersionCode)
                     .apply()
             }
             concludedMatchCache.clear()
-            cacheVersionCode = BuildConfig.VERSION_CODE
+            cacheVersionCode = currentVersionCode
         }
 
         private fun writeCacheEntryToPrefs(key: String, entry: ConcludedMatchCacheEntry) {
