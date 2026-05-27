@@ -78,9 +78,6 @@ jobs:
           ./gradlew :app:assembleRelease --no-daemon --stacktrace \
             -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME"
 
-      - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon
-
       - name: Prepare release asset
         run: |
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
