@@ -17,6 +17,7 @@ import {
   matchResolutionForWinner,
   type MatchResolution,
 } from "./game";
+import { isQueueEntryActive, QUEUE_STALE_MS } from "./queue";
 import {
   applyClockIncrement,
   clockExpiry,
@@ -288,6 +289,7 @@ async function createMatch(playerA: string, playerB: string, matchMode: MatchMod
 async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Promise<string | null> {
   const queueSnap = await db.collection("queue").orderBy("joinedAt", "asc").get();
   for (const doc of queueSnap.docs) {
+    if (!isQueueEntryActive(doc.data())) continue;
     const otherId = doc.id;
     if (otherId === uid) continue;
     const otherModes = parseMatchModes(doc.get("matchModes"), doc.get("matchMode"));
@@ -948,13 +950,22 @@ export const ping = onCall({ region: REGION }, async (request) => {
 export const cleanupStale = onSchedule(
   { schedule: "every 5 minutes", region: REGION },
   async () => {
-  const cutoff = Timestamp.fromMillis(Date.now() - 60_000);
+  const cutoff = Timestamp.fromMillis(Date.now() - QUEUE_STALE_MS);
 
-  const staleQueue = await db.collection("queue")
+  const staleByHeartbeat = await db.collection("queue")
+    .where("lastHeartbeatAt", "<", cutoff)
+    .get();
+  const staleByJoin = await db.collection("queue")
     .where("joinedAt", "<", cutoff)
     .get();
+
   const queueBatch = db.batch();
-  staleQueue.docs.forEach((doc) => queueBatch.delete(doc.ref));
+  const staleQueueIds = new Set<string>();
+  staleByHeartbeat.docs.forEach((doc) => staleQueueIds.add(doc.id));
+  staleByJoin.docs.forEach((doc) => {
+    if (doc.get("lastHeartbeatAt") == null) staleQueueIds.add(doc.id);
+  });
+  staleQueueIds.forEach((id) => queueBatch.delete(db.collection("queue").doc(id)));
   await queueBatch.commit();
 
   const staleMatches = await db.collection("matches")

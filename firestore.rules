@@ -42,10 +42,17 @@ service cloud.firestore {
     /** Legacy clients omit matchModes; Cloud Functions default to BO3. */
     function validQueueWrite() {
       let data = request.resource.data;
-      return data.keys().hasAll(['joinedAt', 'elo', 'displayName'])
+      return data.keys().hasAll(['joinedAt', 'lastHeartbeatAt', 'elo', 'displayName'])
+        && data.joinedAt is timestamp
+        && data.lastHeartbeatAt is timestamp
         && data.elo is number
         && data.displayName is string
         && validQueueMatchModeField(data);
+    }
+
+    function validQueueHeartbeat() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastHeartbeatAt'])
+        && request.resource.data.lastHeartbeatAt is timestamp;
     }
 
     match /users/{userId} {
@@ -85,7 +92,8 @@ service cloud.firestore {
 
     match /queue/{userId} {
       allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId) && validQueueWrite();
+      allow create: if isOwner(userId) && validQueueWrite();
+      allow update: if isOwner(userId) && (validQueueWrite() || validQueueHeartbeat());
       allow delete: if isOwner(userId);
     }
 

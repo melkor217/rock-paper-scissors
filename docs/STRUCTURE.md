@@ -67,7 +67,7 @@ Clients **write** choice and timeout-request subcollections; functions **update*
 | Path | Writer | Reader |
 |------|--------|--------|
 | `users/{uid}` | Client + server | Client, functions |
-| `queue/{uid}` | Client | Functions |
+| `queue/{uid}` | Client (join + 30s heartbeat on `lastHeartbeatAt`) | Functions |
 | `matches/{id}` | Functions | Clients |
 | `matches/{id}/rounds/{n}/choices/{uid}` | Client (move) | Functions |
 | `matches/{id}/rounds/{n}/timeoutRequests/{id}` | Client | Functions |
