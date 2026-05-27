@@ -1,6 +1,7 @@
 package com.rpsonline.app.data.update
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,7 +21,7 @@ class ReleaseChangelogTest {
     }
 
     @Test
-    fun formatCompareCommitLines_listsMessages() {
+    fun formatCompareCommitLines_listsMessagesWithoutAuthors() {
         val text = ReleaseChangelog.formatCompareCommitLines(
             listOf(
                 ReleaseChangelog.CompareCommitLine(
@@ -30,7 +31,7 @@ class ReleaseChangelogTest {
             ),
         )
         assertTrue(text.contains("Add BO3 support"))
-        assertTrue(text.contains("Dan"))
+        assertFalse(text.contains("Dan"))
     }
 
     @Test
@@ -40,16 +41,53 @@ class ReleaseChangelogTest {
             compareSection = "All changes since your version:\n• Fix bug",
         )
         assertNotNull(result)
-        assertTrue(result!!.contains("What's Changed"))
+        assertFalse(result!!.contains("What's Changed"))
+        assertTrue(result.contains("Feature"))
         assertTrue(result.contains("Fix bug"))
     }
 
     @Test
-    fun simplifyMarkdownForDisplay_expandsLinks() {
-        val raw = "See [PR #46](https://github.com/o/r/pull/46) for details."
+    fun simplifyMarkdownForDisplay_stripsNoiseFromReleaseNotes() {
+        val raw = """
+            ## What's Changed
+            * Add match sounds by @dan in https://github.com/o/r/pull/46
+            * Fix queue timer
+
+            **Full Changelog**: https://github.com/o/r/compare/v0.6.3...v0.6.4
+        """.trimIndent()
+
+        val result = ReleaseChangelog.simplifyMarkdownForDisplay(raw)
+
+        assertFalse(result.contains("What's Changed"))
+        assertFalse(result.contains("Full Changelog"))
+        assertFalse(result.contains("pull/46"))
+        assertFalse(result.contains("@dan"))
+        assertFalse(result.contains(" in "))
+        assertTrue(result.contains("Add match sounds"))
+        assertTrue(result.contains("Fix queue timer"))
+    }
+
+    @Test
+    fun simplifyMarkdownForDisplay_stripsOrphanInAfterMarkdownPullLink() {
+        val raw = "* Add match sounds by @dan in [PR #46](https://github.com/o/r/pull/46)"
+        val result = ReleaseChangelog.simplifyMarkdownForDisplay(raw)
+        assertEquals("Add match sounds", result)
+    }
+
+    @Test
+    fun simplifyMarkdownForDisplay_stripsOrphanInAfterPlainPullUrl() {
+        val raw = """
+            ## What's Changed
+            * Add changelog screen from version footer by @melkor217 in https://github.com/melkor217/rock-paper-scissors/pull/50
+            * Add Firebase ping meter next to theme selector by @melkor217 in https://github.com/melkor217/rock-paper-scissors/pull/49
+        """.trimIndent()
+
+        val result = ReleaseChangelog.simplifyMarkdownForDisplay(raw)
+
         assertEquals(
-            "See PR #46 (https://github.com/o/r/pull/46) for details.",
-            ReleaseChangelog.simplifyMarkdownForDisplay(raw),
+            "Add changelog screen from version footer\nAdd Firebase ping meter next to theme selector",
+            result,
         )
+        assertFalse(result.contains(" in"))
     }
 }
