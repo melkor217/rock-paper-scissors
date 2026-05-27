@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +27,7 @@ import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.formatMatchModes
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.matchmaking.formatQueueTime
 import com.rpsonline.app.viewmodel.MatchmakingStatus
 import com.rpsonline.app.viewmodel.MatchmakingViewModel
 
@@ -35,7 +35,6 @@ import com.rpsonline.app.viewmodel.MatchmakingViewModel
 fun MatchmakingScreen(
     matchModes: Set<MatchMode>,
     onMatchFound: (String) -> Unit,
-    onCancel: () -> Unit,
     viewModel: MatchmakingViewModel = viewModel(factory = MatchmakingViewModel.factory(matchModes)),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -97,39 +96,20 @@ fun MatchmakingScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         when (uiState.status) {
-            MatchmakingStatus.SEARCHING -> {
-                OutlinedButton(
-                    onClick = {
-                        viewModel.cancelMatchmaking()
-                        onCancel()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Cancel")
-                }
-            }
+            MatchmakingStatus.SEARCHING -> Unit
 
             MatchmakingStatus.ERROR -> {
-                Column(
+                Button(
+                    onClick = { viewModel.startMatchmaking() },
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Button(
-                        onClick = { viewModel.startMatchmaking() },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Retry")
-                    }
-                    OutlinedButton(
-                        onClick = onCancel,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Back")
-                    }
+                    Text("Retry")
                 }
             }
 
-            else -> Unit
+            MatchmakingStatus.IDLE,
+            MatchmakingStatus.MATCHED,
+            -> Unit
         }
     }
 }
@@ -243,10 +223,4 @@ private fun MatchmakingMessageCard(
             )
         }
     }
-}
-
-private fun formatQueueTime(seconds: Long): String {
-    val minutes = seconds / 60
-    val secs = seconds % 60
-    return "%d:%02d".format(minutes, secs)
 }

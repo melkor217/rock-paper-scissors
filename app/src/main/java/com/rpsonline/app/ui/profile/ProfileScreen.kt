@@ -12,7 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -37,7 +36,6 @@ import com.rpsonline.app.viewmodel.ProfileViewModel
 @Composable
 fun ProfileScreen(
     userId: String,
-    onBack: () -> Unit,
     viewModel: ProfileViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -131,14 +129,6 @@ fun ProfileScreen(
                     }
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Back")
         }
     }
 }

@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseUser
+import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.preferences.MatchModePreferences
 import com.rpsonline.app.data.repository.AuthRepository
+import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.MatchMode
@@ -26,6 +28,10 @@ data class HomeUiState(
     val profile: UserProfile? = null,
     val onlinePlayerCount: Int? = null,
     val selectedMatchModes: Set<MatchMode> = MatchMode.DEFAULT_SELECTION,
+    val activeMatchId: String? = null,
+    val isInQueue: Boolean = false,
+    val queueElapsedSeconds: Long = 0,
+    val matchmakingError: String? = null,
     val error: String? = null,
 )
 
@@ -33,6 +39,7 @@ class HomeViewModel(
     private val authRepository: AuthRepository = AuthRepository(),
     private val userRepository: UserRepository = UserRepository(),
     private val presenceRepository: PresenceRepository = PresenceRepository(),
+    private val matchRepository: MatchRepository = MatchRepository(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -40,6 +47,13 @@ class HomeViewModel(
 
     private var presenceJob: Job? = null
     private var profileJob: Job? = null
+    private var activeMatchJob: Job? = null
+    private var queueObserveJob: Job? = null
+    private var queueTimerJob: Job? = null
+    private var awaitingMatchFromQueue = false
+
+    private val _navigateToGameMatchId = MutableStateFlow<String?>(null)
+    val navigateToGameMatchId: StateFlow<String?> = _navigateToGameMatchId.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -53,8 +67,23 @@ class HomeViewModel(
                 profileJob = null
                 if (user == null) {
                     stopPresenceHeartbeat()
+                    activeMatchJob?.cancel()
+                    activeMatchJob = null
+                    queueObserveJob?.cancel()
+                    queueObserveJob = null
+                    stopQueueTimer()
+                    awaitingMatchFromQueue = false
+                    _navigateToGameMatchId.value = null
                     _uiState.update {
-                        it.copy(isLoading = false, profile = null, onlinePlayerCount = null)
+                        it.copy(
+                            isLoading = false,
+                            profile = null,
+                            onlinePlayerCount = null,
+                            activeMatchId = null,
+                            isInQueue = false,
+                            queueElapsedSeconds = 0,
+                            matchmakingError = null,
+                        )
                     }
                 } else {
                     if (_uiState.value.profile == null) {
@@ -70,6 +99,99 @@ class HomeViewModel(
                         }
                     }
                     refresh(user)
+                    observeActiveMatch()
+                    observeQueue()
+                }
+            }
+        }
+    }
+
+    fun startMatchmaking(context: Context, matchModes: Set<MatchMode>) {
+        if (_uiState.value.isInQueue || _uiState.value.activeMatchId != null) return
+        MatchModePreferences(context).set(matchModes)
+        awaitingMatchFromQueue = true
+        _uiState.update { it.copy(selectedMatchModes = matchModes, matchmakingError = null) }
+        viewModelScope.launch {
+            try {
+                val immediateMatchId = matchRepository.joinQueue(matchModes)
+                if (immediateMatchId != null) {
+                    awaitingMatchFromQueue = false
+                    _navigateToGameMatchId.value = immediateMatchId
+                    return@launch
+                }
+            } catch (e: Exception) {
+                awaitingMatchFromQueue = false
+                _uiState.update {
+                    it.copy(matchmakingError = e.message ?: "Matchmaking failed")
+                }
+            }
+        }
+    }
+
+    fun leaveQueue() {
+        awaitingMatchFromQueue = false
+        viewModelScope.launch {
+            try {
+                matchRepository.leaveQueue()
+            } catch (_: Exception) {
+            } finally {
+                _uiState.update {
+                    it.copy(isInQueue = false, queueElapsedSeconds = 0, matchmakingError = null)
+                }
+            }
+        }
+    }
+
+    fun consumeNavigateToGameMatch() {
+        _navigateToGameMatchId.value = null
+    }
+
+    private fun observeQueue() {
+        queueObserveJob?.cancel()
+        queueObserveJob = viewModelScope.launch {
+            matchRepository.observeQueue().collect { joinedAtMs ->
+                if (joinedAtMs == null) {
+                    stopQueueTimer()
+                    _uiState.update {
+                        it.copy(isInQueue = false, queueElapsedSeconds = 0)
+                    }
+                } else {
+                    awaitingMatchFromQueue = true
+                    _uiState.update { it.copy(isInQueue = true, matchmakingError = null) }
+                    startQueueTimer(joinedAtMs)
+                }
+            }
+        }
+    }
+
+    private fun startQueueTimer(joinedAtMs: Long) {
+        queueTimerJob?.cancel()
+        queueTimerJob = viewModelScope.launch {
+            while (isActive) {
+                val elapsed = ((System.currentTimeMillis() - joinedAtMs) / 1_000).coerceAtLeast(0)
+                _uiState.update { it.copy(queueElapsedSeconds = elapsed, isInQueue = true) }
+                delay(1_000)
+            }
+        }
+    }
+
+    private fun stopQueueTimer() {
+        queueTimerJob?.cancel()
+        queueTimerJob = null
+    }
+
+    private fun observeActiveMatch() {
+        activeMatchJob?.cancel()
+        activeMatchJob = viewModelScope.launch {
+            matchRepository.observeActiveMatch().collect { match ->
+                val activeMatchId = match?.id.takeIf { match?.status == MatchStatus.ACTIVE }
+                _uiState.update { it.copy(activeMatchId = activeMatchId) }
+                if (
+                    match?.status == MatchStatus.ACTIVE &&
+                    (awaitingMatchFromQueue || _uiState.value.isInQueue)
+                ) {
+                    awaitingMatchFromQueue = false
+                    _navigateToGameMatchId.value = match.id
                 }
             }
         }
@@ -92,6 +214,7 @@ class HomeViewModel(
     }
 
     fun toggleMatchMode(context: Context, mode: MatchMode) {
+        if (_uiState.value.isInQueue) return
         val current = _uiState.value.selectedMatchModes
         val updated = MatchMode.toggleInSelection(current, mode)
         MatchModePreferences(context).set(updated)
@@ -160,8 +283,14 @@ class HomeViewModel(
     }
 
     fun signOut(context: Context) {
+        awaitingMatchFromQueue = false
+        _navigateToGameMatchId.value = null
         viewModelScope.launch {
             stopPresenceHeartbeat()
+            try {
+                matchRepository.leaveQueue()
+            } catch (_: Exception) {
+            }
             authRepository.currentUserId?.let { uid ->
                 presenceRepository.clearPresence(uid)
             }
@@ -178,6 +307,9 @@ class HomeViewModel(
 
     override fun onCleared() {
         profileJob?.cancel()
+        activeMatchJob?.cancel()
+        queueObserveJob?.cancel()
+        stopQueueTimer()
         stopPresenceHeartbeat()
         super.onCleared()
     }

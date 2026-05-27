@@ -59,20 +59,13 @@ fun WaitingForOpponentCard(
                         contentDescription = if (revealed) {
                             "Your move: $moveLabel"
                         } else {
-                            "Your move hidden. Tap to reveal."
+                            "Your move hidden"
                         }
                     },
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
-            if (!revealed) {
-                Text(
-                    text = "Tap to reveal",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f),
-                )
-            }
             Spacer(modifier = Modifier.height(4.dp))
             CircularProgressIndicator(
                 modifier = Modifier.size(32.dp),

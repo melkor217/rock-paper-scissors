@@ -23,12 +23,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,7 +44,6 @@ import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.util.ClockTickPlayer
 import com.rpsonline.app.ui.util.MoveSoundPlayer
 import com.rpsonline.app.ui.LocalClockSoundMuted
 import com.rpsonline.app.viewmodel.GameViewModel
@@ -54,7 +53,6 @@ import com.rpsonline.app.viewmodel.RoundResolutionSound
 fun GameScreen(
     matchId: String,
     onMatchComplete: (String) -> Unit,
-    onMatchAbandoned: () -> Unit,
     viewModel: GameViewModel = viewModel(factory = GameViewModel.factory(matchId)),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -63,8 +61,7 @@ fun GameScreen(
 
     LaunchedEffect(match?.status, match?.id) {
         when (match?.status) {
-            MatchStatus.COMPLETED -> onMatchComplete(matchId)
-            MatchStatus.ABANDONED -> onMatchAbandoned()
+            MatchStatus.COMPLETED, MatchStatus.ABANDONED -> onMatchComplete(matchId)
             else -> Unit
         }
     }
@@ -79,14 +76,7 @@ fun GameScreen(
     ) {
         if (match == null || userId == null) {
             RpsLoadingColumn(modifier = Modifier.weight(1f))
-            return
-        }
-
-        val myClockRunning = match.status == MatchStatus.ACTIVE &&
-            match.openRound() != null &&
-            !uiState.hasSubmittedMove &&
-            uiState.myClockSeconds != null
-        MyClockTickEffect(isRunning = myClockRunning)
+        } else {
         RoundResolutionSoundEffect(viewModel = viewModel)
 
         val currentRound = match.currentRoundData()
@@ -248,6 +238,7 @@ fun GameScreen(
                         Text(
                             text = prompt,
                             style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
                     }
@@ -260,13 +251,15 @@ fun GameScreen(
                 }
             }
         }
+        }
     }
 }
 
 @Composable
 private fun RoundResolutionSoundEffect(viewModel: GameViewModel) {
+    val context = LocalContext.current
     val soundMuted = LocalClockSoundMuted.current
-    val moveSoundPlayer = remember { MoveSoundPlayer() }
+    val moveSoundPlayer = remember(context) { MoveSoundPlayer(context) }
 
     DisposableEffect(Unit) {
         onDispose { moveSoundPlayer.release() }
@@ -277,24 +270,6 @@ private fun RoundResolutionSoundEffect(viewModel: GameViewModel) {
             if (!soundMuted) {
                 moveSoundPlayer.play(sound.move, sound.repetitions)
             }
-        }
-    }
-}
-
-@Composable
-private fun MyClockTickEffect(isRunning: Boolean) {
-    val clockSoundMuted = LocalClockSoundMuted.current
-    val tickPlayer = remember { ClockTickPlayer() }
-
-    DisposableEffect(Unit) {
-        onDispose { tickPlayer.release() }
-    }
-
-    LaunchedEffect(isRunning, clockSoundMuted) {
-        if (!isRunning || clockSoundMuted) return@LaunchedEffect
-        while (true) {
-            tickPlayer.playTick()
-            delay(500)
         }
     }
 }

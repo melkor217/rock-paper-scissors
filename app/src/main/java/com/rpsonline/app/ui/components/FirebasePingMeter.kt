@@ -30,8 +30,9 @@ fun FirebasePingMeter(
 
     Row(
         modifier = modifier
+            .height(48.dp)
             .semantics { contentDescription = description }
-            .padding(end = 2.dp),
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {

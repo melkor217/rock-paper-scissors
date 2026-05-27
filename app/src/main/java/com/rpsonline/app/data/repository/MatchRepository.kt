@@ -52,6 +52,7 @@ class MatchRepository(
         firestore.collection("queue").document(userId).set(
             mapOf(
                 "joinedAt" to FieldValue.serverTimestamp(),
+                "clientJoinedAt" to System.currentTimeMillis(),
                 "elo" to elo,
                 "displayName" to displayName,
                 "matchModes" to matchModes.map { it.name },
@@ -63,6 +64,29 @@ class MatchRepository(
 
     suspend fun leaveQueue() {
         firestore.collection("queue").document(uid).delete().await()
+    }
+
+    fun observeQueue(): Flow<Long?> = callbackFlow {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            trySend(null)
+            close()
+            return@callbackFlow
+        }
+
+        val listener = firestore.collection("queue").document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) {
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+                val joinedAtMs = snapshot.getTimestamp("joinedAt")?.toDate()?.time
+                    ?: snapshot.getLong("clientJoinedAt")
+                    ?: System.currentTimeMillis()
+                trySend(joinedAtMs)
+            }
+
+        awaitClose { listener.remove() }
     }
 
     suspend fun requestRoundTimeout(matchId: String, roundNumber: Int) {

@@ -23,10 +23,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -38,17 +42,20 @@ import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
+import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.matchmaking.formatQueueTime
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
 
 @Composable
 fun HomeScreen(
-    onFindMatch: (Set<MatchMode>) -> Unit,
+    onReconnectToGame: (String) -> Unit,
     onLeaderboard: () -> Unit,
     onProfile: () -> Unit,
     onChangelog: () -> Unit,
+    autoStartMatchModes: Set<MatchMode>? = null,
     viewModel: HomeViewModel = viewModel(),
     updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
@@ -65,6 +72,14 @@ fun HomeScreen(
     LifecycleResumeEffect(Unit) {
         viewModel.refresh()
         onPauseOrDispose { }
+    }
+
+    var autoMatchmakingStarted by remember(autoStartMatchModes) { mutableStateOf(false) }
+    LaunchedEffect(autoStartMatchModes) {
+        if (autoStartMatchModes != null && !autoMatchmakingStarted) {
+            autoMatchmakingStarted = true
+            viewModel.startMatchmaking(context, autoStartMatchModes)
+        }
     }
 
     AppUpdateDialogs(
@@ -112,6 +127,8 @@ fun HomeScreen(
 
         val profile = uiState.profile
         val selectedModes = uiState.selectedMatchModes
+        val activeMatchId = uiState.activeMatchId
+        val matchModesLocked = uiState.isInQueue
 
         Text(
             text = "Welcome, ${profile?.displayName ?: DisplayNames.DEFAULT}",
@@ -159,6 +176,7 @@ fun HomeScreen(
                             .weight(1f)
                             .toggleable(
                                 value = selected,
+                                enabled = !matchModesLocked,
                                 role = Role.Checkbox,
                                 onValueChange = { viewModel.toggleMatchMode(context, mode) },
                             )
@@ -169,39 +187,91 @@ fun HomeScreen(
                         Checkbox(
                             checked = selected,
                             onCheckedChange = null,
+                            enabled = !matchModesLocked,
                             colors = CheckboxDefaults.colors(
                                 checkedColor = MaterialTheme.colorScheme.primary,
                                 uncheckedColor = MaterialTheme.colorScheme.outline,
                                 checkmarkColor = MaterialTheme.colorScheme.onPrimary,
                                 disabledUncheckedColor = MaterialTheme.colorScheme.outline,
+                                disabledCheckedColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
                             ),
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = mode.label,
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = if (matchModesLocked) {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
                         )
                     }
                 }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = { onFindMatch(selectedModes) },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Find Match")
+
+        uiState.matchmakingError?.let { error ->
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
-        Spacer(modifier = Modifier.height(8.dp))
+
+        if (uiState.isInQueue && activeMatchId == null) {
+            HomeQueueStatusCard(queueElapsedSeconds = uiState.queueElapsedSeconds)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        when {
+            activeMatchId != null -> {
+                Button(
+                    onClick = { onReconnectToGame(activeMatchId) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                ) {
+                    Text(
+                        text = "Reconnect to Game",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+            }
+            uiState.isInQueue -> {
+                OutlinedButton(
+                    onClick = { viewModel.leaveQueue() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Leave Queue")
+                }
+            }
+            else -> {
+                Button(
+                    onClick = { viewModel.startMatchmaking(context, selectedModes) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                ) {
+                    Text(
+                        text = "Find Match",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.weight(1f))
         OutlinedButton(
             onClick = onLeaderboard,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Leaderboard")
         }
-
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(8.dp))
 
         HomeAppInfoFooter(
             versionName = updateState.versionName,
@@ -223,6 +293,36 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Sign Out")
+        }
+    }
+}
+
+@Composable
+private fun HomeQueueStatusCard(queueElapsedSeconds: Long) {
+    RpsCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = "In queue",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = formatQueueTime(queueElapsedSeconds),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = "Finding an opponent…",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

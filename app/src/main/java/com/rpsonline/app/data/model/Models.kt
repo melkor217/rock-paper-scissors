@@ -130,10 +130,25 @@ data class Match(
         if (userId == player1) player2 else player1
 
     fun myWins(userId: String): Int =
-        if (userId == player1) player1Wins else player2Wins
+        if (scoreFromResolvedRounds()) {
+            roundWinsFor(userId)
+        } else {
+            if (userId == player1) player1Wins else player2Wins
+        }
 
     fun opponentWins(userId: String): Int =
-        if (userId == player1) player2Wins else player1Wins
+        if (scoreFromResolvedRounds()) {
+            roundWinsFor(opponentId(userId))
+        } else {
+            if (userId == player1) player2Wins else player1Wins
+        }
+
+    private fun scoreFromResolvedRounds(): Boolean =
+        status == MatchStatus.COMPLETED &&
+            (endReason == MatchEndReason.ROUND_TIMEOUT || endReason == MatchEndReason.CLOCK_TIMEOUT)
+
+    private fun roundWinsFor(playerId: String): Int =
+        rounds.count { it.resolvedAt != null && it.winner == playerId }
 
     fun myClockMs(userId: String): Long =
         if (userId == player1) player1ClockMs else player2ClockMs

@@ -5,6 +5,7 @@ import {
   calculateElo,
   parseMatchMode,
   parseMatchModes,
+  countRoundWins,
   pickSharedMatchMode,
   resolveRound,
   seriesOutcomeAfterRound,
@@ -42,6 +43,16 @@ describe("match modes", () => {
     assert.equal(winsToFinish("BO5"), 3);
     assert.equal(winsToFinish("BO10"), 6);
     assert.equal(bestOfRounds("BO10"), 10);
+  });
+
+  it("counts round wins for forfeit score display", () => {
+    const rounds = [
+      { resolvedAt: 1, winner: "p1" },
+      { resolvedAt: 2, winner: "tie" },
+      { resolvedAt: null, winner: undefined },
+    ];
+    assert.equal(countRoundWins(rounds, "p1"), 1);
+    assert.equal(countRoundWins(rounds, "p2"), 0);
   });
 
   it("BO10 series outcome after round 10", () => {
