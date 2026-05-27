@@ -44,7 +44,7 @@ class GitHubReleaseClient(
             val entries = parseReleaseList(body)
             ReleaseChangelogPage(
                 entries = entries,
-                hasMore = entries.size >= perPage,
+                hasMore = hasNextPage(connection),
             )
         } catch (_: Exception) {
             ReleaseChangelogPage(entries = emptyList(), hasMore = false)
@@ -87,6 +87,11 @@ class GitHubReleaseClient(
             setRequestProperty("Accept", "application/vnd.github+json")
             setRequestProperty("User-Agent", "RpsOnline-Android")
         }
+
+    private fun hasNextPage(connection: HttpURLConnection): Boolean {
+        val linkHeader = connection.getHeaderField("Link") ?: return false
+        return NEXT_PAGE_LINK_REGEX.containsMatchIn(linkHeader)
+    }
 
     fun fetchLatestRelease(installedVersionName: String): AppUpdateInfo? {
         var connection: HttpURLConnection? = null
@@ -167,5 +172,6 @@ class GitHubReleaseClient(
 
     companion object {
         const val RELEASES_PAGE_SIZE = 10
+        private val NEXT_PAGE_LINK_REGEX = Regex("""<[^>]+>;\s*rel="next"""")
     }
 }
