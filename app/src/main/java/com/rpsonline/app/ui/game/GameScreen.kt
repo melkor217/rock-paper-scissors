@@ -18,9 +18,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,7 +44,11 @@ import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.ui.util.ClockTickPlayer
+import com.rpsonline.app.ui.util.MoveSoundPlayer
+import com.rpsonline.app.ui.LocalClockSoundMuted
 import com.rpsonline.app.viewmodel.GameViewModel
+import com.rpsonline.app.viewmodel.RoundResolutionSound
 
 @Composable
 fun GameScreen(
@@ -74,6 +81,13 @@ fun GameScreen(
             RpsLoadingColumn(modifier = Modifier.weight(1f))
             return
         }
+
+        val myClockRunning = match.status == MatchStatus.ACTIVE &&
+            match.openRound() != null &&
+            !uiState.hasSubmittedMove &&
+            uiState.myClockSeconds != null
+        MyClockTickEffect(isRunning = myClockRunning)
+        RoundResolutionSoundEffect(viewModel = viewModel)
 
         val currentRound = match.currentRoundData()
         val drawReplay = match.pendingDrawReplay()
@@ -245,6 +259,42 @@ fun GameScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RoundResolutionSoundEffect(viewModel: GameViewModel) {
+    val soundMuted = LocalClockSoundMuted.current
+    val moveSoundPlayer = remember { MoveSoundPlayer() }
+
+    DisposableEffect(Unit) {
+        onDispose { moveSoundPlayer.release() }
+    }
+
+    LaunchedEffect(viewModel, soundMuted) {
+        viewModel.roundResolvedSound.collect { sound ->
+            if (!soundMuted) {
+                moveSoundPlayer.play(sound.move, sound.repetitions)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MyClockTickEffect(isRunning: Boolean) {
+    val clockSoundMuted = LocalClockSoundMuted.current
+    val tickPlayer = remember { ClockTickPlayer() }
+
+    DisposableEffect(Unit) {
+        onDispose { tickPlayer.release() }
+    }
+
+    LaunchedEffect(isRunning, clockSoundMuted) {
+        if (!isRunning || clockSoundMuted) return@LaunchedEffect
+        while (true) {
+            tickPlayer.playTick()
+            delay(500)
         }
     }
 }

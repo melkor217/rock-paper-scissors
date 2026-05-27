@@ -19,7 +19,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -29,7 +28,6 @@ import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.formatMatchModes
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.util.playMatchFoundSound
 import com.rpsonline.app.viewmodel.MatchmakingStatus
 import com.rpsonline.app.viewmodel.MatchmakingViewModel
 
@@ -41,7 +39,6 @@ fun MatchmakingScreen(
     viewModel: MatchmakingViewModel = viewModel(factory = MatchmakingViewModel.factory(matchModes)),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.startMatchmaking()
@@ -49,7 +46,6 @@ fun MatchmakingScreen(
 
     LaunchedEffect(uiState.status, uiState.matchId) {
         if (uiState.status == MatchmakingStatus.MATCHED && uiState.matchId != null) {
-            playMatchFoundSound(context.applicationContext)
             onMatchFound(uiState.matchId!!)
         }
     }
