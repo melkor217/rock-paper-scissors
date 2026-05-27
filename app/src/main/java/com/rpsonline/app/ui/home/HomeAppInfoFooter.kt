@@ -1,5 +1,6 @@
 package com.rpsonline.app.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,7 @@ fun HomeAppInfoFooter(
     updateMessage: String?,
     onCheckForUpdate: () -> Unit,
     onInstallUpdate: () -> Unit,
+    onVersionClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (versionName.isBlank() && !updatesEnabled) return
@@ -61,15 +63,14 @@ fun HomeAppInfoFooter(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Version $versionName",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (pendingUpdate != null) {
-                        MaterialTheme.colorScheme.onTertiaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                )
+                if (versionName.isNotBlank()) {
+                    Text(
+                        text = "Version $versionName",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable(onClick = onVersionClick),
+                    )
+                }
                 val statusText = when {
                     isDownloadingUpdate -> "Downloading update…"
                     pendingUpdate != null -> "v${pendingUpdate.versionLabel} is available"

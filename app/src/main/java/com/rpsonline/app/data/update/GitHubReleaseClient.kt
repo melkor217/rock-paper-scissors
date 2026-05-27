@@ -10,6 +10,32 @@ class GitHubReleaseClient(
     private val owner: String,
     private val repo: String,
 ) {
+    fun fetchReleaseNotesForVersion(versionName: String): String? {
+        val tag = ReleaseChangelog.tagForInstalledVersion(versionName)
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = (URL("https://api.github.com/repos/$owner/$repo/releases/tags/$tag")
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 5_000
+                readTimeout = 10_000
+                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("User-Agent", "RpsOnline-Android")
+            }
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                return null
+            }
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val releaseBody = JSONObject(body).optString("body").takeIf { it.isNotBlank() }
+                ?: return null
+            ReleaseChangelog.simplifyMarkdownForDisplay(releaseBody)
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
     fun fetchLatestRelease(installedVersionName: String): AppUpdateInfo? {
         var connection: HttpURLConnection? = null
         return try {

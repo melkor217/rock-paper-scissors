@@ -32,6 +32,9 @@ class AppUpdateRepository(
 
     fun currentVersionName(): String = BuildConfig.VERSION_NAME
 
+    fun fetchInstalledReleaseNotes(): String? =
+        releaseClient.fetchReleaseNotesForVersion(currentVersionName())
+
     fun shouldSkipAutoUpdateCheck(): Boolean {
         val lastCheckMs = prefs.getLong(KEY_LAST_AUTO_CHECK_NO_UPDATE_MS, 0L)
         if (lastCheckMs == 0L) return false
