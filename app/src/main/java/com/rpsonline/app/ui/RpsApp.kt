@@ -110,7 +110,7 @@ fun RpsApp() {
                         .windowInsetsPadding(
                             WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
                         )
-                        .padding(top = 2.dp, start = 4.dp, end = 4.dp),
+                        .padding(top = 6.dp, start = 4.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
