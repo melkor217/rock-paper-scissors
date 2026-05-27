@@ -29,6 +29,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:importantForAutofill="yes"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.RockPaperScissors">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

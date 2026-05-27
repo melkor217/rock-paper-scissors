@@ -19,11 +19,17 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import java.util.Date
 
 class MatchRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
 ) {
+    companion object {
+        /** Default per-side cap for time-bounded match queries (see [getRecentMatchesForUserSince]). */
+        const val DEFAULT_SINCE_MATCH_LIMIT = 200
+    }
+
     private val uid: String
         get() = auth.currentUser?.uid ?: error("Not signed in")
 
@@ -141,12 +147,85 @@ class MatchRepository(
             .get()
             .await()
 
-        return (asPlayer1.documents + asPlayer2.documents)
-            .map { it.toMatch(it.id) }
-            .filter { it.status == MatchStatus.COMPLETED || it.status == MatchStatus.ABANDONED }
-            .distinctBy { it.id }
-            .sortedByDescending { it.lastActivityAt }
-            .take(limit)
+        return mergeRecentMatches(asPlayer1.documents + asPlayer2.documents, limit)
+    }
+
+    suspend fun getRecentMatchesForUserSince(
+        userId: String,
+        sinceMs: Long,
+        limit: Int = MatchRepository.DEFAULT_SINCE_MATCH_LIMIT,
+    ): List<Match> {
+        val since = Timestamp(Date(sinceMs))
+        val perSide = limit.coerceAtLeast(1)
+        val asPlayer1 = firestore.collection("matches")
+            .whereEqualTo("player1", userId)
+            .whereGreaterThanOrEqualTo("lastActivityAt", since)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+        val asPlayer2 = firestore.collection("matches")
+            .whereEqualTo("player2", userId)
+            .whereGreaterThanOrEqualTo("lastActivityAt", since)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+
+        return mergeRecentMatches(asPlayer1.documents + asPlayer2.documents, limit)
+    }
+
+    /** Matches between [userId] and [opponentId], newest first. */
+    suspend fun getSharedMatchesBetween(
+        userId: String,
+        opponentId: String,
+        limit: Int = 10,
+    ): List<Match> {
+        val perSide = limit.coerceAtLeast(1)
+        val asPlayer1 = firestore.collection("matches")
+            .whereEqualTo("player1", userId)
+            .whereEqualTo("player2", opponentId)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+        val asPlayer2 = firestore.collection("matches")
+            .whereEqualTo("player1", opponentId)
+            .whereEqualTo("player2", userId)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+
+        return mergeRecentMatches(asPlayer1.documents + asPlayer2.documents, limit)
+    }
+
+    suspend fun getSharedMatchesBetweenSince(
+        userId: String,
+        opponentId: String,
+        sinceMs: Long,
+        limit: Int = DEFAULT_SINCE_MATCH_LIMIT,
+    ): List<Match> {
+        val since = Timestamp(Date(sinceMs))
+        val perSide = limit.coerceAtLeast(1)
+        val asPlayer1 = firestore.collection("matches")
+            .whereEqualTo("player1", userId)
+            .whereEqualTo("player2", opponentId)
+            .whereGreaterThanOrEqualTo("lastActivityAt", since)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+        val asPlayer2 = firestore.collection("matches")
+            .whereEqualTo("player1", opponentId)
+            .whereEqualTo("player2", userId)
+            .whereGreaterThanOrEqualTo("lastActivityAt", since)
+            .orderBy("lastActivityAt", Query.Direction.DESCENDING)
+            .limit(perSide.toLong())
+            .get()
+            .await()
+
+        return mergeRecentMatches(asPlayer1.documents + asPlayer2.documents, limit)
     }
 
     /** Matches the signed-in [viewerId] can read that also involve [opponentId]. */
@@ -154,13 +233,32 @@ class MatchRepository(
         viewerId: String,
         opponentId: String,
         limit: Int = 10,
-    ): List<Match> {
-        val poolSize = (limit * 3).coerceAtLeast(15)
-        return getRecentMatchesForUser(viewerId, limit = poolSize)
-            .filter { it.player1 == opponentId || it.player2 == opponentId }
-            .take(limit)
-    }
+    ): List<Match> = getSharedMatchesBetween(
+        userId = viewerId,
+        opponentId = opponentId,
+        limit = limit,
+    )
+
+    suspend fun getRecentSharedMatchesSince(
+        viewerId: String,
+        opponentId: String,
+        sinceMs: Long,
+        limit: Int = MatchRepository.DEFAULT_SINCE_MATCH_LIMIT,
+    ): List<Match> = getSharedMatchesBetweenSince(
+        userId = viewerId,
+        opponentId = opponentId,
+        sinceMs = sinceMs,
+        limit = limit,
+    )
 }
+
+private fun mergeRecentMatches(documents: List<DocumentSnapshot>, limit: Int): List<Match> =
+    documents
+        .map { it.toMatch(it.id) }
+        .filter { it.status == MatchStatus.COMPLETED || it.status == MatchStatus.ABANDONED }
+        .distinctBy { it.id }
+        .sortedByDescending { it.lastActivityAt }
+        .take(limit)
 
 @Suppress("UNCHECKED_CAST")
 internal fun DocumentSnapshot.toMatch(id: String): Match {

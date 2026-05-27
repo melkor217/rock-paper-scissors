@@ -1,5 +1,6 @@
 package com.rpsonline.app.ui.profile
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,10 +11,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -41,15 +45,35 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val listState = rememberLazyListState()
 
     LifecycleResumeEffect(userId) {
         viewModel.load(userId)
         onPauseOrDispose { }
     }
 
+    LaunchedEffect(
+        listState.firstVisibleItemIndex,
+        listState.layoutInfo.totalItemsCount,
+        uiState.hasMoreMatches,
+        uiState.isMatchHistoryLoading,
+        uiState.isLoadingMore,
+    ) {
+        if (!uiState.hasMoreMatches || uiState.isMatchHistoryLoading || uiState.isLoadingMore) return@LaunchedEffect
+        val layoutInfo = listState.layoutInfo
+        if (layoutInfo.totalItemsCount == 0) return@LaunchedEffect
+        val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+        if (lastVisibleIndex >= layoutInfo.totalItemsCount - 2) {
+            viewModel.loadMoreMatchHistory()
+        }
+    }
+
     Column(modifier = Modifier.rpsScreenPadding()) {
         Text(
-            text = uiState.profile?.displayName ?: "Profile",
+            text = profileTitle(
+                displayName = uiState.profile?.displayName,
+                isOwnProfile = uiState.isOwnProfile,
+            ),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -77,6 +101,7 @@ fun ProfileScreen(
             else -> {
                 val profile = uiState.profile
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -95,17 +120,13 @@ fun ProfileScreen(
                         )
                     }
                     item {
-                        Text(
-                            text = if (uiState.isOwnProfile) {
-                                "Last 10 matches"
-                            } else {
-                                "Matches you played together"
-                            },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
+                        WeeklyEloGainLossChart(
+                            days = uiState.weeklyEloChart,
+                            isLoading = uiState.isWeeklyChartLoading,
+                            sharedMatchesOnly = !uiState.isOwnProfile,
                         )
                     }
-                    if (uiState.isMatchHistoryLoading) {
+                    if (uiState.isMatchHistoryLoading && uiState.matchHistory.isEmpty()) {
                         item {
                             MatchHistoryLoadingSection()
                         }
@@ -127,6 +148,27 @@ fun ProfileScreen(
                             key = { it.matchId },
                         ) { entry ->
                             MatchHistoryCard(entry = entry)
+                        }
+                        if (uiState.isLoadingMore) {
+                            item(key = "loading_more_matches") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                        }
+                        uiState.matchHistoryError?.let { message ->
+                            item(key = "match_history_error") {
+                                Text(
+                                    text = message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
                     }
                 }
@@ -193,6 +235,12 @@ private fun MatchHistoryCard(
         }
     }
 }
+
+private fun profileTitle(displayName: String?, isOwnProfile: Boolean): String =
+    buildString {
+        append(displayName ?: "Profile")
+        if (isOwnProfile) append(" (you)")
+    }
 
 private fun matchOutcomeLabel(entry: MatchHistoryEntry): String = when {
     entry.isAbandoned -> "Cancelled"
