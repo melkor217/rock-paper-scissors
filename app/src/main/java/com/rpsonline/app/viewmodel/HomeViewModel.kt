@@ -154,12 +154,9 @@ class HomeViewModel(
             MatchSessionMonitor.queueJoinedAtMs.collect { joinedAtMs ->
                 if (joinedAtMs == null) {
                     stopQueueTimer()
-                    if (!_uiState.value.isInQueue &&
-                        (awaitingMatchFromQueue || _navigateToGameMatchId.value != null)
-                    ) {
+                    if (awaitingMatchFromQueue || _navigateToGameMatchId.value != null) {
                         return@collect
                     }
-                    awaitingMatchFromQueue = false
                     _uiState.update {
                         it.copy(isInQueue = false, queueElapsedSeconds = 0)
                     }
