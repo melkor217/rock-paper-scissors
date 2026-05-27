@@ -107,14 +107,10 @@ class ProfileViewModel(
                     ),
                 )
                 val historyMatches = matchPool.take(MATCH_HISTORY_PAGE_SIZE)
-                val historySubjectElo = if (isOwnProfile) {
-                    profile.elo
-                } else {
-                    userRepository.getUserProfile(viewerId)?.elo ?: 1000
-                }
+                // Chart and match history both use the profile subject's perspective (userId).
                 val history = enrichMatchHistoryWithOpponentElos(
-                    viewerId = viewerId,
-                    myCurrentElo = historySubjectElo,
+                    viewerId = userId,
+                    myCurrentElo = profile.elo,
                     matches = historyMatches,
                 )
                 loadedUserId = userId
@@ -171,14 +167,9 @@ class ProfileViewModel(
                     profileUserId = userId,
                     limit = nextLimit,
                 )
-                val historySubjectElo = if (state.isOwnProfile) {
-                    profile.elo
-                } else {
-                    userRepository.getUserProfile(currentViewerId)?.elo ?: 1000
-                }
                 val history = enrichMatchHistoryWithOpponentElos(
-                    viewerId = currentViewerId,
-                    myCurrentElo = historySubjectElo,
+                    viewerId = userId,
+                    myCurrentElo = profile.elo,
                     matches = matches,
                 )
                 _uiState.update {
