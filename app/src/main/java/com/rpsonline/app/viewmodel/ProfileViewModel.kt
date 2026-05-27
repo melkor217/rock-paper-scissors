@@ -8,6 +8,9 @@ import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.enrichMatchHistoryWithOpponentElos
+import com.rpsonline.app.domain.DailyEloDelta
+import com.rpsonline.app.domain.weeklyEloDailyDeltas
+import com.rpsonline.app.domain.weeklyChartWindowStartMs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,8 +22,12 @@ import kotlinx.coroutines.launch
 data class ProfileUiState(
     val isLoading: Boolean = true,
     val isMatchHistoryLoading: Boolean = true,
+    val isWeeklyChartLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
     val profile: UserProfile? = null,
     val matchHistory: List<MatchHistoryEntry> = emptyList(),
+    val weeklyEloChart: List<DailyEloDelta> = emptyList(),
+    val hasMoreMatches: Boolean = true,
     val isOwnProfile: Boolean = true,
     val error: String? = null,
 )
@@ -36,10 +43,13 @@ class ProfileViewModel(
 
     private var loadJob: Job? = null
     private var profileJob: Job? = null
+    private var loadMoreJob: Job? = null
     private var loadedUserId: String? = null
+    private var cachedViewerId: String? = null
 
     fun load(userId: String) {
         loadJob?.cancel()
+        loadMoreJob?.cancel()
         profileJob?.cancel()
         profileJob = viewModelScope.launch {
             userRepository.observeUserProfile(userId).collect { profile ->
@@ -56,6 +66,7 @@ class ProfileViewModel(
                     ProfileUiState(
                         isLoading = true,
                         isMatchHistoryLoading = true,
+                        isWeeklyChartLoading = true,
                         isOwnProfile = userId == authRepository.currentUserId,
                     )
                 }
@@ -64,6 +75,7 @@ class ProfileViewModel(
                     it.copy(
                         isLoading = showFullScreenLoading,
                         isMatchHistoryLoading = true,
+                        isWeeklyChartLoading = true,
                         error = null,
                     )
                 }
@@ -74,18 +86,47 @@ class ProfileViewModel(
                 val profile = userRepository.getUserProfile(userId)
                     ?: throw IllegalStateException("Player not found")
                 val isOwnProfile = userId == viewerId
+                cachedViewerId = viewerId
+                val sinceMs = weeklyChartWindowStartMs()
+                val weeklyMatches = if (isOwnProfile) {
+                    matchRepository.getRecentMatchesForUserSince(
+                        userId = viewerId,
+                        sinceMs = sinceMs,
+                    )
+                } else {
+                    matchRepository.getRecentSharedMatchesSince(
+                        viewerId = viewerId,
+                        opponentId = userId,
+                        sinceMs = sinceMs,
+                    )
+                }
+                val weeklyEloChart = weeklyEloDailyDeltas(
+                    enrichMatchHistoryWithOpponentElos(
+                        viewerId = userId,
+                        myCurrentElo = profile.elo,
+                        matches = weeklyMatches,
+                    ),
+                )
                 val matches = if (isOwnProfile) {
-                    matchRepository.getRecentMatchesForUser(viewerId, limit = 10)
+                    matchRepository.getRecentMatchesForUser(
+                        userId = viewerId,
+                        limit = MATCH_HISTORY_PAGE_SIZE,
+                    )
                 } else {
                     matchRepository.getRecentSharedMatches(
                         viewerId = viewerId,
                         opponentId = userId,
-                        limit = 10,
+                        limit = MATCH_HISTORY_PAGE_SIZE,
                     )
+                }
+                val historySubjectElo = if (isOwnProfile) {
+                    profile.elo
+                } else {
+                    userRepository.getUserProfile(viewerId)?.elo ?: 1000
                 }
                 val history = enrichMatchHistoryWithOpponentElos(
                     viewerId = viewerId,
-                    myCurrentElo = profile.elo,
+                    myCurrentElo = historySubjectElo,
                     matches = matches,
                 )
                 loadedUserId = userId
@@ -93,8 +134,12 @@ class ProfileViewModel(
                     it.copy(
                         isLoading = false,
                         isMatchHistoryLoading = false,
+                        isWeeklyChartLoading = false,
+                        isLoadingMore = false,
                         profile = profile,
                         matchHistory = history,
+                        weeklyEloChart = weeklyEloChart,
+                        hasMoreMatches = matches.size >= MATCH_HISTORY_PAGE_SIZE,
                         isOwnProfile = isOwnProfile,
                     )
                 }
@@ -103,6 +148,8 @@ class ProfileViewModel(
                     it.copy(
                         isLoading = false,
                         isMatchHistoryLoading = false,
+                        isWeeklyChartLoading = false,
+                        isLoadingMore = false,
                         error = e.message ?: "Failed to load profile",
                     )
                 }
@@ -110,9 +157,68 @@ class ProfileViewModel(
         }
     }
 
+    fun loadMoreMatchHistory() {
+        val userId = loadedUserId ?: return
+        val currentViewerId = cachedViewerId ?: return
+        val state = _uiState.value
+        if (
+            state.isMatchHistoryLoading ||
+            state.isLoadingMore ||
+            !state.hasMoreMatches ||
+            state.profile == null
+        ) {
+            return
+        }
+
+        loadMoreJob?.cancel()
+        loadMoreJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            try {
+                val profile = state.profile ?: return@launch
+                val nextLimit = state.matchHistory.size + MATCH_HISTORY_PAGE_SIZE
+                val matches = if (state.isOwnProfile) {
+                    matchRepository.getRecentMatchesForUser(
+                        userId = currentViewerId,
+                        limit = nextLimit,
+                    )
+                } else {
+                    matchRepository.getRecentSharedMatches(
+                        viewerId = currentViewerId,
+                        opponentId = userId,
+                        limit = nextLimit,
+                    )
+                }
+                val historySubjectElo = if (state.isOwnProfile) {
+                    profile.elo
+                } else {
+                    userRepository.getUserProfile(currentViewerId)?.elo ?: 1000
+                }
+                val history = enrichMatchHistoryWithOpponentElos(
+                    viewerId = currentViewerId,
+                    myCurrentElo = historySubjectElo,
+                    matches = matches,
+                )
+                _uiState.update {
+                    it.copy(
+                        isLoadingMore = false,
+                        matchHistory = history,
+                        hasMoreMatches = matches.size >= nextLimit,
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(isLoadingMore = false) }
+            }
+        }
+    }
+
     override fun onCleared() {
         loadJob?.cancel()
+        loadMoreJob?.cancel()
         profileJob?.cancel()
         super.onCleared()
+    }
+
+    private companion object {
+        const val MATCH_HISTORY_PAGE_SIZE = 10
     }
 }
