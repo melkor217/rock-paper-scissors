@@ -9,16 +9,10 @@ import { FieldPath } from "firebase-admin/firestore";
 import * as fs from "fs";
 import * as path from "path";
 
-type MatchResolution = "player1_win" | "player2_win" | "draw" | "abandoned";
-
-type MatchDoc = {
-  player1?: string;
-  player2?: string;
-  status?: string;
-  winnerId?: string;
-  player1Wins?: number;
-  player2Wins?: number;
-  resolution?: MatchResolution;
+// Shared with functions/src/game.ts (compiled to lib/game.js).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { inferMatchResolution } = require("../game") as {
+  inferMatchResolution: (data: Record<string, unknown>) => string | null;
 };
 
 const MATCHES_COLLECTION = "matches";
@@ -40,28 +34,6 @@ function resolveProjectId(): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function inferResolution(data: MatchDoc): MatchResolution | null {
-  const status = data.status;
-  if (status === "abandoned") return "abandoned";
-  if (status !== "completed") return null;
-
-  const player1 = data.player1;
-  const player2 = data.player2;
-  if (!player1 || !player2) return null;
-
-  const winnerId = data.winnerId;
-  const player1Wins = Number(data.player1Wins ?? 0);
-  const player2Wins = Number(data.player2Wins ?? 0);
-
-  if (winnerId === player1) return "player1_win";
-  if (winnerId === player2) return "player2_win";
-  if (winnerId != null) return null;
-
-  if (player1Wins === player2Wins) return "draw";
-  if (player1Wins > player2Wins) return "player1_win";
-  return "player2_win";
 }
 
 async function main() {
@@ -92,13 +64,13 @@ async function main() {
 
     for (const doc of page.docs) {
       scanned += 1;
-      const data = doc.data() as MatchDoc;
+      const data = doc.data();
       if (data.resolution) {
         skipped += 1;
         continue;
       }
 
-      const resolution = inferResolution(data);
+      const resolution = inferMatchResolution(data);
       if (!resolution) {
         unresolved += 1;
         console.warn(`[skip] ${doc.id}: status=${data.status} winnerId=${data.winnerId ?? "null"}`);

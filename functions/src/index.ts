@@ -14,6 +14,8 @@ import {
   resolveRound,
   seriesOutcomeAfterRound,
   countRoundWins,
+  matchResolutionForWinner,
+  type MatchResolution,
 } from "./game";
 import {
   applyClockIncrement,
@@ -349,11 +351,6 @@ async function abandonMatch(
 }
 
 type MatchEndReason = "normal" | "round_timeout" | "clock_timeout";
-type MatchResolution = "player1_win" | "player2_win" | "draw" | "abandoned";
-
-function matchResolutionForWinner(match: MatchDoc, winnerId: string): MatchResolution {
-  return winnerId === match.player1 ? "player1_win" : "player2_win";
-}
 
 async function finalizeMatch(
   matchRef: FirebaseFirestore.DocumentReference,
@@ -385,7 +382,7 @@ async function finalizeMatch(
     status: "completed",
     winnerId,
     endReason,
-    resolution: matchResolutionForWinner(match, winnerId),
+    resolution: matchResolutionForWinner(match.player1, winnerId),
     player1Wins,
     player2Wins,
     rounds: sanitizeRounds(match.rounds),

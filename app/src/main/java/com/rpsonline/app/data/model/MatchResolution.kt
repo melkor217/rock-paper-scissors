@@ -1,6 +1,7 @@
 package com.rpsonline.app.data.model
 
 /** How a finished match was resolved (stored on the match document). */
+// Server-side canonical inference lives in functions/src/game.ts (`inferMatchResolution`).
 enum class MatchResolution {
     PLAYER1_WIN,
     PLAYER2_WIN,

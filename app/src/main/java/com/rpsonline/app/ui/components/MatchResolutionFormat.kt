@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.ViewerMatchResolution
 
@@ -34,7 +35,7 @@ fun viewerMatchResolutionHeadline(resolution: ViewerMatchResolution?): String = 
     ViewerMatchResolution.LOSS -> "Defeat"
     ViewerMatchResolution.DRAW -> "Draw"
     ViewerMatchResolution.ABANDONED -> "Cancelled"
-    null -> "Defeat"
+    null -> "—"
 }
 
 fun viewerMatchResolutionSubtitle(resolution: ViewerMatchResolution?): String? = when (resolution) {
@@ -54,9 +55,10 @@ fun viewerMatchResolutionColor(resolution: ViewerMatchResolution): Color = when 
 @Composable
 fun viewerMatchResolutionHeadlineColor(resolution: ViewerMatchResolution?): Color = when (resolution) {
     ViewerMatchResolution.WIN -> MaterialTheme.colorScheme.primary
-    ViewerMatchResolution.LOSS, null -> MaterialTheme.colorScheme.error
+    ViewerMatchResolution.LOSS -> MaterialTheme.colorScheme.error
     ViewerMatchResolution.DRAW -> MaterialTheme.colorScheme.onTertiaryContainer
     ViewerMatchResolution.ABANDONED -> MaterialTheme.colorScheme.onSurfaceVariant
+    null -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 @Composable
@@ -123,7 +125,7 @@ fun MatchResolutionOutcomeHeader(
                 }
             }
         }
-        ViewerMatchResolution.WIN, ViewerMatchResolution.LOSS, null -> {
+        ViewerMatchResolution.WIN, ViewerMatchResolution.LOSS -> {
             Column(
                 modifier = modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -142,6 +144,15 @@ fun MatchResolutionOutcomeHeader(
                     )
                 }
             }
+        }
+        null -> {
+            Text(
+                text = viewerMatchResolutionHeadline(resolution),
+                modifier = modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.displaySmall,
+                color = viewerMatchResolutionHeadlineColor(resolution),
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

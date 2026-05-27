@@ -120,3 +120,41 @@ export function calculateElo(
 export function isValidMove(value: string): value is Move {
   return value === "ROCK" || value === "PAPER" || value === "SCISSORS";
 }
+
+export type MatchResolution = "player1_win" | "player2_win" | "draw" | "abandoned";
+
+export type MatchResolutionInput = {
+  status?: string;
+  player1?: string;
+  player2?: string;
+  winnerId?: string;
+  player1Wins?: number;
+  player2Wins?: number;
+};
+
+export function matchResolutionForWinner(player1: string, winnerId: string): MatchResolution {
+  return winnerId === player1 ? "player1_win" : "player2_win";
+}
+
+/** Infer stored match resolution from legacy match fields (backfill + consistency checks). */
+export function inferMatchResolution(data: MatchResolutionInput): MatchResolution | null {
+  const status = data.status;
+  if (status === "abandoned") return "abandoned";
+  if (status !== "completed") return null;
+
+  const player1 = data.player1;
+  const player2 = data.player2;
+  if (!player1 || !player2) return null;
+
+  const winnerId = data.winnerId;
+  const player1Wins = Number(data.player1Wins ?? 0);
+  const player2Wins = Number(data.player2Wins ?? 0);
+
+  if (winnerId === player1) return "player1_win";
+  if (winnerId === player2) return "player2_win";
+  if (winnerId != null) return null;
+
+  if (player1Wins === player2Wins) return "draw";
+  if (player1Wins > player2Wins) return "player1_win";
+  return "player2_win";
+}

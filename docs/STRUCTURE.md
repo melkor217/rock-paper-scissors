@@ -53,7 +53,7 @@ ViewModels load data via repositories (`AuthRepository`, `UserRepository`, `Matc
 | File | Role |
 |------|------|
 | `src/index.ts` | Firestore triggers, schedulers, match lifecycle |
-| `src/game.ts` | Move validation, round resolution, ELO math |
+| `src/game.ts` | Move validation, round resolution, ELO math, match resolution inference |
 | `src/game.test.ts` | Unit tests for game logic |
 
 ### Cloud Functions (triggers)
@@ -85,6 +85,7 @@ Security: [firestore.rules](../firestore.rules) — users cannot write `matches`
 One-off migrations (require ADC; use `--dry-run` first):
 - `users.lastSeen`: `./scripts/backfill-user-last-seen.sh`
 - Move timing (5s per historical move): `./scripts/backfill-move-timing.sh`
+- Match `resolution` field: `./scripts/backfill-match-resolution.sh`
 
 ## Rules kept in sync
 
