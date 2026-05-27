@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
   calculateElo,
@@ -961,6 +962,14 @@ export const resolveTimedOutRounds = onSchedule(
   }
   },
 );
+
+/** Lightweight RTT probe for in-app connection meter (requires auth). */
+export const ping = onCall({ region: REGION }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  return { serverTimeMs: Date.now() };
+});
 
 export const cleanupStale = onSchedule(
   { schedule: "every 5 minutes", region: REGION },
