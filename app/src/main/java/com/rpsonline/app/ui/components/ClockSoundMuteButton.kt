@@ -29,7 +29,7 @@ fun ClockSoundMuteButton(
             imageVector = if (muted) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeUp,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(24.dp),
         )
     }
 }

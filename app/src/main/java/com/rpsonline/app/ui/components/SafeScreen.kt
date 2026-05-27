@@ -20,4 +20,4 @@ fun Modifier.rpsScreenPadding(): Modifier =
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
             ),
         )
-        .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 60.dp)
+        .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 44.dp)

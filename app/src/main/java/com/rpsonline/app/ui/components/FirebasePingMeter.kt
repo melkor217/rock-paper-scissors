@@ -30,11 +30,11 @@ fun FirebasePingMeter(
 
     Row(
         modifier = modifier
-            .height(52.dp)
+            .height(36.dp)
             .semantics { contentDescription = description }
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         PingBars(
             activeBars = activeBars,
@@ -56,9 +56,9 @@ private fun PingBars(
     inactiveColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val heights = listOf(7.dp, 9.dp, 12.dp, 14.dp)
+    val heights = listOf(4.dp, 6.dp, 8.dp, 10.dp)
     Row(
-        modifier = modifier.height(16.dp),
+        modifier = modifier.height(11.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {

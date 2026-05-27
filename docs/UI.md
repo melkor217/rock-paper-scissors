@@ -29,7 +29,7 @@ Navigation is defined in `navigation/NavGraph.kt` (`RpsNavGraph`, `Routes`).
 | `RpsApp` | `ui/RpsApp.kt` | Wraps `RpsNavGraph` in `RpsTheme`; overlays `AppearanceMenuButton` (top-end) |
 | `RpsNavGraph` | `navigation/NavGraph.kt` | `NavHost`, auth redirect, route wiring |
 | `RpsTheme` | `ui/theme/Theme.kt` | Material 3 color scheme from `AppThemeStyle` |
-| Screen padding | `ui/components/SafeScreen.kt` | `Modifier.rpsScreenPadding()` — safe drawing insets + top space for appearance button |
+| Screen padding | `ui/components/SafeScreen.kt` | `Modifier.rpsScreenPadding()` — safe drawing insets + top space for global overlay (ping, sound, appearance) |
 
 ## Navigation
 
