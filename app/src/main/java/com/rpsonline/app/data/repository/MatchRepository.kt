@@ -66,27 +66,9 @@ class MatchRepository(
         firestore.collection("queue").document(uid).delete().await()
     }
 
-    fun observeQueue(): Flow<Long?> = callbackFlow {
-        val userId = auth.currentUser?.uid
-        if (userId == null) {
-            trySend(null)
-            close()
-            return@callbackFlow
-        }
-
-        val listener = firestore.collection("queue").document(userId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null || !snapshot.exists()) {
-                    trySend(null)
-                    return@addSnapshotListener
-                }
-                val joinedAtMs = snapshot.getTimestamp("joinedAt")?.toDate()?.time
-                    ?: snapshot.getLong("clientJoinedAt")
-                    ?: System.currentTimeMillis()
-                trySend(joinedAtMs)
-            }
-
-        awaitClose { listener.remove() }
+    fun observeQueue(): Flow<Long?> {
+        MatchSessionMonitor.ensureStarted()
+        return MatchSessionMonitor.queueJoinedAtMs
     }
 
     suspend fun requestRoundTimeout(matchId: String, roundNumber: Int) {
@@ -134,44 +116,9 @@ class MatchRepository(
         awaitClose { listener.remove() }
     }
 
-    fun observeActiveMatch(): Flow<Match?> = callbackFlow {
-        val userId = auth.currentUser?.uid
-        if (userId == null) {
-            trySend(null)
-            close()
-            return@callbackFlow
-        }
-
-        var matchListener: com.google.firebase.firestore.ListenerRegistration? = null
-
-        val userListener = firestore.collection("users").document(userId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    trySend(null)
-                    return@addSnapshotListener
-                }
-
-                matchListener?.remove()
-                val matchId = snapshot?.getString("activeMatchId")
-                if (matchId.isNullOrBlank()) {
-                    trySend(null)
-                    return@addSnapshotListener
-                }
-
-                matchListener = firestore.collection("matches").document(matchId)
-                    .addSnapshotListener { matchSnapshot, matchError ->
-                        if (matchError != null) {
-                            trySend(null)
-                            return@addSnapshotListener
-                        }
-                        trySend(matchSnapshot?.toMatch(matchId))
-                    }
-            }
-
-        awaitClose {
-            userListener.remove()
-            matchListener?.remove()
-        }
+    fun observeActiveMatch(): Flow<Match?> {
+        MatchSessionMonitor.ensureStarted()
+        return MatchSessionMonitor.activeMatch
     }
 
     suspend fun getMatch(matchId: String): Match? {
@@ -216,7 +163,7 @@ class MatchRepository(
 }
 
 @Suppress("UNCHECKED_CAST")
-private fun DocumentSnapshot.toMatch(id: String): Match {
+internal fun DocumentSnapshot.toMatch(id: String): Match {
     val roundsData = get("rounds") as? List<Map<String, Any?>> ?: emptyList()
     val rounds = roundsData.map { map ->
         RoundResult(

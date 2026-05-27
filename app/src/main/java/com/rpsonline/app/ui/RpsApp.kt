@@ -5,13 +5,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -27,10 +30,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.repository.AuthRepository
-import com.rpsonline.app.data.repository.MatchRepository
+import com.rpsonline.app.data.repository.MatchSessionMonitor
 import com.rpsonline.app.data.monitoring.FirebaseConnectionMonitor
 import com.rpsonline.app.data.preferences.AppThemeStyle
 import com.rpsonline.app.data.preferences.SoundPreferences
@@ -39,16 +43,18 @@ import com.rpsonline.app.navigation.RpsNavGraph
 import com.rpsonline.app.ui.components.AppearanceMenuButton
 import com.rpsonline.app.ui.components.ClockSoundMuteButton
 import com.rpsonline.app.ui.components.FirebasePingMeter
-import com.rpsonline.app.ui.matchmaking.formatQueueTime
+import com.rpsonline.app.ui.util.applyImmersiveFullscreen
+import com.rpsonline.app.ui.util.findActivity
+import com.rpsonline.app.ui.util.formatQueueTime
 import com.rpsonline.app.ui.theme.RpsTheme
 import com.rpsonline.app.ui.util.ClockTickPlayer
 import com.rpsonline.app.ui.util.MoveSoundPlayer
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 fun RpsApp() {
     val context = LocalContext.current
+    val activity = context.findActivity()
     val themePreferences = remember { ThemePreferences(context) }
     val soundPreferences = remember { SoundPreferences(context) }
     var themeStyle by remember { mutableStateOf(themePreferences.get()) }
@@ -67,10 +73,31 @@ fun RpsApp() {
         onDispose { connectionMonitor.stop() }
     }
 
+    LifecycleResumeEffect(activity) {
+        activity?.applyImmersiveFullscreen()
+        onPauseOrDispose { }
+    }
+
+    DisposableEffect(Unit) {
+        MatchSessionMonitor.ensureStarted()
+        onDispose { }
+    }
+
+    val authRepository = remember { AuthRepository() }
+    val user by authRepository.authStateFlow().collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
+    val activeMatch by MatchSessionMonitor.activeMatch.collectAsStateWithLifecycle()
+    val queueJoinedAtMs by MatchSessionMonitor.queueJoinedAtMs.collectAsStateWithLifecycle()
+
     RpsTheme(style = themeStyle) {
         CompositionLocalProvider(LocalClockSoundMuted provides clockSoundMuted) {
-            GlobalMatchClockTickEffect(muted = clockSoundMuted)
+            GlobalMatchClockTickEffect(
+                activeMatch = activeMatch,
+                userId = user?.uid,
+                muted = clockSoundMuted,
+            )
             GlobalRoundResolutionBackgroundSoundEffect(
+                activeMatch = activeMatch,
+                userId = user?.uid,
                 muted = clockSoundMuted,
                 currentRoute = currentRoute,
             )
@@ -80,35 +107,44 @@ fun RpsApp() {
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.safeDrawing)
-                        .padding(top = 4.dp, start = 4.dp, end = 4.dp),
+                        .windowInsetsPadding(
+                            WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
+                        )
+                        .padding(top = 8.dp, start = 4.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     FirebasePingMeter(status = connectionStatus)
                     if (currentRoute?.startsWith("home") != true) {
                         Spacer(modifier = Modifier.width(8.dp))
-                        QueueOrMatchStatusChip()
+                        QueueOrMatchStatusChip(
+                            activeMatch = activeMatch,
+                            queueJoinedAtMs = queueJoinedAtMs,
+                        )
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    CompositionLocalProvider(
+                        LocalMinimumInteractiveComponentSize provides 52.dp,
                     ) {
-                        ClockSoundMuteButton(
-                            muted = clockSoundMuted,
-                            onMutedChange = { muted ->
-                                clockSoundMuted = muted
-                                soundPreferences.setClockMuted(muted)
-                            },
-                        )
-                        AppearanceMenuButton(
-                            currentStyle = themeStyle,
-                            onStyleSelected = { style ->
-                                themeStyle = style
-                                themePreferences.set(style)
-                            },
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        ) {
+                            ClockSoundMuteButton(
+                                muted = clockSoundMuted,
+                                onMutedChange = { muted ->
+                                    clockSoundMuted = muted
+                                    soundPreferences.setClockMuted(muted)
+                                },
+                            )
+                            AppearanceMenuButton(
+                                currentStyle = themeStyle,
+                                onStyleSelected = { style ->
+                                    themeStyle = style
+                                    themePreferences.set(style)
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -118,90 +154,86 @@ fun RpsApp() {
 
 @Composable
 private fun GlobalRoundResolutionBackgroundSoundEffect(
+    activeMatch: Match?,
+    userId: String?,
     muted: Boolean,
     currentRoute: String?,
 ) {
-    val authRepository = remember { AuthRepository() }
-    val matchRepository = remember { MatchRepository() }
     val context = LocalContext.current
     val moveSoundPlayer = remember(context) { MoveSoundPlayer(context) }
-    val user by authRepository.authStateFlow().collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
 
-    var baselineInitialized by remember { mutableStateOf(false) }
-    var lastPlayedRoundKey by remember { mutableStateOf<String?>(null) }
+    var baselineInitialized by remember(userId) { mutableStateOf(false) }
+    var lastPlayedRoundKey by remember(userId) { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
         onDispose { moveSoundPlayer.release() }
     }
 
-    LaunchedEffect(user?.uid, muted, currentRoute) {
+    LaunchedEffect(userId) {
         baselineInitialized = false
         lastPlayedRoundKey = null
-        if (user?.uid == null) return@LaunchedEffect
+    }
 
-        matchRepository.observeActiveMatch().collect { match ->
-            val uid = user?.uid ?: return@collect
-            val resolved = match?.lastResolvedRound() ?: run {
-                if (!baselineInitialized) baselineInitialized = true
-                return@collect
-            }
-            if (resolved.player1Choice == null || resolved.player2Choice == null) {
-                if (!baselineInitialized) baselineInitialized = true
-                return@collect
-            }
+    LaunchedEffect(activeMatch, userId, muted, currentRoute) {
+        if (userId == null) return@LaunchedEffect
 
-            val key = "${match.id}:${resolved.roundNumber}:${resolved.resolvedAt}"
-            if (!baselineInitialized) {
-                baselineInitialized = true
-                lastPlayedRoundKey = key
-                return@collect
-            }
-            if (key == lastPlayedRoundKey) return@collect
-
-            lastPlayedRoundKey = key
-            val onGameScreen = currentRoute?.startsWith("game/") == true
-            if (muted || onGameScreen) return@collect
-
-            val myChoice = if (uid == match.player1) resolved.player1Choice else resolved.player2Choice
-            val move = Move.fromString(myChoice) ?: return@collect
-            val repetitions = when (resolved.winner) {
-                "tie" -> 2
-                uid -> 3
-                else -> 1
-            }
-            moveSoundPlayer.play(move, repetitions)
+        val match = activeMatch
+        val resolved = match?.lastResolvedRound() ?: run {
+            if (!baselineInitialized) baselineInitialized = true
+            return@LaunchedEffect
         }
+        if (resolved.player1Choice == null || resolved.player2Choice == null) {
+            if (!baselineInitialized) baselineInitialized = true
+            return@LaunchedEffect
+        }
+
+        val key = "${match.id}:${resolved.roundNumber}:${resolved.resolvedAt}"
+        if (!baselineInitialized) {
+            baselineInitialized = true
+            lastPlayedRoundKey = key
+            return@LaunchedEffect
+        }
+        if (key == lastPlayedRoundKey) return@LaunchedEffect
+
+        lastPlayedRoundKey = key
+        val onGameScreen = currentRoute?.startsWith("game/") == true
+        if (muted || onGameScreen) return@LaunchedEffect
+
+        val myChoice = if (userId == match.player1) resolved.player1Choice else resolved.player2Choice
+        val move = Move.fromString(myChoice) ?: return@LaunchedEffect
+        val repetitions = when (resolved.winner) {
+            "tie" -> 2
+            userId -> 3
+            else -> 1
+        }
+        moveSoundPlayer.play(move, repetitions)
     }
 }
 
 @Composable
-private fun GlobalMatchClockTickEffect(muted: Boolean) {
-    val authRepository = remember { AuthRepository() }
-    val matchRepository = remember { MatchRepository() }
+private fun GlobalMatchClockTickEffect(
+    activeMatch: Match?,
+    userId: String?,
+    muted: Boolean,
+) {
     val tickPlayer = remember { ClockTickPlayer() }
 
-    val user by authRepository.authStateFlow().collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
-    var myClockRunning by remember { mutableStateOf(false) }
+    val myClockRunning = remember(activeMatch, userId) {
+        val match = activeMatch
+        val uid = userId
+        val openRound = match?.openRound()
+        val hasSubmittedMove = when {
+            uid == null || match == null || openRound == null -> false
+            uid == match.player1 -> openRound.player1Choice != null
+            else -> openRound.player2Choice != null
+        }
+        match?.status == MatchStatus.ACTIVE &&
+            openRound != null &&
+            !hasSubmittedMove
+    }
 
     DisposableEffect(Unit) {
         onDispose { tickPlayer.release() }
-    }
-
-    LaunchedEffect(user?.uid) {
-        myClockRunning = false
-        if (user?.uid == null) return@LaunchedEffect
-        matchRepository.observeActiveMatch().collect { match ->
-            val uid = user?.uid
-            val openRound = match?.openRound()
-            val hasSubmittedMove = when {
-                uid == null || match == null || openRound == null -> false
-                uid == match.player1 -> openRound.player1Choice != null
-                else -> openRound.player2Choice != null
-            }
-            myClockRunning = match?.status == MatchStatus.ACTIVE &&
-                openRound != null &&
-                !hasSubmittedMove
-        }
     }
 
     LaunchedEffect(myClockRunning, muted) {
@@ -214,35 +246,11 @@ private fun GlobalMatchClockTickEffect(muted: Boolean) {
 }
 
 @Composable
-private fun QueueOrMatchStatusChip() {
-    val authRepository = remember { AuthRepository() }
-    val matchRepository = remember { MatchRepository() }
-    val user by authRepository.authStateFlow().collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
-
-    var inMatch by remember { mutableStateOf(false) }
-    var queueJoinedAtMs by remember { mutableStateOf<Long?>(null) }
-    var queueElapsedSeconds by remember { mutableStateOf(0L) }
-
-    LaunchedEffect(user?.uid) {
-        inMatch = false
-        queueJoinedAtMs = null
-        queueElapsedSeconds = 0L
-        if (user?.uid == null) return@LaunchedEffect
-
-        launch {
-            matchRepository.observeActiveMatch().collect { match ->
-                inMatch = match?.status == MatchStatus.ACTIVE
-            }
-        }
-        launch {
-            matchRepository.observeQueue().collect { joinedAt ->
-                queueJoinedAtMs = joinedAt
-                if (joinedAt == null) {
-                    queueElapsedSeconds = 0L
-                }
-            }
-        }
-    }
+private fun QueueOrMatchStatusChip(
+    activeMatch: Match?,
+    queueJoinedAtMs: Long?,
+) {
+    var queueElapsedSeconds by remember(queueJoinedAtMs) { mutableStateOf(0L) }
 
     LaunchedEffect(queueJoinedAtMs) {
         val joinedAt = queueJoinedAtMs ?: return@LaunchedEffect
@@ -252,6 +260,7 @@ private fun QueueOrMatchStatusChip() {
         }
     }
 
+    val inMatch = activeMatch?.status == MatchStatus.ACTIVE
     val label = when {
         inMatch -> "In match"
         queueJoinedAtMs != null -> "In queue: ${formatQueueTime(queueElapsedSeconds)}"

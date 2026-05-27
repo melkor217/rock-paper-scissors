@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.LeaderboardEntry
+import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.EloRatingText
 import com.rpsonline.app.ui.components.WinLossStatLine
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -37,6 +38,7 @@ private const val LeaderboardEntryContentType = 0
 
 @Composable
 fun LeaderboardScreen(
+    onHome: () -> Unit,
     onPlayerProfile: (userId: String) -> Unit,
     viewModel: LeaderboardViewModel = viewModel(),
 ) {
@@ -95,6 +97,9 @@ fun LeaderboardScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        HomeOutlinedButton(onClick = onHome, label = "Back to Home")
     }
 }
 

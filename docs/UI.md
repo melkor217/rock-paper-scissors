@@ -10,8 +10,7 @@ For repository layout and backend flow, see [STRUCTURE.md](STRUCTURE.md).
 ui/
 ├── RpsApp.kt              # Theme + nav + global appearance control
 ├── auth/                  # Sign-in screen
-├── home/                  # Home screen + app info footer
-├── matchmaking/           # Queue screen
+├── home/                  # Home screen + inline queue + app info footer
 ├── game/                  # In-match screen + round UI
 ├── result/                # Post-match screen
 ├── leaderboard/           # Leaderboard screen + chart/podium widgets
@@ -37,30 +36,26 @@ Navigation is defined in `navigation/NavGraph.kt` (`RpsNavGraph`, `Routes`).
 ```mermaid
 flowchart LR
   SignIn --> Home
-  Home --> Matchmaking
+  Home --> Game
   Home --> Leaderboard
   Home --> Profile
-  Matchmaking --> Game
   Game --> Result
-  Game -->|abandoned| Home
-  Result --> Matchmaking
   Result --> Home
   Result --> Profile
   Leaderboard --> Profile
-  Profile -->|back| Home
+  Profile -->|home| Home
 ```
 
 | Route | Constant | Arguments |
 |-------|----------|-----------|
 | Sign in | `sign_in` | — |
-| Home | `home` | — |
-| Matchmaking | `matchmaking` | — |
+| Home | `home?matchModes={matchModes}` | optional `matchModes` (auto-queue from Play Again) |
 | Game | `game/{matchId}` | `matchId` |
 | Result | `result/{matchId}` | `matchId` |
 | Leaderboard | `leaderboard` | — |
 | Profile | `profile/{userId}` | `userId` |
 
-Signed-out users are sent to sign-in and the back stack is cleared. Matchmaking and result “play again” pop up to home before pushing the next screen.
+Signed-out users are sent to sign-in and the back stack is cleared. Home queues for a match inline; match-found navigation opens the game. Result “play again” returns to home with auto-queue for the same format.
 
 ## Screens
 
@@ -69,8 +64,7 @@ Top-level `@Composable` screens registered in `NavGraph`. Unless noted, screens 
 | Screen | Package / file | ViewModel | Purpose |
 |--------|----------------|-----------|---------|
 | **SignInScreen** | `ui/auth/SignInScreen.kt` | `SignInViewModel`, `AppUpdateViewModel` | Google, email (sign-in / register), guest; optional update check |
-| **HomeScreen** | `ui/home/HomeScreen.kt` | `HomeViewModel`, `AppUpdateViewModel` | Welcome, profile summary card, online count, Find Match / Leaderboard, sign out, app info footer |
-| **MatchmakingScreen** | `ui/matchmaking/MatchmakingScreen.kt` | `MatchmakingViewModel` | Queue UI, elapsed time, cancel; navigates on match found |
+| **HomeScreen** | `ui/home/HomeScreen.kt` | `HomeViewModel`, `AppUpdateViewModel` | Welcome, profile summary, online count, inline matchmaking queue, Find Match / Leaderboard, sign out, app info footer |
 | **GameScreen** | `ui/game/GameScreen.kt` | `GameViewModel` (per `matchId`) | Live match: pre-game countdown, score, round banners, move picker |
 | **ResultScreen** | `ui/result/ResultScreen.kt` | *(inline repos)* | Final score, ELO change, opponent stats, round recap; play again / home |
 | **LeaderboardScreen** | `ui/leaderboard/LeaderboardScreen.kt` | `LeaderboardViewModel` | Podium + ranked list; tap row → profile |

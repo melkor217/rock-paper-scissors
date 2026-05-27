@@ -56,6 +56,7 @@ fun AppearanceMenuButton(
             imageVector = Icons.Outlined.Palette,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(32.dp),
         )
     }
 

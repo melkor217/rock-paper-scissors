@@ -10,21 +10,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.viewmodel.HomeViewModel
-import com.rpsonline.app.viewmodel.MatchmakingViewModel
 import com.rpsonline.app.ui.auth.SignInScreen
 import com.rpsonline.app.ui.changelog.ChangelogScreen
 import com.rpsonline.app.ui.game.GameScreen
 import com.rpsonline.app.ui.home.HomeScreen
 import com.rpsonline.app.ui.leaderboard.LeaderboardScreen
-import com.rpsonline.app.ui.matchmaking.MatchmakingScreen
 import com.rpsonline.app.ui.profile.ProfileScreen
 import com.rpsonline.app.ui.result.ResultScreen
 
@@ -38,10 +36,6 @@ object Routes {
         } else {
             "home?matchModes="
         }
-    const val MATCHMAKING = "matchmaking/{matchModes}"
-
-    fun matchmaking(matchModes: Set<MatchMode>) =
-        "matchmaking/${MatchMode.encodeRouteArg(matchModes)}"
     const val GAME = "game/{matchId}"
     const val RESULT = "result/{matchId}"
     const val LEADERBOARD = "leaderboard"
@@ -51,6 +45,13 @@ object Routes {
     fun game(matchId: String) = "game/$matchId"
     fun result(matchId: String) = "result/$matchId"
     fun profile(userId: String) = "profile/$userId"
+}
+
+private fun NavHostController.navigateToHome() {
+    navigate(Routes.home()) {
+        popUpTo(Routes.HOME) { inclusive = true }
+        launchSingleTop = true
+    }
 }
 
 @Composable
@@ -150,22 +151,6 @@ fun RpsNavGraph(
         }
 
         composable(
-            route = Routes.MATCHMAKING,
-            arguments = listOf(navArgument("matchModes") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val matchModes = MatchMode.parseRouteArg(backStackEntry.arguments?.getString("matchModes"))
-            MatchmakingScreen(
-                matchModes = matchModes,
-                viewModel = viewModel(factory = MatchmakingViewModel.factory(matchModes)),
-                onMatchFound = { matchId ->
-                    navController.navigate(Routes.game(matchId)) {
-                        popUpTo(Routes.HOME)
-                    }
-                },
-            )
-        }
-
-        composable(
             route = Routes.GAME,
             arguments = listOf(navArgument("matchId") { type = NavType.StringType }),
         ) { backStackEntry ->
@@ -193,6 +178,7 @@ fun RpsNavGraph(
                         launchSingleTop = true
                     }
                 },
+                onHome = { navController.navigateToHome() },
                 onOpponentProfile = { userId ->
                     navController.navigate(Routes.profile(userId))
                 },
@@ -201,6 +187,7 @@ fun RpsNavGraph(
 
         composable(Routes.LEADERBOARD) {
             LeaderboardScreen(
+                onHome = { navController.navigateToHome() },
                 onPlayerProfile = { userId ->
                     navController.navigate(Routes.profile(userId))
                 },
@@ -208,7 +195,15 @@ fun RpsNavGraph(
         }
 
         composable(Routes.CHANGELOG) {
-            ChangelogScreen()
+            ChangelogScreen(
+                onHome = {
+                    if (isSignedIn) {
+                        navController.navigateToHome()
+                    } else {
+                        navController.popBackStack()
+                    }
+                },
+            )
         }
 
         composable(
@@ -218,6 +213,7 @@ fun RpsNavGraph(
             val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
             ProfileScreen(
                 userId = userId,
+                onHome = { navController.navigateToHome() },
             )
         }
     }

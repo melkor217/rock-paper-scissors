@@ -152,6 +152,9 @@ class HomeViewModel(
             matchRepository.observeQueue().collect { joinedAtMs ->
                 if (joinedAtMs == null) {
                     stopQueueTimer()
+                    if (awaitingMatchFromQueue || _navigateToGameMatchId.value != null) {
+                        return@collect
+                    }
                     _uiState.update {
                         it.copy(isInQueue = false, queueElapsedSeconds = 0)
                     }
@@ -184,15 +187,27 @@ class HomeViewModel(
         activeMatchJob?.cancel()
         activeMatchJob = viewModelScope.launch {
             matchRepository.observeActiveMatch().collect { match ->
-                val activeMatchId = match?.id.takeIf { match?.status == MatchStatus.ACTIVE }
-                _uiState.update { it.copy(activeMatchId = activeMatchId) }
-                if (
-                    match?.status == MatchStatus.ACTIVE &&
+                val isActive = match?.status == MatchStatus.ACTIVE
+                val shouldAutoNavigate = isActive &&
                     (awaitingMatchFromQueue || _uiState.value.isInQueue)
-                ) {
+
+                if (shouldAutoNavigate) {
+                    val matchId = match?.id ?: return@collect
                     awaitingMatchFromQueue = false
-                    _navigateToGameMatchId.value = match.id
+                    stopQueueTimer()
+                    _navigateToGameMatchId.value = matchId
+                    _uiState.update {
+                        it.copy(
+                            isInQueue = false,
+                            queueElapsedSeconds = 0,
+                            matchmakingError = null,
+                        )
+                    }
+                    return@collect
                 }
+
+                val activeMatchId = match?.id.takeIf { isActive }
+                _uiState.update { it.copy(activeMatchId = activeMatchId) }
             }
         }
     }

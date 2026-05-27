@@ -30,11 +30,11 @@ fun FirebasePingMeter(
 
     Row(
         modifier = modifier
-            .height(48.dp)
+            .height(52.dp)
             .semantics { contentDescription = description }
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         PingBars(
             activeBars = activeBars,
@@ -43,7 +43,7 @@ fun FirebasePingMeter(
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -56,17 +56,17 @@ private fun PingBars(
     inactiveColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val heights = listOf(5.dp, 7.dp, 9.dp, 11.dp)
+    val heights = listOf(7.dp, 9.dp, 12.dp, 14.dp)
     Row(
-        modifier = modifier.height(12.dp),
+        modifier = modifier.height(16.dp),
         verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         heights.forEachIndexed { index, barHeight ->
             val color = if (index < activeBars) activeColor else inactiveColor
             Box(
                 modifier = Modifier
-                    .width(3.dp)
+                    .width(4.dp)
                     .height(barHeight)
                     .clip(RoundedCornerShape(1.dp))
                     .background(color),

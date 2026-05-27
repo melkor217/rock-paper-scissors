@@ -1,5 +1,6 @@
 package com.rpsonline.app.ui.components
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
@@ -10,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun ClockSoundMuteButton(
@@ -27,6 +29,7 @@ fun ClockSoundMuteButton(
             imageVector = if (muted) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeUp,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(32.dp),
         )
     }
 }

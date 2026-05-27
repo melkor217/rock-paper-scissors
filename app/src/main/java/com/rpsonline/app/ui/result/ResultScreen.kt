@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material3.Button
+import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.RpsCard
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -52,6 +53,7 @@ import com.rpsonline.app.ui.components.rpsScreenPadding
 fun ResultScreen(
     matchId: String,
     onPlayAgain: (MatchMode) -> Unit,
+    onHome: () -> Unit,
     onOpponentProfile: (String) -> Unit,
 ) {
     val authRepository = remember { AuthRepository() }
@@ -243,6 +245,8 @@ fun ResultScreen(
         ) {
             Text("Play Again")
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        HomeOutlinedButton(onClick = onHome)
     }
 }
 

@@ -1,4 +1,4 @@
-package com.rpsonline.app.ui.matchmaking
+package com.rpsonline.app.ui.util
 
 fun formatQueueTime(seconds: Long): String {
     val minutes = seconds / 60

@@ -44,7 +44,7 @@ import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
-import com.rpsonline.app.ui.matchmaking.formatQueueTime
+import com.rpsonline.app.ui.util.formatQueueTime
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
@@ -60,6 +60,7 @@ fun HomeScreen(
     updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val openingMatchId by viewModel.navigateToGameMatchId.collectAsState()
     val updateState by updateViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val activity = context.findActivity()
@@ -127,7 +128,6 @@ fun HomeScreen(
 
         val profile = uiState.profile
         val selectedModes = uiState.selectedMatchModes
-        val activeMatchId = uiState.activeMatchId
         val matchModesLocked = uiState.isInQueue
 
         Text(
@@ -223,15 +223,33 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        if (uiState.isInQueue && activeMatchId == null) {
-            HomeQueueStatusCard(queueElapsedSeconds = uiState.queueElapsedSeconds)
+        if ((uiState.isInQueue || openingMatchId != null) && uiState.activeMatchId == null) {
+            HomeQueueStatusCard(
+                queueElapsedSeconds = uiState.queueElapsedSeconds,
+                title = if (openingMatchId != null) "Match found" else "In queue",
+                subtitle = if (openingMatchId != null) "Opening game…" else "Finding an opponent…",
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
 
         when {
-            activeMatchId != null -> {
+            openingMatchId != null -> {
                 Button(
-                    onClick = { onReconnectToGame(activeMatchId) },
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                ) {
+                    Text(
+                        text = "Opening match…",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+            }
+            uiState.activeMatchId != null -> {
+                Button(
+                    onClick = { onReconnectToGame(uiState.activeMatchId!!) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(80.dp),
@@ -273,6 +291,13 @@ fun HomeScreen(
         }
         Spacer(modifier = Modifier.height(8.dp))
 
+        OutlinedButton(
+            onClick = { viewModel.signOut(context) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Sign Out")
+        }
+        Spacer(modifier = Modifier.height(12.dp))
         HomeAppInfoFooter(
             versionName = updateState.versionName,
             updatesEnabled = BuildConfig.GITHUB_UPDATES_ENABLED,
@@ -287,18 +312,15 @@ fun HomeScreen(
             },
             onVersionClick = onChangelog,
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = { viewModel.signOut(context) },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Sign Out")
-        }
     }
 }
 
 @Composable
-private fun HomeQueueStatusCard(queueElapsedSeconds: Long) {
+private fun HomeQueueStatusCard(
+    queueElapsedSeconds: Long,
+    title: String = "In queue",
+    subtitle: String = "Finding an opponent…",
+) {
     RpsCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
@@ -308,7 +330,7 @@ private fun HomeQueueStatusCard(queueElapsedSeconds: Long) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = "In queue",
+                text = title,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -319,7 +341,7 @@ private fun HomeQueueStatusCard(queueElapsedSeconds: Long) {
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text = "Finding an opponent…",
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

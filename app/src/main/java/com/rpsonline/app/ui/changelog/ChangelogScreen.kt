@@ -25,12 +25,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.update.ReleaseChangelogEntry
+import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.ChangelogViewModel
 
 @Composable
 fun ChangelogScreen(
+    onHome: () -> Unit,
     viewModel: ChangelogViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -122,6 +124,9 @@ fun ChangelogScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        HomeOutlinedButton(onClick = onHome)
     }
 }
 
