@@ -1,17 +1,19 @@
 # RPS Online
 
-Online rock–paper–scissors for Android. Match with another player in real time, play **best of 3** or **best of 5** series, climb an ELO leaderboard, and review match history on player profiles.
+Online rock–paper–scissors for Android. Match with another player in real time, play **best of 3**, **5**, or **10** series with match clocks, climb an ELO leaderboard, and review match history on player profiles.
 
 ## How it works
 
-- **Matchmaking** — on Home, select **Best of 3**, **Best of 5**, or both (saved for next time). Queue until an opponent is found; pairing requires overlapping format and prefers players within **±300 ELO**.
-- **Rounds** — each player picks rock, paper, or scissors within **60 seconds**. Same move is a draw and the round is replayed with no point awarded. A short pre-game countdown runs before the first round.
-- **Match** — **BO3** (first to 2) or **BO5** (first to 3); opponents are paired by overlapping format and similar ELO.
+- **Matchmaking** — on Home, select any combination of **Best of 3**, **Best of 5**, and **Best of 10** (saved for next time). Queue until an opponent is found; pairing requires at least one shared format (chosen at random) and prefers players within **±300 ELO**.
+- **Rounds** — each player picks rock, paper, or scissors before the **60s** round deadline. Same move is a draw and the round is replayed with no point awarded. A short pre-game countdown runs before the first round.
+- **Match formats** — **BO3** (first to 2), **BO5** (first to 3), or **BO10** (first to 6; if still tied 5–5 after 10 rounds, the series is a draw).
+- **Match clocks** — each player starts with **90s** of thinking time; **+5s** is added after each round you complete. Running out of match clock forfeits the series (separate from the per-round deadline).
 - **Rating** — ELO updates after each completed match.
-- **Profiles** — ELO, wins/losses/draws, throw breakdown (rock / paper / scissors), and match history with per-round recaps. Your profile shows your last **10** matches; other players’ profiles show matches you played together. Open profiles from Home, the leaderboard, or the result screen.
+- **Profiles** — ELO, W/L/D, round and throw stats, a **7-day ELO chart**, and paginated match history (10 per page) with per-round recaps. Your profile lists your recent matches; other players’ profiles list matches you played together. Open profiles from Home, the leaderboard, or the result screen.
 - **Leaderboard** — ranked players with win/loss and throw tendencies; tap a row to open their profile.
+- **Reconnect** — if you leave mid-match, Home offers **Reconnect to Game** while the match is still active.
 - **Sign-in** — Google, email/password, or guest (see [scripts/ENABLE_AUTH.md](scripts/ENABLE_AUTH.md) for Firebase setup).
-- **Updates** — release builds can check [GitHub Releases](https://github.com/melkor217/rock-paper-scissors/releases) from Home and install a newer APK in-app (debug builds skip this).
+- **Updates** — release builds can check [GitHub Releases](https://github.com/melkor217/rock-paper-scissors/releases) from Home, install a newer APK in-app, and open release notes from the version footer (debug builds skip update checks).
 
 ## Download
 
@@ -54,7 +56,7 @@ Deploy Firestore rules, indexes, and Cloud Functions:
 
 **Deploy order for match-format changes:** deploy **Cloud Functions and Firestore rules before** (or together with) shipping an app build that writes `matchModes` on the queue. Older functions ignore `matchModes` and treat everyone as BO3 until updated.
 
-Match rules in the app (`MatchMode` / `GameRules`) must stay aligned with `functions/` (wins to finish, round timeout). After rule changes, redeploy functions and ship an app update if the client copy changes.
+Match rules in the app (`MatchMode` / `GameRules`) must stay aligned with `functions/` (wins to finish, round timeout, match clocks). After rule changes, redeploy functions and ship an app update if the client copy changes.
 
 Run Cloud Functions unit tests:
 

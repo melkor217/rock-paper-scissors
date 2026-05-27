@@ -28,8 +28,10 @@ Package root: `com.rpsonline.app`.
 | UI | `ui/` | Compose screens and components — see [UI.md](UI.md) |
 | ViewModel | `viewmodel/` | Screen state, Firestore listeners |
 | Data | `data/repository/`, `data/model/` | Firebase access, DTOs |
-| Domain | `domain/GameRules.kt` | Client-side rules (must match server) |
-| Update | `data/update/` | GitHub release check / APK install |
+| Domain | `domain/` | `MatchMode`, `GameRules`, ELO display, weekly chart, match result copy |
+| Preferences | `data/preferences/` | Theme style, match-mode selection, clock sound mute |
+| Monitoring | `data/monitoring/` | Firestore RTT probe via callable `ping` |
+| Update | `data/update/` | GitHub release check, APK install, changelog fetch |
 
 ### Screens (`ui/`)
 
@@ -42,31 +44,37 @@ Full screen list, navigation graph, and shared widgets: **[docs/UI.md](UI.md)**.
 | Game | `ui/game/` | Round play, timer, score, moves |
 | Result | `ui/result/` | Final score, ELO, match recap |
 | Leaderboard | `ui/leaderboard/` | Top players, podium |
-| Profile | `ui/profile/` | Stats + match history (any user) |
+| Profile | `ui/profile/` | Stats, weekly ELO chart, paginated match history |
+| Changelog | `ui/changelog/` | Release notes from GitHub (version footer) |
 
-Flow: **Sign in → Home → Game → Result** (queue and match-found happen on Home). **Leaderboard** and **Profile** are reachable from Home, leaderboard rows, and result opponent link.
+Flow: **Sign in → Home → Game → Result** (queue and match-found happen on Home). **Leaderboard**, **Profile**, and **Changelog** are reachable from Home, leaderboard rows, result opponent link, or the version footer.
 
-ViewModels load data via repositories (`AuthRepository`, `UserRepository`, `MatchRepository`, `AppUpdateRepository`) and expose `StateFlow` / UI state to Composables.
+`RpsApp` wraps the nav graph with global overlays: Firebase ping meter, queue/match status chip, theme picker, and clock-sound mute. `MatchSessionMonitor` keeps the active match in sync for reconnect and background round sounds.
+
+ViewModels load data via repositories (`AuthRepository`, `UserRepository`, `MatchRepository`, `PresenceRepository`, `AppUpdateRepository`) and expose `StateFlow` / UI state to Composables.
 
 ## Backend (`functions/`)
 
 | File | Role |
 |------|------|
 | `src/index.ts` | Firestore triggers, schedulers, match lifecycle |
-| `src/game.ts` | Move validation, round resolution, ELO math, match resolution inference |
-| `src/game.test.ts` | Unit tests for game logic |
+| `src/game.ts` | Move validation, round/series resolution, ELO math, match resolution |
+| `src/clockControl.ts` | Per-player match clocks (90s start, +5s per round) |
+| `src/moveTiming.ts` | Round deadline (60s), per-move timing fields |
+| `src/*.test.ts` | Unit tests for game, clock, and move timing |
 
-### Cloud Functions (triggers)
+### Cloud Functions
 
 | Export | Trigger | Purpose |
 |--------|---------|---------|
 | `onQueueEntry` | `queue/{userId}` created | ELO-based pairing, create `matches` doc |
-| `onPlayerChoice` | `matches/.../choices/{userId}` created | Apply move, resolve round, advance match |
-| `onRoundTimeout` | `matches/.../timeoutRequests/{id}` created | Resolve round when time runs out |
-| `resolveTimedOutRounds` | Scheduled | Backstop for missed timeouts |
-| `cleanupStale` | Scheduled | Stale queue entries and abandoned matches |
+| `onPlayerChoice` | `matches/{id}/rounds/{n}/choices/{uid}` created | Apply move, resolve round, advance match |
+| `onRoundTimeout` | `matches/{id}/rounds/{n}/timeoutRequests/{id}` created | Resolve round when deadline or clock expires |
+| `resolveTimedOutRounds` | Scheduled (every 1 min) | Backstop for missed round deadlines |
+| `cleanupStale` | Scheduled (every 5 min) | Stale queue entries and abandoned matches |
+| `ping` | HTTPS Callable | Auth-gated RTT probe for in-app connection meter |
 
-The client does **not** call HTTPS Callable functions for matchmaking or moves. It writes Firestore documents; functions react and update `matches` (clients read only).
+Matchmaking and moves use **Firestore writes only**; functions update `matches` (clients read the match doc, not write it). The only callable used by the app is `ping`.
 
 ## Firestore data model
 
@@ -82,10 +90,16 @@ Match document holds embedded `rounds[]` (choices, winner, deadlines, per-player
 
 Security: [firestore.rules](../firestore.rules) — users cannot write `matches` directly or change their own ELO.
 
-One-off migrations (require ADC; use `--dry-run` first):
-- `users.lastSeen`: `./scripts/backfill-user-last-seen.sh`
-- Move timing (5s per historical move): `./scripts/backfill-move-timing.sh`
-- Match `resolution` field: `./scripts/backfill-match-resolution.sh`
+One-off backfills (require ADC; use `--dry-run` first where supported):
+
+| Script | Purpose |
+|--------|---------|
+| `./scripts/backfill-user-last-seen.sh` | `users.lastSeen` |
+| `./scripts/backfill-move-timing.sh` | Per-move timing on users/matches |
+| `./scripts/backfill-throw-stats.sh` | Rock/paper/scissors throw counts |
+| `./scripts/backfill-match-resolution.sh` | Match `resolution` field |
+
+Additional backfills live under `functions/package.json` (`backfill-round-stats`, `backfill-round-end-reason`, etc.).
 
 ## Rules kept in sync
 

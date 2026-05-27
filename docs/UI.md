@@ -8,13 +8,14 @@ For repository layout and backend flow, see [STRUCTURE.md](STRUCTURE.md).
 
 ```
 ui/
-├── RpsApp.kt              # Theme + nav + global appearance control
+├── RpsApp.kt              # Theme, nav, global overlays (ping, queue chip, sound, appearance)
 ├── auth/                  # Sign-in screen
 ├── home/                  # Home screen + inline queue + app info footer
-├── game/                  # In-match screen + round UI
+├── game/                  # In-match screen + round UI + match clocks
 ├── result/                # Post-match screen
 ├── leaderboard/           # Leaderboard screen + chart/podium widgets
-├── profile/               # Player profile + match history
+├── profile/               # Player profile + weekly ELO chart + match history
+├── changelog/             # Release notes from GitHub
 ├── components/            # Shared composables
 ├── theme/                 # Material theme, colors, backgrounds
 └── util/                  # Sound, autofill, activity helpers
@@ -26,23 +27,26 @@ Navigation is defined in `navigation/NavGraph.kt` (`RpsNavGraph`, `Routes`).
 
 | Piece | File | Role |
 |-------|------|------|
-| `RpsApp` | `ui/RpsApp.kt` | Wraps `RpsNavGraph` in `RpsTheme`; overlays `AppearanceMenuButton` (top-end) |
-| `RpsNavGraph` | `navigation/NavGraph.kt` | `NavHost`, auth redirect, route wiring |
+| `RpsApp` | `ui/RpsApp.kt` | `RpsTheme` + `RpsNavGraph`; top bar: `FirebasePingMeter`, queue/match chip, `ClockSoundMuteButton`, `AppearanceMenuButton`; global clock ticks and round sounds via `MatchSessionMonitor` |
+| `RpsNavGraph` | `navigation/NavGraph.kt` | `NavHost`, auth redirect, route wiring, match-found navigation from Home |
 | `RpsTheme` | `ui/theme/Theme.kt` | Material 3 color scheme from `AppThemeStyle` |
-| Screen padding | `ui/components/SafeScreen.kt` | `Modifier.rpsScreenPadding()` — safe drawing insets + top space for global overlay (ping, sound, appearance) |
+| Screen padding | `ui/components/SafeScreen.kt` | `Modifier.rpsScreenPadding()` — safe drawing insets + top space for global overlay |
 
 ## Navigation
 
 ```mermaid
 flowchart LR
   SignIn --> Home
+  SignIn --> Changelog
   Home --> Game
   Home --> Leaderboard
   Home --> Profile
+  Home --> Changelog
   Game --> Result
   Result --> Home
   Result --> Profile
   Leaderboard --> Profile
+  Changelog --> Home
   Profile -->|home| Home
 ```
 
@@ -53,9 +57,10 @@ flowchart LR
 | Game | `game/{matchId}` | `matchId` |
 | Result | `result/{matchId}` | `matchId` |
 | Leaderboard | `leaderboard` | — |
+| Changelog | `changelog` | — |
 | Profile | `profile/{userId}` | `userId` |
 
-Signed-out users are sent to sign-in and the back stack is cleared. Home queues for a match inline; match-found navigation opens the game. Result “play again” returns to home with auto-queue for the same format.
+Signed-out users are sent to sign-in and the back stack is cleared. Home queues for a match inline; match-found navigation opens the game. Result “play again” returns to home with auto-queue for the same format. Tapping the version footer on Home or Sign-in opens the changelog.
 
 ## Screens
 
@@ -64,11 +69,12 @@ Top-level `@Composable` screens registered in `NavGraph`. Unless noted, screens 
 | Screen | Package / file | ViewModel | Purpose |
 |--------|----------------|-----------|---------|
 | **SignInScreen** | `ui/auth/SignInScreen.kt` | `SignInViewModel`, `AppUpdateViewModel` | Google, email (sign-in / register), guest; optional update check |
-| **HomeScreen** | `ui/home/HomeScreen.kt` | `HomeViewModel`, `AppUpdateViewModel` | Welcome, profile summary, online count, inline matchmaking queue, Find Match / Leaderboard, sign out, app info footer |
-| **GameScreen** | `ui/game/GameScreen.kt` | `GameViewModel` (per `matchId`) | Live match: pre-game countdown, score, round banners, move picker |
+| **HomeScreen** | `ui/home/HomeScreen.kt` | `HomeViewModel`, `AppUpdateViewModel` | Welcome, profile summary, online count, BO3/BO5/BO10 checkboxes, inline queue, Find Match / Reconnect / Leaderboard, sign out, app info footer |
+| **GameScreen** | `ui/game/GameScreen.kt` | `GameViewModel` (per `matchId`) | Live match: pre-game countdown, round + match clocks, score, round banners, move picker |
 | **ResultScreen** | `ui/result/ResultScreen.kt` | *(inline repos)* | Final score, ELO change, opponent stats, round recap; play again / home |
 | **LeaderboardScreen** | `ui/leaderboard/LeaderboardScreen.kt` | `LeaderboardViewModel` | Podium + ranked list; tap row → profile |
-| **ProfileScreen** | `ui/profile/ProfileScreen.kt` | `ProfileViewModel` | Stats card + match history list (own last 10 or shared matches) |
+| **ProfileScreen** | `ui/profile/ProfileScreen.kt` | `ProfileViewModel` | Stats card, weekly ELO chart, paginated match history (10 per page; own recent or shared with viewer) |
+| **ChangelogScreen** | `ui/changelog/ChangelogScreen.kt` | `ChangelogViewModel` | Release notes loaded from GitHub Releases API |
 
 ### Game sub-flows (same route, inside `GameScreen`)
 
@@ -76,6 +82,7 @@ Top-level `@Composable` screens registered in `NavGraph`. Unless noted, screens 
 |----|------|------------|
 | **PreGameCountdownScreen** | `ui/game/PreGameCountdownScreen.kt` | Before first round; ELO matchup, skip |
 | **RoundCountdown** | `ui/game/RoundCountdown.kt` | Active round deadline |
+| **MatchClockDisplay** / **CircularGameClock** | `ui/game/MatchClockDisplay.kt`, `CircularGameClock.kt` | Per-player match thinking time |
 | **WinRoundBanner** / **LoseRoundBanner** / **DrawRoundBanner** | `ui/game/*RoundBanner.kt` | After choices revealed; built on **RoundOutcomeCard** (`RoundBannerCommon.kt`) |
 | **WaitingForOpponentCard** | `ui/game/WaitingForOpponentCard.kt` | After local move submitted |
 | **MovePicker** | `ui/components/MovePicker.kt` | Rock / paper / scissors selection |
@@ -91,7 +98,8 @@ Composable helpers colocated with a feature (not in `components/`).
 
 | Widget | File | Used by |
 |--------|------|---------|
-| `HomeAppInfoFooter` | `HomeAppInfoFooter.kt` | Home, Sign-in — version, manual update check/install |
+| `HomeAppInfoFooter` | `HomeAppInfoFooter.kt` | Home, Sign-in — version (→ changelog), manual update check/install |
+| `HomeQueueStatusCard` *(private)* | `HomeScreen.kt` | Home — queue timer while matchmaking |
 | `HomeProfileSummaryCard` *(private)* | `HomeScreen.kt` | Home — wraps `ProfileSummaryStatsCard` with chevron → profile |
 
 ### `ui/leaderboard/`
@@ -101,16 +109,17 @@ Composable helpers colocated with a feature (not in `components/`).
 | `LeaderboardPodium` | `LeaderboardPodium.kt` | Top-3 podium layout |
 | `LeaderboardEntryCard` | `LeaderboardPodium.kt` | Single list row (rank, name, stats) |
 | `ThrowDistributionRadialChart` | `ThrowDistributionRadialChart.kt` | R/P/S distribution ring |
-| `RpsPerWinLabel` / `PlayerThrowStatsColumn` | `RpsPerWinLabel.kt` | Throws-per-win metric + throw breakdown |
+| `RpsPerRoundLabel` / `PlayerThrowStatsColumn` | `RpsPerRoundLabel.kt` | Throws-per-round metric + throw breakdown |
 | `LeaderboardSpectrumColor` | `LeaderboardSpectrumColor.kt` | Rank / RPS-per-win / ELO color scales |
 | `leaderboardWinRateColor` | `LeaderboardWinRate.kt` | Win-rate accent color |
 
 ### `ui/profile/` *(private)*
 
-| Widget | Role |
-|--------|------|
-| `ProfileStatsCard` | `ProfileSummaryStatsCard` without header click |
-| `MatchHistoryCard` | `RpsCard` + `MatchHistoryCardHeader` + embedded `MatchRecapCard` |
+| Widget | File | Role |
+|--------|------|------|
+| `WeeklyEloGainLossChart` | `WeeklyEloGainLossChart.kt` | Last 7 days of ELO change |
+| `ProfileStatsCard` *(private)* | `ProfileScreen.kt` | `ProfileSummaryStatsCard` without header click |
+| `MatchHistoryCard` *(private)* | `ProfileScreen.kt` | `RpsCard` + `MatchHistoryCardHeader` + embedded `MatchRecapCard` |
 
 ## Shared components (`ui/components/`)
 
@@ -124,6 +133,9 @@ Reused across multiple screens.
 | `RpsCard` | `RpsCard.kt` | Bordered surface card; optional `onClick` |
 | `RpsLoadingColumn` | `RpsLoadingColumn.kt` | Centered spinner + optional message |
 | `AppearanceMenuButton` | `AppearanceMenuButton.kt` | Theme style picker (global overlay) |
+| `ClockSoundMuteButton` | `ClockSoundMuteButton.kt` | Mute clock ticks and move sounds |
+| `FirebasePingMeter` | `FirebasePingMeter.kt` | Firestore/`ping` latency indicator |
+| `HomeOutlinedButton` | `HomeButton.kt` | Shared “Home” outlined button on secondary screens |
 
 ### Player & match stats
 
@@ -170,10 +182,14 @@ Theme preference is persisted via `data/preferences/ThemePreferences.kt` (`AppTh
 
 | Helper | Role |
 |--------|------|
+| `MoveSoundPlayer` | `MoveSoundPlayer.kt` — rock/paper/scissors sounds after rounds |
+| `ClockTickPlayer` | `ClockTickSound.kt` — match clock tick while your clock runs |
 | `playMatchFoundSound` | `MatchFoundSound.kt` — queue → game transition |
 | `commitAutofillSave` | `AutofillCommit.kt` — after successful sign-in |
 | `findActivity` | `ActivityContext.kt` — for update install intent |
+| `formatQueueTime` | `QueueTimeFormat.kt` — queue duration label |
 | `NetworkUtils` | Connectivity messaging on sign-in |
+| `applyImmersiveFullscreen` | `ImmersiveMode.kt` — edge-to-edge in `RpsApp` |
 
 ## Composition cheat sheet
 
@@ -182,12 +198,12 @@ Which shared widgets each screen uses:
 | Screen | Components |
 |--------|------------|
 | Sign-in | `RpsLoadingColumn`, `AppUpdateDialogs`, `AutofillTextField`, `HomeAppInfoFooter` |
-| Home | `ProfileSummaryStatsCard`, `PlayersOnlineLabel`, `RpsLoadingColumn`, `AppUpdateDialogs` |
-| Matchmaking | `PlayersOnlineLabel`, `rpsScreenPadding` |
-| Game | `MovePicker`, `RpsLoadingColumn` + game-local banners/countdown |
-| Result | `RpsLoadingColumn`, `RpsCard`, `MatchRecapCard`, `MatchEloChangeLabel`, `PlayerStatsWidget` |
-| Leaderboard | `RpsLoadingColumn`, `EloRatingText`, `WinLossStatLine` + leaderboard widgets |
-| Profile | `ProfileSummaryStatsCard`, `MatchHistoryCardHeader`, `MatchRecapCard`, `RpsCard`, `RpsLoadingColumn` |
+| Home | `ProfileSummaryStatsCard`, `PlayersOnlineLabel`, `RpsCard` (queue), `RpsLoadingColumn`, `AppUpdateDialogs` |
+| Game | `MovePicker`, `RpsLoadingColumn` + game-local clocks/banners/countdown |
+| Result | `RpsLoadingColumn`, `RpsCard`, `MatchRecapCard`, `MatchEloChangeLabel`, `PlayerStatsWidget`, `HomeOutlinedButton` |
+| Leaderboard | `RpsLoadingColumn`, `EloRatingText`, `WinLossStatLine`, `HomeOutlinedButton` + leaderboard widgets |
+| Profile | `ProfileSummaryStatsCard`, `WeeklyEloGainLossChart`, `MatchHistoryCardHeader`, `MatchRecapCard`, `RpsCard`, `RpsLoadingColumn`, `HomeOutlinedButton` |
+| Changelog | `RpsLoadingColumn`, `HomeOutlinedButton` |
 
 ## Adding UI
 

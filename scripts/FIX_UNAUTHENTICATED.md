@@ -6,14 +6,21 @@ Callable Functions were blocked by Cloud Run IAM. The app now uses **Firestore**
 |--------|----------------|
 | Find Match | App writes `queue/{your-uid}` (Firebase Auth, same as ELO) |
 | Matchmaking | Cloud Function **`onQueueEntry`** runs when queue doc is created |
-| Pick move | App writes `matches/{id}/playerChoices/{your-uid}` |
-| Resolve round | Cloud Function **`onPlayerChoice`** updates the match |
+| Pick move | App writes `matches/{id}/rounds/{n}/choices/{your-uid}` |
+| Round timeout | App writes `matches/{id}/rounds/{n}/timeoutRequests/{requestId}` |
+| Resolve round | Cloud Function **`onPlayerChoice`** / **`onRoundTimeout`** updates the match |
 
 ## Deploy (required once)
 
 ```bash
 cd ~/rock-paper-scissors
-firebase deploy --only functions,firestore:rules
+./scripts/deploy-backend.sh
+```
+
+Or:
+
+```bash
+firebase deploy --only functions,firestore:rules,firestore:indexes
 ```
 
 ## Run the app
@@ -26,4 +33,4 @@ You should **not** see `UNAUTHENTICATED` on Find Match anymore.
 
 ## Optional cleanup
 
-Old Callable functions (`joinQueue`, `leaveQueue`, `submitMove`) are unused. You can delete them in Firebase Console → Functions to avoid confusion.
+Old Callable functions (`joinQueue`, `leaveQueue`, `submitMove`) are unused. You can delete them in Firebase Console → Functions to avoid confusion. The app may still call **`ping`** for the connection meter (requires sign-in).
