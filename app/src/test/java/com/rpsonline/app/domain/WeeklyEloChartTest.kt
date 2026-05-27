@@ -1,6 +1,7 @@
 package com.rpsonline.app.domain
 
 import com.rpsonline.app.data.model.MatchHistoryEntry
+import com.rpsonline.app.data.model.ViewerMatchResolution
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Clock
@@ -89,9 +90,7 @@ class WeeklyEloChartTest {
             opponentName = "Them",
             myWins = 1,
             opponentWins = 0,
-            won = true,
-            isDraw = false,
-            isAbandoned = false,
+            resolution = ViewerMatchResolution.WIN,
             eloDelta = delta,
             lastActivityAt = lastActivityAt,
             recaps = emptyList(),

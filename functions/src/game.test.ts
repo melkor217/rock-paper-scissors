@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   bestOfRounds,
   calculateElo,
+  inferMatchResolution,
+  matchResolutionForWinner,
   parseMatchMode,
   parseMatchModes,
   countRoundWins,
@@ -84,5 +86,44 @@ describe("match modes", () => {
     const both = ["BO3", "BO5"] as const;
     assert.equal(pickSharedMatchMode([...both], [...both], () => 0), "BO3");
     assert.equal(pickSharedMatchMode([...both], [...both], () => 0.99), "BO5");
+  });
+
+  it("infers match resolution from legacy fields", () => {
+    assert.equal(
+      inferMatchResolution({
+        status: "completed",
+        player1: "p1",
+        player2: "p2",
+        winnerId: "p1",
+      }),
+      "player1_win",
+    );
+    assert.equal(
+      inferMatchResolution({
+        status: "completed",
+        player1: "p1",
+        player2: "p2",
+        player1Wins: 5,
+        player2Wins: 5,
+      }),
+      "draw",
+    );
+    assert.equal(
+      inferMatchResolution({
+        status: "completed",
+        player1: "p1",
+        player2: "p2",
+        player1Wins: 2,
+        player2Wins: 1,
+      }),
+      "player1_win",
+    );
+    assert.equal(inferMatchResolution({ status: "abandoned" }), "abandoned");
+    assert.equal(inferMatchResolution({ status: "active" }), null);
+  });
+
+  it("maps winner id to stored resolution", () => {
+    assert.equal(matchResolutionForWinner("p1", "p1"), "player1_win");
+    assert.equal(matchResolutionForWinner("p1", "p2"), "player2_win");
   });
 });

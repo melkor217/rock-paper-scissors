@@ -3,6 +3,7 @@ package com.rpsonline.app.domain
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchEndReason
 import com.rpsonline.app.data.model.MatchStatus
+import com.rpsonline.app.data.model.ViewerMatchResolution
 
 /**
  * Subtitle for the result screen explaining how the match was decided.
@@ -10,10 +11,11 @@ import com.rpsonline.app.data.model.MatchStatus
  */
 fun matchResultOutcomeDetail(
     match: Match,
-    won: Boolean,
-    isDraw: Boolean,
+    resolution: ViewerMatchResolution?,
 ): String? {
-    if (isDraw || match.status != MatchStatus.COMPLETED) return null
+    if (resolution == ViewerMatchResolution.DRAW || match.status != MatchStatus.COMPLETED) return null
+
+    val won = resolution == ViewerMatchResolution.WIN
 
     match.endReason?.let { reason ->
         return detailForReason(reason, won)

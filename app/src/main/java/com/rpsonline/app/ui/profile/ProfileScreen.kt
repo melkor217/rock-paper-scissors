@@ -221,8 +221,6 @@ private fun MatchHistoryCard(
             MatchHistoryCardHeader(
                 entry = entry,
                 lastActivityAt = entry.lastActivityAt,
-                outcomeLabel = matchOutcomeLabel(entry),
-                outcomeColor = matchOutcomeColor(entry),
             )
             if (entry.recaps.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -241,20 +239,3 @@ private fun profileTitle(displayName: String?, isOwnProfile: Boolean): String =
         append(displayName ?: "Profile")
         if (isOwnProfile) append(" (you)")
     }
-
-private fun matchOutcomeLabel(entry: MatchHistoryEntry): String = when {
-    entry.isAbandoned -> "Cancelled"
-    entry.isDraw -> "Draw"
-    entry.won == true -> "Win"
-    entry.won == false -> "Loss"
-    else -> "—"
-}
-
-@Composable
-private fun matchOutcomeColor(entry: MatchHistoryEntry): androidx.compose.ui.graphics.Color = when {
-    entry.isAbandoned -> MaterialTheme.colorScheme.onSurfaceVariant
-    entry.isDraw -> MaterialTheme.colorScheme.tertiary
-    entry.won == true -> MaterialTheme.colorScheme.primary
-    entry.won == false -> MaterialTheme.colorScheme.error
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
-}

@@ -8,6 +8,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchEndReason
+import com.rpsonline.app.data.model.MatchResolution
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.RoundEndReason
 import com.rpsonline.app.data.model.Move
@@ -298,6 +299,7 @@ internal fun DocumentSnapshot.toMatch(id: String): Match {
         clocksUpdatedAt = getTimestamp("clocksUpdatedAt")?.toDate()?.time ?: 0L,
         rounds = rounds,
         winnerId = getString("winnerId"),
+        resolution = MatchResolution.fromString(getString("resolution")),
         endReason = MatchEndReason.fromString(getString("endReason")),
         player1EloDelta = getIntField("player1EloDelta"),
         player2EloDelta = getIntField("player2EloDelta"),
