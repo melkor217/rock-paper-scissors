@@ -33,7 +33,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.repository.AuthRepository
+import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.MatchSessionMonitor
+import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.monitoring.FirebaseConnectionMonitor
 import com.rpsonline.app.data.preferences.AppThemeStyle
 import com.rpsonline.app.data.preferences.SoundPreferences
@@ -81,9 +83,18 @@ fun RpsApp() {
     }
 
     val authRepository = remember { AuthRepository() }
+    val matchRepository = remember { MatchRepository() }
     val user by authRepository.authStateFlow().collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
     val activeMatch by MatchSessionMonitor.activeMatch.collectAsStateWithLifecycle()
     val queueJoinedAtMs by MatchSessionMonitor.queueJoinedAtMs.collectAsStateWithLifecycle()
+
+    LaunchedEffect(queueJoinedAtMs) {
+        if (queueJoinedAtMs == null) return@LaunchedEffect
+        while (true) {
+            delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
+            matchRepository.sendQueueHeartbeat()
+        }
+    }
 
     RpsTheme(style = themeStyle) {
         CompositionLocalProvider(LocalClockSoundMuted provides clockSoundMuted) {

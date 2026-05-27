@@ -198,6 +198,7 @@ class MatchRepository(
         firestore.collection("queue").document(userId).set(
             mapOf(
                 "joinedAt" to FieldValue.serverTimestamp(),
+                "lastHeartbeatAt" to FieldValue.serverTimestamp(),
                 "clientJoinedAt" to System.currentTimeMillis(),
                 "elo" to elo,
                 "displayName" to displayName,
@@ -206,6 +207,17 @@ class MatchRepository(
         ).await()
 
         return null
+    }
+
+    /** Keeps the queue entry alive while the user is actively waiting for a match. */
+    suspend fun sendQueueHeartbeat() {
+        val userId = auth.currentUser?.uid ?: return
+        runCatching {
+            awaitFirestoreAuth()
+            firestore.collection("queue").document(userId)
+                .update(mapOf("lastHeartbeatAt" to FieldValue.serverTimestamp()))
+                .await()
+        }
     }
 
     suspend fun leaveQueue() {
