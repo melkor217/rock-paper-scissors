@@ -33,11 +33,10 @@ import {
 } from "./moveTiming";
 
 admin.initializeApp();
-const FIRESTORE_DATABASE_ID = "europe-west1";
-const db = getFirestore(admin.app(), FIRESTORE_DATABASE_ID);
+
+const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
 
-const REGION = "europe-west1";
 const ELO_WINDOW = 300;
 
 interface RoundDoc {
@@ -728,7 +727,7 @@ async function resolveRoundIfReady(
 
 /** Client writes queue/{uid}; this trigger runs matchmaking (no Callable / Cloud Run IAM). */
 export const onQueueEntry = onDocumentCreated(
-  { document: "queue/{userId}", region: REGION, database: FIRESTORE_DATABASE_ID },
+  { document: "queue/{userId}" },
   async (event) => {
     const uid = event.params.userId;
     const data = event.data?.data();
@@ -888,8 +887,6 @@ async function resolveExpiredOpenRound(matchId: string, match: MatchDoc): Promis
 export const onRoundTimeout = onDocumentCreated(
   {
     document: "matches/{matchId}/rounds/{roundNumber}/timeoutRequests/{requestId}",
-    region: REGION,
-    database: FIRESTORE_DATABASE_ID,
   },
   async (event) => {
     const matchId = event.params.matchId;
@@ -919,8 +916,6 @@ export const onRoundTimeout = onDocumentCreated(
 export const onPlayerChoice = onDocumentCreated(
   {
     document: "matches/{matchId}/rounds/{roundNumber}/choices/{userId}",
-    region: REGION,
-    database: FIRESTORE_DATABASE_ID,
   },
   async (event) => {
     const matchId = event.params.matchId;
@@ -936,7 +931,7 @@ export const onPlayerChoice = onDocumentCreated(
 
 /** Backstop when no client writes a timeout request (offline / crashed app). */
 export const resolveTimedOutRounds = onSchedule(
-  { schedule: "every 1 minutes", region: REGION },
+  { schedule: "every 1 minutes" },
   async () => {
     const activeMatches = await db.collection("matches")
       .where("status", "==", "active")
@@ -949,7 +944,7 @@ export const resolveTimedOutRounds = onSchedule(
 );
 
 /** Lightweight RTT probe for in-app connection meter (requires auth). */
-export const ping = onCall({ region: REGION }, async (request) => {
+export const ping = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
@@ -957,7 +952,7 @@ export const ping = onCall({ region: REGION }, async (request) => {
 });
 
 export const cleanupStale = onSchedule(
-  { schedule: "every 5 minutes", region: REGION },
+  { schedule: "every 5 minutes" },
   async () => {
   const cutoff = Timestamp.fromMillis(Date.now() - QUEUE_STALE_MS);
 
