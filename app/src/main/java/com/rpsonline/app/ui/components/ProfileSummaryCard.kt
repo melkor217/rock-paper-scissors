@@ -2,14 +2,14 @@ package com.rpsonline.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -30,7 +30,7 @@ private val SummaryRowVerticalPadding = 6.dp
 private val SummaryStatsLinesGap = 1.dp
 
 @Composable
-fun ProfileSummaryCardWidget(
+fun ProfileSummaryCard(
     displayName: String,
     profile: UserProfile?,
     modifier: Modifier = Modifier,
@@ -38,7 +38,7 @@ fun ProfileSummaryCardWidget(
     onClick: (() -> Unit)? = null,
 ) {
     val content: @Composable () -> Unit = {
-        PlayerSummaryBody(
+        PlayerSummaryContent(
             nameLine = displayName,
             nameColor = MaterialTheme.colorScheme.primary,
             wins = profile?.wins ?: 0,
@@ -62,7 +62,7 @@ fun ProfileSummaryCardWidget(
 }
 
 @Composable
-fun PlayerSummaryBody(
+fun PlayerSummaryContent(
     nameLine: String,
     nameColor: Color,
     wins: Int,

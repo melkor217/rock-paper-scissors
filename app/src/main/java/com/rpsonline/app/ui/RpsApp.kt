@@ -6,15 +6,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -25,6 +26,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,49 +132,64 @@ fun RpsApp() {
                 activeMatch = activeMatch,
                 userId = user?.uid,
             )
+            val topPanelColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh
+            val topPanelGradient = Brush.linearGradient(
+                colors = listOf(
+                    topPanelColor.copy(alpha = 0.98f),
+                    androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.96f),
+                    topPanelColor,
+                    androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
+                    topPanelColor,
+                ),
+            )
             Box(modifier = Modifier.fillMaxSize()) {
                 RpsNavGraph()
-                Row(
+                Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .windowInsetsPadding(
-                            WindowInsets.safeDrawing.only(
-                                WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
-                            ),
-                        )
-                        .padding(top = 6.dp, start = 8.dp, end = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .fillMaxWidth(),
+                    shape = RectangleShape,
+                    color = topPanelColor,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 2.dp,
                 ) {
-                    NetworkConnectionIndicator(status = connectionStatus)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    QueueOrMatchStatusChip(
-                        activeMatch = activeMatch,
-                        queueJoinedAtMs = queueJoinedAtMs,
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    CompositionLocalProvider(
-                        LocalMinimumInteractiveComponentSize provides 36.dp,
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(topPanelGradient)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        NetworkConnectionIndicator(status = connectionStatus)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        QueueOrMatchStatusLabel(
+                            activeMatch = activeMatch,
+                            queueJoinedAtMs = queueJoinedAtMs,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        CompositionLocalProvider(
+                            LocalMinimumInteractiveComponentSize provides 36.dp,
                         ) {
-                            ClockSoundMuteButton(
-                                muted = clockSoundMuted,
-                                onMutedChange = { muted ->
-                                    clockSoundMuted = muted
-                                    soundPreferences.setClockMuted(muted)
-                                },
-                            )
-                            AppearanceMenuButton(
-                                currentStyle = themeStyle,
-                                onStyleSelected = { style ->
-                                    themeStyle = style
-                                    themePreferences.set(style)
-                                },
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                            ) {
+                                ClockSoundMuteButton(
+                                    muted = clockSoundMuted,
+                                    onMutedChange = { muted ->
+                                        clockSoundMuted = muted
+                                        soundPreferences.setClockMuted(muted)
+                                    },
+                                )
+                                AppearanceMenuButton(
+                                    currentStyle = themeStyle,
+                                    onStyleSelected = { style ->
+                                        themeStyle = style
+                                        themePreferences.set(style)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -215,7 +234,7 @@ private fun GlobalMatchClockTickEffect(
 }
 
 @Composable
-private fun QueueOrMatchStatusChip(
+private fun QueueOrMatchStatusLabel(
     activeMatch: Match?,
     queueJoinedAtMs: Long?,
 ) {
@@ -240,9 +259,8 @@ private fun QueueOrMatchStatusChip(
     } ?: return
 
     androidx.compose.material3.Surface(
-        color = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f),
-        contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = androidx.compose.material3.MaterialTheme.shapes.small,
+        color = Color.Transparent,
+        contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
     ) {
         androidx.compose.material3.Text(
             text = label,
