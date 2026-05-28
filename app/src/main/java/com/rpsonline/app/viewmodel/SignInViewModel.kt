@@ -56,18 +56,18 @@ class SignInViewModel(
                     }
                     try {
                         val profile = withTimeout(10_000) {
-                            authRepository.loadCurrentUserProfile()
+                            authRepository.loadCurrentUserProfile() ?: authRepository.ensureUserProfile(
+                                uid = user.uid,
+                                displayName = user.displayName,
+                                photoUrl = user.photoUrl?.toString(),
+                            )
                         }
                         _uiState.update {
                             it.copy(
                                 profile = profile,
                                 isLoading = false,
                                 isRestoringSession = false,
-                                error = if (profile == null) {
-                                    "No internet connection. Connect to restore your session, or sign in again."
-                                } else {
-                                    null
-                                },
+                                error = null,
                             )
                         }
                     } catch (e: TimeoutCancellationException) {
@@ -75,7 +75,7 @@ class SignInViewModel(
                             it.copy(
                                 isLoading = false,
                                 isRestoringSession = false,
-                                error = "No internet connection. Connect to restore your session, or sign in again.",
+                                error = "Unable to restore your profile right now. Check your connection and try again.",
                             )
                         }
                     } catch (e: Exception) {
