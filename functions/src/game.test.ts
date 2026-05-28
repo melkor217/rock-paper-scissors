@@ -57,18 +57,30 @@ describe("match modes", () => {
     assert.equal(countRoundWins(rounds, "p2"), 0);
   });
 
-  it("BO10 series outcome after round 10", () => {
+  it("series ends by first-to-target or points cap", () => {
     assert.deepEqual(seriesOutcomeAfterRound("BO10", 6, 3, 9), {
       kind: "winner",
       player: "player1",
     });
-    assert.deepEqual(seriesOutcomeAfterRound("BO10", 5, 5, 10), { kind: "draw" });
     assert.deepEqual(seriesOutcomeAfterRound("BO10", 6, 4, 10), {
       kind: "winner",
       player: "player1",
     });
-    assert.deepEqual(seriesOutcomeAfterRound("BO10", 4, 4, 10), { kind: "draw" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 5, 5, 12), { kind: "draw" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 5, 5, 9), { kind: "draw" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 4, 4, 12), { kind: "continue" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO10", 4, 4, 10), { kind: "continue" });
     assert.deepEqual(seriesOutcomeAfterRound("BO10", 5, 4, 9), { kind: "continue" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO5", 2, 2, 5), { kind: "continue" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO3", 1, 1, 3), { kind: "continue" });
+    assert.deepEqual(seriesOutcomeAfterRound("BO5", 3, 2, 7), {
+      kind: "winner",
+      player: "player1",
+    });
+    assert.deepEqual(seriesOutcomeAfterRound("BO3", 2, 1, 6), {
+      kind: "winner",
+      player: "player1",
+    });
   });
 
   it("parses multiple queue modes with legacy fallback", () => {

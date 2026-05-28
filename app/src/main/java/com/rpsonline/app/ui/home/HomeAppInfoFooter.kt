@@ -1,6 +1,7 @@
 package com.rpsonline.app.ui.home
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.rpsonline.app.R
 import com.rpsonline.app.data.update.AppUpdateInfo
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeAppInfoFooter(
     versionName: String,
@@ -37,6 +39,7 @@ fun HomeAppInfoFooter(
     onCheckForUpdate: () -> Unit,
     onInstallUpdate: () -> Unit,
     onVersionClick: () -> Unit = {},
+    onVersionLongClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (versionName.isBlank() && !updatesEnabled) return
@@ -70,7 +73,10 @@ fun HomeAppInfoFooter(
                         text = stringResource(R.string.version_label, versionName),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable(onClick = onVersionClick),
+                        modifier = Modifier.combinedClickable(
+                            onClick = onVersionClick,
+                            onLongClick = onVersionLongClick,
+                        ),
                     )
                 }
                 val statusText = when {

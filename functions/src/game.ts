@@ -36,28 +36,24 @@ export function seriesOutcomeAfterRound(
   mode: MatchMode,
   player1Wins: number,
   player2Wins: number,
-  completedRoundNumber: number,
+  _completedRoundNumber: number,
 ): SeriesOutcome {
   const need = winsToFinish(mode);
   if (player1Wins >= need) return { kind: "winner", player: "player1" };
   if (player2Wins >= need) return { kind: "winner", player: "player2" };
 
   const rules = GAME_RULES.matchModes[mode];
-  const totalRounds = bestOfRounds(mode);
-
-  if (completedRoundNumber < totalRounds) {
-    return { kind: "continue" };
-  }
-
-  const tiedSeriesScore = rules.tiedSeriesScore;
-  if (tiedSeriesScore != null && player1Wins === tiedSeriesScore && player2Wins === tiedSeriesScore) {
+  const totalAwardedPoints = player1Wins + player2Wins;
+  // Resolve once the configured point budget is exhausted (BO3/5/10...).
+  if (totalAwardedPoints >= rules.bestOfRounds) {
+    if (player1Wins > player2Wins) return { kind: "winner", player: "player1" };
+    if (player2Wins > player1Wins) return { kind: "winner", player: "player2" };
     return { kind: "draw" };
   }
 
-  if (player1Wins === player2Wins) return { kind: "draw" };
-  if (player1Wins > player2Wins) return { kind: "winner", player: "player1" };
-  if (player2Wins > player1Wins) return { kind: "winner", player: "player2" };
-  return { kind: "draw" };
+  // Drawn rounds award no points and do not end the series.
+  // Match otherwise finishes when a player reaches the mode target score.
+  return { kind: "continue" };
 }
 
 export function parseMatchModes(value: unknown, legacyMode?: unknown): MatchMode[] {
