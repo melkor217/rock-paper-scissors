@@ -29,7 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.R
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.ui.components.HomeOutlinedButton
-import com.rpsonline.app.ui.components.PlayerSummaryBody
+import com.rpsonline.app.ui.components.PlayerSummaryContent
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
@@ -169,7 +169,7 @@ private fun LeaderboardEntryContent(
         isCurrentUser -> Color.Unspecified
         else -> leaderboardRankLabelColor(rank, isRpsDarkTheme())
     }
-    PlayerSummaryBody(
+    PlayerSummaryContent(
         nameLine = nameLine,
         nameColor = if (isCurrentUser) {
             MaterialTheme.colorScheme.primary

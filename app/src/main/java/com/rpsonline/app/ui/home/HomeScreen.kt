@@ -48,7 +48,7 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
-import com.rpsonline.app.ui.components.ProfileSummaryCardWidget
+import com.rpsonline.app.ui.components.ProfileSummaryCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -147,7 +147,7 @@ fun HomeScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
-        ProfileSummaryCardWidget(
+        ProfileSummaryCard(
             displayName = profile?.displayName ?: DisplayNames.DEFAULT,
             profile = profile,
             onClick = onProfile,
@@ -321,8 +321,13 @@ fun HomeScreen(
             onVersionClick = onChangelog,
             onVersionLongClick = {
                 val version = updateState.versionName.trim()
-                if (version.isBlank()) return@HomeAppInfoFooter
-                val tag = ReleaseChangelog.tagForInstalledVersion(version)
+                if (version.isBlank() && updateState.availableUpdate?.tag.isNullOrBlank()) return@HomeAppInfoFooter
+                val tag = if (BuildConfig.DEBUG) {
+                    updateState.availableUpdate?.tag?.takeIf { it.isNotBlank() }
+                        ?: ReleaseChangelog.tagForInstalledVersion(version)
+                } else {
+                    ReleaseChangelog.tagForInstalledVersion(version)
+                }
                 val apkUrl = "https://github.com/${BuildConfig.GITHUB_REPO_OWNER}/${BuildConfig.GITHUB_REPO_NAME}/releases/download/$tag/rps-online-$tag.apk"
                 clipboardManager.setText(AnnotatedString(apkUrl))
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)

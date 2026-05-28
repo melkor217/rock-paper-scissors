@@ -34,7 +34,7 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchHistoryLoadingSection
 import com.rpsonline.app.ui.components.MatchRecapCard
-import com.rpsonline.app.ui.components.ProfileSummaryCardWidget
+import com.rpsonline.app.ui.components.ProfileSummaryCard
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.MatchHistoryCardHeader
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -109,7 +109,7 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item {
-                        ProfileSummaryCardWidget(
+                        ProfileSummaryCard(
                             displayName = profile?.displayName ?: DisplayNames.DEFAULT,
                             profile = profile,
                         )

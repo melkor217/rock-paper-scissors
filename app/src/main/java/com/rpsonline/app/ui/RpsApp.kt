@@ -163,7 +163,7 @@ fun RpsApp() {
                     ) {
                         NetworkConnectionIndicator(status = connectionStatus)
                         Spacer(modifier = Modifier.width(8.dp))
-                        QueueOrMatchStatusChip(
+                        QueueOrMatchStatusLabel(
                             activeMatch = activeMatch,
                             queueJoinedAtMs = queueJoinedAtMs,
                         )
@@ -234,7 +234,7 @@ private fun GlobalMatchClockTickEffect(
 }
 
 @Composable
-private fun QueueOrMatchStatusChip(
+private fun QueueOrMatchStatusLabel(
     activeMatch: Match?,
     queueJoinedAtMs: Long?,
 ) {
