@@ -116,9 +116,28 @@ fun SignInScreen(
         if (uiState.isLoading) {
             SignInLoadingState(isRestoringSession = uiState.isRestoringSession)
         } else {
+            if (uiState.isCheckingFirebase) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Checking Firebase availability...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            } else if (!uiState.isFirebaseAvailable) {
+                Text(
+                    text = "Waiting for Firebase connection...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             AuthButtons(
                 onGoogle = { viewModel.signInWithGoogle(context) },
                 onGuest = viewModel::signInAnonymously,
+                enabled = uiState.isFirebaseAvailable && !uiState.isCheckingFirebase,
             )
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider(modifier = Modifier.fillMaxWidth())
@@ -133,6 +152,7 @@ fun SignInScreen(
                 onDisplayNameChange = viewModel::updateDisplayName,
                 onModeChange = viewModel::setEmailMode,
                 onSubmit = { viewModel.submitEmailAuth(context) },
+                enabled = uiState.isFirebaseAvailable && !uiState.isCheckingFirebase,
             )
         }
 
@@ -198,10 +218,12 @@ private fun SignInLoadingState(isRestoringSession: Boolean) {
 private fun AuthButtons(
     onGoogle: () -> Unit,
     onGuest: () -> Unit,
+    enabled: Boolean,
 ) {
     Button(
         onClick = onGoogle,
         modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
     ) {
         Text(stringResource(R.string.sign_in_with_google))
     }
@@ -209,6 +231,7 @@ private fun AuthButtons(
     OutlinedButton(
         onClick = onGuest,
         modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
     ) {
         Text(stringResource(R.string.continue_as_guest))
     }
@@ -225,6 +248,7 @@ private fun EmailAuthSection(
     onDisplayNameChange: (String) -> Unit,
     onModeChange: (EmailAuthMode) -> Unit,
     onSubmit: () -> Unit,
+    enabled: Boolean,
 ) {
     Text(
         text = stringResource(R.string.email),
@@ -239,6 +263,7 @@ private fun EmailAuthSection(
             onClick = { onModeChange(EmailAuthMode.SIGN_IN) },
             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
             modifier = Modifier.weight(1f),
+            enabled = enabled,
         ) {
             Text(stringResource(R.string.sign_in))
         }
@@ -247,6 +272,7 @@ private fun EmailAuthSection(
             onClick = { onModeChange(EmailAuthMode.REGISTER) },
             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
             modifier = Modifier.weight(1f),
+            enabled = enabled,
         ) {
             Text(stringResource(R.string.register))
         }
@@ -278,6 +304,7 @@ private fun EmailAuthSection(
         label = stringResource(R.string.email),
         autofillHints = emailHints,
         imeAction = EditorInfo.IME_ACTION_NEXT,
+        enabled = enabled,
     )
     Spacer(modifier = Modifier.height(12.dp))
     AutofillTextField(
@@ -288,6 +315,7 @@ private fun EmailAuthSection(
         isPassword = true,
         imeAction = if (isRegister) EditorInfo.IME_ACTION_NEXT else EditorInfo.IME_ACTION_DONE,
         onImeAction = { submitFromKeyboard() },
+        enabled = enabled,
     )
 
     if (isRegister) {
@@ -304,6 +332,7 @@ private fun EmailAuthSection(
             keyboardActions = KeyboardActions(
                 onDone = { submitFromKeyboard() },
             ),
+            enabled = enabled,
             modifier = Modifier
                 .fillMaxWidth()
                 .excludeFromAutofill(),
@@ -314,6 +343,7 @@ private fun EmailAuthSection(
     Button(
         onClick = onSubmit,
         modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
     ) {
         Text(
             if (mode == EmailAuthMode.SIGN_IN) {
