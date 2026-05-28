@@ -30,13 +30,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.R
+import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchHistoryLoadingSection
 import com.rpsonline.app.ui.components.MatchRecapCard
+import com.rpsonline.app.ui.components.ProfileSummaryCardWidget
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.MatchHistoryCardHeader
 import com.rpsonline.app.ui.components.RpsLoadingColumn
-import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.ProfileViewModel
 
@@ -108,17 +109,9 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item {
-                        ProfileStatsCard(
-                            elo = profile?.elo ?: 1000,
-                            wins = profile?.wins ?: 0,
-                            losses = profile?.losses ?: 0,
-                            draws = profile?.draws ?: 0,
-                            roundsWon = profile?.roundsWon ?: 0,
-                            roundsLost = profile?.roundsLost ?: 0,
-                            roundsDraw = profile?.roundsDraw ?: 0,
-                            throwsRock = profile?.throwsRock ?: 0,
-                            throwsPaper = profile?.throwsPaper ?: 0,
-                            throwsScissors = profile?.throwsScissors ?: 0,
+                        ProfileSummaryCardWidget(
+                            displayName = profile?.displayName ?: DisplayNames.DEFAULT,
+                            profile = profile,
                         )
                     }
                     item {
@@ -195,33 +188,6 @@ fun ProfileScreen(
             label = stringResource(R.string.back_to_home),
         )
     }
-}
-
-@Composable
-private fun ProfileStatsCard(
-    elo: Int,
-    wins: Int,
-    losses: Int,
-    draws: Int,
-    roundsWon: Int,
-    roundsLost: Int,
-    roundsDraw: Int,
-    throwsRock: Int,
-    throwsPaper: Int,
-    throwsScissors: Int,
-) {
-    ProfileSummaryStatsCard(
-        elo = elo,
-        wins = wins,
-        losses = losses,
-        draws = draws,
-        roundsWon = roundsWon,
-        roundsLost = roundsLost,
-        roundsDraw = roundsDraw,
-        throwsRock = throwsRock,
-        throwsPaper = throwsPaper,
-        throwsScissors = throwsScissors,
-    )
 }
 
 @Composable

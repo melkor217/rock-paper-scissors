@@ -41,7 +41,7 @@ import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchEloChangeLabel
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.MatchResolutionOutcomeHeader
-import com.rpsonline.app.ui.components.PlayerStatsWidget
+import com.rpsonline.app.ui.components.ProfileSummaryCardWidget
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.formatMatchScore
@@ -141,7 +141,7 @@ fun ResultScreen(
 
         if (opponentId != null) {
             Spacer(modifier = Modifier.height(12.dp))
-            PlayerStatsWidget(
+            ProfileSummaryCardWidget(
                 displayName = opponentProfile?.displayName ?: opponentName,
                 profile = opponentProfile,
                 eloOverride = opponentElo,

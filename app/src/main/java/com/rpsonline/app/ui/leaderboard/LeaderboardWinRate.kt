@@ -6,8 +6,8 @@ import androidx.compose.ui.graphics.Color
 import com.rpsonline.app.data.model.LeaderboardEntry
 
 fun winRatePercent(wins: Int, losses: Int, draws: Int = 0): Int? {
-    val games = wins + losses + draws
-    return games.takeIf { it > 0 }?.let { (wins * 100) / it }
+    val decidedGames = wins + losses
+    return decidedGames.takeIf { it > 0 }?.let { (wins * 100) / it }
 }
 
 fun LeaderboardEntry.winRatePercent(): Int? = winRatePercent(wins, losses, draws)
