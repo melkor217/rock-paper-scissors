@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
@@ -301,6 +302,26 @@ async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Prom
     }
   }
   return null;
+}
+
+async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Promise<void> {
+  await db.collection("users").doc(uid).update({
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+
+  const profile = await getUserProfile(uid);
+  if (profile.activeMatchId) {
+    const active = await db.collection("matches").doc(profile.activeMatchId).get();
+    if (active.exists && active.get("status") === "active") {
+      await db.collection("queue").doc(uid).delete();
+      return;
+    }
+  }
+
+  if (!isQueueEntryActive(data)) return;
+  const elo = (data.elo as number) ?? profile.elo;
+  const matchModes = parseMatchModes(data.matchModes, data.matchMode);
+  await tryMatch(uid, elo, matchModes);
 }
 
 function getOpenRound(match: MatchDoc): RoundDoc | undefined {
@@ -731,23 +752,18 @@ export const onQueueEntry = onDocumentCreated(
     const uid = event.params.userId;
     const data = event.data?.data();
     if (!data) return;
+    await attemptQueueMatch(uid, data as Record<string, unknown>);
+  },
+);
 
-    await db.collection("users").doc(uid).update({
-      lastSeen: FieldValue.serverTimestamp(),
-    });
-
-    const profile = await getUserProfile(uid);
-    if (profile.activeMatchId) {
-      const active = await db.collection("matches").doc(profile.activeMatchId).get();
-      if (active.exists && active.get("status") === "active") {
-        await db.collection("queue").doc(uid).delete();
-        return;
-      }
-    }
-
-    const elo = (data.elo as number) ?? profile.elo;
-    const matchModes = parseMatchModes(data.matchModes, data.matchMode);
-    await tryMatch(uid, elo, matchModes);
+/** Retry matchmaking when queued players update heartbeat/modes while waiting. */
+export const onQueueEntryUpdated = onDocumentUpdated(
+  { document: "queue/{userId}" },
+  async (event) => {
+    const uid = event.params.userId;
+    const after = event.data?.after.data();
+    if (!after) return;
+    await attemptQueueMatch(uid, after as Record<string, unknown>);
   },
 );
 

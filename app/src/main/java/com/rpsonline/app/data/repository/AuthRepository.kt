@@ -14,6 +14,7 @@ import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -193,12 +194,14 @@ class AuthRepository(
 
     suspend fun signOut(context: Context) {
         auth.signOut()
-        try {
-            CredentialManager.create(context).clearCredentialState(
-                ClearCredentialStateRequest(),
-            )
-        } catch (_: Exception) {
-            // Google credential cache may already be clear
+        withTimeoutOrNull(2_000) {
+            try {
+                CredentialManager.create(context).clearCredentialState(
+                    ClearCredentialStateRequest(),
+                )
+            } catch (_: Exception) {
+                // Google credential cache may already be clear.
+            }
         }
     }
 }

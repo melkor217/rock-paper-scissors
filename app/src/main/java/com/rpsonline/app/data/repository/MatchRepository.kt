@@ -227,6 +227,10 @@ class MatchRepository(
         firestore.collection("queue").document(uid).delete().await()
     }
 
+    fun leaveQueueBestEffort(userId: String) {
+        firestore.collection("queue").document(userId).deleteBestEffort()
+    }
+
     fun observeQueue(): Flow<Long?> {
         MatchSessionMonitor.ensureStarted()
         return MatchSessionMonitor.queueJoinedAtMs

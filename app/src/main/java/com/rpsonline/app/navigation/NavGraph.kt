@@ -14,7 +14,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.repository.AuthRepository
+import com.rpsonline.app.data.repository.MatchRepository
+import com.rpsonline.app.data.repository.MatchSessionMonitor
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.viewmodel.HomeViewModel
 import com.rpsonline.app.ui.auth.SignInScreen
@@ -24,6 +28,7 @@ import com.rpsonline.app.ui.home.HomeScreen
 import com.rpsonline.app.ui.leaderboard.LeaderboardScreen
 import com.rpsonline.app.ui.profile.ProfileScreen
 import com.rpsonline.app.ui.result.ResultScreen
+import kotlinx.coroutines.delay
 
 object Routes {
     const val SIGN_IN = "sign_in"
@@ -211,4 +216,67 @@ fun RpsNavGraph() {
     }
 
     MatchFoundNavigationEffect(navController)
+    NonGameMatchResolutionEffect(navController)
+}
+
+@Composable
+private fun NonGameMatchResolutionEffect(navController: NavHostController) {
+    val authRepository = remember { AuthRepository() }
+    val matchRepository = remember { MatchRepository() }
+    val activeMatch by MatchSessionMonitor.activeMatch.collectAsStateWithLifecycle()
+    val backStackEntries by navController.currentBackStack.collectAsStateWithLifecycle()
+
+    val currentRoute = backStackEntries.lastOrNull()?.destination?.route
+    val onGameRoute = currentRoute?.startsWith("game/") == true || currentRoute == Routes.GAME
+
+    LaunchedEffect(activeMatch, onGameRoute) {
+        if (onGameRoute) return@LaunchedEffect
+        val userId = authRepository.currentUserId ?: return@LaunchedEffect
+        val match = activeMatch ?: return@LaunchedEffect
+        if (match.status != MatchStatus.ACTIVE || !match.isParticipant(userId)) return@LaunchedEffect
+
+        while (true) {
+            val latest = activeMatch
+            if (latest == null || latest.status != MatchStatus.ACTIVE) break
+
+            val openRound = latest.openRound()
+            val deadline = openRound?.deadline
+            val roundNumber = openRound?.roundNumber
+            if (deadline == null || roundNumber == null || System.currentTimeMillis() < deadline) {
+                delay(1_000)
+                continue
+            }
+
+            val myChoiceSubmitted = when (userId) {
+                latest.player1 -> openRound.player1Choice != null
+                latest.player2 -> openRound.player2Choice != null
+                else -> true
+            }
+            if (myChoiceSubmitted) {
+                delay(1_000)
+                continue
+            }
+
+            runCatching {
+                matchRepository.requestRoundTimeout(latest.id, roundNumber)
+            }.onFailure { error ->
+                if (!isIgnorableResolutionFailure(error)) {
+                    // Keep retrying in background; this path is intentionally silent.
+                }
+            }
+            delay(3_000)
+        }
+    }
+}
+
+private fun isIgnorableResolutionFailure(error: Throwable): Boolean {
+    if (error is FirebaseFirestoreException &&
+        error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+    ) {
+        return true
+    }
+    val message = error.message.orEmpty()
+    if (message.contains("PERMISSION_DENIED", ignoreCase = true)) return true
+    if (message.contains("cancelled", ignoreCase = true)) return true
+    return false
 }
