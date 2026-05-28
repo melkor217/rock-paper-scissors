@@ -89,10 +89,12 @@ class ChangelogViewModel : ViewModel() {
                     it.copy(
                         isLoading = false,
                         isLoadingMore = false,
+                        // Keep pagination open on transient failures so scrolling can retry.
+                        hasMore = if (reset) it.hasMore else true,
                         error = if (reset || it.entries.isEmpty()) {
                             "Couldn't load release notes."
                         } else {
-                            it.error
+                            "Couldn't load older release notes. Scroll to retry."
                         },
                     )
                 }
