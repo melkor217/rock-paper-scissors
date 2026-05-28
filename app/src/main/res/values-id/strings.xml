@@ -51,7 +51,7 @@
     <string name="opening_match">Opening match…</string>
     <string name="reconnect_to_game">Reconnect to Game</string>
     <string name="home">Home</string>
-    <string name="version_label">Version %1$s</string>
+    <string name="version_label">Versi %1$s</string>
     <string name="downloading_update">Downloading update…</string>
     <string name="version_available">v%1$s is available</string>
     <string name="installed_from_github">Installed from GitHub Releases</string>
