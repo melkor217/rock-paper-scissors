@@ -423,7 +423,6 @@ async function finalizeMatchDraw(
     db.collection("users").doc(match.player1).get(),
     db.collection("users").doc(match.player2).get(),
   ]);
-
   const p1Elo = (p1Snap.get("elo") as number) ?? 1000;
   const p2Elo = (p2Snap.get("elo") as number) ?? 1000;
 
