@@ -4,6 +4,7 @@ import com.rpsonline.app.domain.versionCodeFromTag
 import com.rpsonline.app.domain.versionLabelFromTag
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
@@ -33,21 +34,19 @@ class GitHubReleaseClient(
 
     fun fetchReleasesPage(page: Int, perPage: Int = RELEASES_PAGE_SIZE): ReleaseChangelogPage {
         var connection: HttpURLConnection? = null
-        return try {
+        try {
             connection = openGetConnection(
                 "https://api.github.com/repos/$owner/$repo/releases?page=$page&per_page=$perPage",
             )
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                return ReleaseChangelogPage(entries = emptyList(), hasMore = false)
+                throw IOException("GitHub releases page fetch failed: HTTP ${connection.responseCode}")
             }
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             val entries = parseReleaseList(body)
-            ReleaseChangelogPage(
+            return ReleaseChangelogPage(
                 entries = entries,
                 hasMore = hasNextPage(connection),
             )
-        } catch (_: Exception) {
-            ReleaseChangelogPage(entries = emptyList(), hasMore = false)
         } finally {
             connection?.disconnect()
         }
