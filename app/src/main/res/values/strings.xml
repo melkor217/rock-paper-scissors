@@ -25,6 +25,7 @@
     <string name="downloading_update">Downloading update…</string>
     <string name="version_available">v%1$s is available</string>
     <string name="installed_from_github">Installed from GitHub Releases</string>
+    <string name="apk_link_copied">APK link copied</string>
     <string name="update">Update</string>
     <string name="check">Check</string>
     <string name="update_available_title">Update available</string>

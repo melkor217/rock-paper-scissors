@@ -30,14 +30,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.widget.Toast
 import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.R
 import com.rpsonline.app.data.update.ReleaseChangelog
@@ -69,6 +72,7 @@ fun HomeScreen(
     val updateState by updateViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val hapticFeedback = LocalHapticFeedback.current
     val activity = context.findActivity()
 
     LaunchedEffect(Unit) {
@@ -331,6 +335,12 @@ fun HomeScreen(
                 val tag = ReleaseChangelog.tagForInstalledVersion(version)
                 val apkUrl = "https://github.com/${BuildConfig.GITHUB_REPO_OWNER}/${BuildConfig.GITHUB_REPO_NAME}/releases/download/$tag/rps-online-$tag.apk"
                 clipboardManager.setText(AnnotatedString(apkUrl))
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.apk_link_copied),
+                    Toast.LENGTH_SHORT,
+                ).show()
             },
         )
     }
