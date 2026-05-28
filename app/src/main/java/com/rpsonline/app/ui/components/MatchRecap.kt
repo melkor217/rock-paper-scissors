@@ -24,11 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundEndReason
 import com.rpsonline.app.data.model.RoundRecap
@@ -333,7 +335,7 @@ private fun RoundChoicesLine(recap: RoundRecap, compact: Boolean) {
     }
     if (recap.isDraw && recap.myChoice == null && recap.opponentChoice == null) {
         Text(
-            text = "Replay",
+            text = stringResource(R.string.replay),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,

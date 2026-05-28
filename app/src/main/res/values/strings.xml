@@ -101,4 +101,11 @@
             \"include\": \"https://melkor217.github.io/rock-paper-scissors/.well-known/assetlinks.json\"
         }]
     </string>
+    <string name="changelog_title">Changelog</string>
+    <string name="installed_version">Installed: v%1$s</string>
+    <string name="appearance">Appearance</string>
+    <string name="per_round_suffix">/Round</string>
+    <string name="replay">Replay</string>
+    <string name="vs_label">vs</string>
+    <string name="selected">Selected</string>
 </resources>

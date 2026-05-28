@@ -18,11 +18,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.preferences.AppThemeStyle
@@ -114,7 +116,7 @@ fun RpsPerRoundLabel(
             Spacer(modifier = Modifier.width(4.dp))
         }
         Text(
-            text = "/Round",
+            text = stringResource(R.string.per_round_suffix),
             style = textStyle,
             color = color,
             maxLines = 1,

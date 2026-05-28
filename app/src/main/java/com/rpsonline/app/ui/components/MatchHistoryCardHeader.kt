@@ -13,10 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.data.model.MatchHistoryEntry
 import com.rpsonline.app.data.model.ViewerMatchResolution
 import com.rpsonline.app.domain.MatchMode
@@ -162,7 +164,7 @@ private fun MatchupBottomRow(
         }
 
         Text(
-            text = "vs",
+            text = stringResource(R.string.vs_label),
             style = nameStyle,
             color = vsColor,
             modifier = Modifier.padding(horizontal = vsPadding),

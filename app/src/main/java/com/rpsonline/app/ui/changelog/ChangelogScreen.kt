@@ -66,12 +66,12 @@ fun ChangelogScreen(
 
     Column(modifier = Modifier.rpsScreenPadding()) {
         Text(
-            text = "Changelog",
+            text = stringResource(R.string.changelog_title),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            text = "Installed: v${uiState.versionName}",
+            text = stringResource(R.string.installed_version, uiState.versionName),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

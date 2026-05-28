@@ -31,9 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.data.preferences.AppThemeStyle
 import com.rpsonline.app.ui.theme.colorSchemeFor
 
@@ -45,11 +47,13 @@ fun AppearanceMenuButton(
     modifier: Modifier = Modifier,
 ) {
     var showSheet by remember { mutableStateOf(false) }
+    val appearanceLabel = stringResource(R.string.appearance)
+    val selectedLabel = stringResource(R.string.selected)
 
     IconButton(
         onClick = { showSheet = true },
         modifier = modifier.semantics {
-            contentDescription = "Appearance"
+            contentDescription = appearanceLabel
         },
     ) {
         Icon(
@@ -75,7 +79,7 @@ fun AppearanceMenuButton(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = "Appearance",
+                    text = appearanceLabel,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -132,7 +136,7 @@ private fun AppearanceStyleRow(
         if (selected) {
             Icon(
                 imageVector = Icons.Outlined.Check,
-                contentDescription = "Selected",
+                contentDescription = stringResource(R.string.selected),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(22.dp),
             )
