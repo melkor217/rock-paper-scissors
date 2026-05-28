@@ -11,11 +11,14 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.auth.FirebaseUser
 import com.rpsonline.app.R
 import com.rpsonline.app.data.auth.toAuthMessage
 import com.rpsonline.app.data.auth.toGoogleSignInMessage
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +35,8 @@ enum class EmailAuthMode {
 data class SignInUiState(
     val isLoading: Boolean = false,
     val isRestoringSession: Boolean = false,
+    val isCheckingFirebase: Boolean = true,
+    val isFirebaseAvailable: Boolean = false,
     val profile: UserProfile? = null,
     val error: String? = null,
     val email: String = "",
@@ -46,48 +51,21 @@ class SignInViewModel(
 
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
+    private var latestAuthUser: FirebaseUser? = null
+    private var restoreJob: Job? = null
 
     init {
         viewModelScope.launch {
+            monitorFirebaseAvailability()
+        }
+        viewModelScope.launch {
             authRepository.authStateFlow().collect { user ->
+                latestAuthUser = user
                 if (user != null) {
-                    _uiState.update {
-                        it.copy(isLoading = true, isRestoringSession = true, error = null)
-                    }
-                    try {
-                        val profile = withTimeout(10_000) {
-                            authRepository.loadCurrentUserProfile() ?: authRepository.ensureUserProfile(
-                                uid = user.uid,
-                                displayName = user.displayName,
-                                photoUrl = user.photoUrl?.toString(),
-                            )
-                        }
-                        _uiState.update {
-                            it.copy(
-                                profile = profile,
-                                isLoading = false,
-                                isRestoringSession = false,
-                                error = null,
-                            )
-                        }
-                    } catch (e: TimeoutCancellationException) {
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                isRestoringSession = false,
-                                error = "Unable to restore your profile right now. Check your connection and try again.",
-                            )
-                        }
-                    } catch (e: Exception) {
-                        _uiState.update {
-                            it.copy(
-                                error = e.toAuthMessage(),
-                                isLoading = false,
-                                isRestoringSession = false,
-                            )
-                        }
-                    }
+                    maybeStartSessionRestore()
                 } else {
+                    restoreJob?.cancel()
+                    restoreJob = null
                     _uiState.update {
                         it.copy(
                             profile = null,
@@ -113,11 +91,22 @@ class SignInViewModel(
         _uiState.update { it.copy(displayName = value, error = null) }
     }
 
+    fun retryFirebaseAvailabilityCheck() {
+        viewModelScope.launch {
+            runFirebaseAvailabilityCheck()
+            maybeStartSessionRestore()
+        }
+    }
+
     fun setEmailMode(mode: EmailAuthMode) {
         _uiState.update { it.copy(emailMode = mode, error = null) }
     }
 
     fun signInWithGoogle(context: Context) {
+        if (!_uiState.value.isFirebaseAvailable) {
+            _uiState.update { it.copy(error = "Firebase is unavailable. Check your connection and try again.") }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
             try {
@@ -138,6 +127,10 @@ class SignInViewModel(
     }
 
     fun signInAnonymously() {
+        if (!_uiState.value.isFirebaseAvailable) {
+            _uiState.update { it.copy(error = "Firebase is unavailable. Check your connection and try again.") }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
             try {
@@ -150,6 +143,10 @@ class SignInViewModel(
     }
 
     fun submitEmailAuth(context: Context) {
+        if (!_uiState.value.isFirebaseAvailable) {
+            _uiState.update { it.copy(error = "Firebase is unavailable. Check your connection and try again.") }
+            return
+        }
         val state = _uiState.value
         val email = state.email.trim()
         val password = state.password
@@ -219,5 +216,84 @@ class SignInViewModel(
             return GoogleIdTokenCredential.createFrom(credential.data).idToken
         }
         error("Unexpected credential type")
+    }
+
+    private suspend fun runFirebaseAvailabilityCheck() {
+        _uiState.update {
+            it.copy(
+                isCheckingFirebase = true,
+                isFirebaseAvailable = false,
+            )
+        }
+        val available = authRepository.isFirebaseAvailable()
+        _uiState.update {
+            it.copy(
+                isCheckingFirebase = false,
+                isFirebaseAvailable = available,
+            )
+        }
+    }
+
+    private suspend fun monitorFirebaseAvailability() {
+        while (true) {
+            val available = authRepository.isFirebaseAvailable()
+            _uiState.update {
+                it.copy(
+                    isCheckingFirebase = false,
+                    isFirebaseAvailable = available,
+                )
+            }
+            if (available) {
+                maybeStartSessionRestore()
+                delay(10_000)
+            } else {
+                delay(3_000)
+            }
+        }
+    }
+
+    private fun maybeStartSessionRestore() {
+        val user = latestAuthUser ?: return
+        if (!_uiState.value.isFirebaseAvailable) return
+        if (restoreJob?.isActive == true) return
+        if (_uiState.value.profile?.uid == user.uid) return
+        restoreJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(isLoading = true, isRestoringSession = true, error = null)
+            }
+            try {
+                val profile = withTimeout(10_000) {
+                    authRepository.loadCurrentUserProfile() ?: authRepository.ensureUserProfile(
+                        uid = user.uid,
+                        displayName = user.displayName,
+                        photoUrl = user.photoUrl?.toString(),
+                    )
+                }
+                _uiState.update {
+                    it.copy(
+                        profile = profile,
+                        isLoading = false,
+                        isRestoringSession = false,
+                        error = null,
+                    )
+                }
+            } catch (e: TimeoutCancellationException) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isRestoringSession = false,
+                        error = "Unable to restore your profile right now. Check your connection and try again.",
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        error = e.toAuthMessage(),
+                        isLoading = false,
+                        isRestoringSession = false,
+                    )
+                }
+            }
+        }
     }
 }

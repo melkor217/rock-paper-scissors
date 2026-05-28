@@ -33,6 +33,7 @@ fun AutofillTextField(
     autofillHints: Array<String>,
     modifier: Modifier = Modifier,
     isPassword: Boolean = false,
+    enabled: Boolean = true,
     imeAction: Int = EditorInfo.IME_ACTION_NEXT,
     onImeAction: () -> Unit = {},
 ) {
@@ -65,6 +66,7 @@ fun AutofillTextField(
                 }
             },
             update = { editText ->
+                editText.isEnabled = enabled
                 if (editText.text.toString() != value) {
                     editText.setText(value)
                     editText.setSelection(value.length)

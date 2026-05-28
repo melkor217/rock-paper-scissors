@@ -119,6 +119,11 @@ class HomeViewModel(
         awaitingMatchStartedAtMs = System.currentTimeMillis()
         _uiState.update { it.copy(selectedMatchModes = matchModes, matchmakingError = null) }
         viewModelScope.launch {
+            if (!isFirebaseAvailableForQueueAction("join queue")) {
+                awaitingMatchFromQueue = false
+                awaitingMatchStartedAtMs = null
+                return@launch
+            }
             try {
                 val immediateMatchId = matchRepository.joinQueue(matchModes)
                 if (immediateMatchId != null) {
@@ -141,6 +146,9 @@ class HomeViewModel(
         awaitingMatchFromQueue = false
         awaitingMatchStartedAtMs = null
         viewModelScope.launch {
+            if (!isFirebaseAvailableForQueueAction("leave queue")) {
+                return@launch
+            }
             try {
                 matchRepository.leaveQueue()
             } catch (_: Exception) {
@@ -365,5 +373,13 @@ class HomeViewModel(
         stopQueueTimer()
         stopPresenceHeartbeat()
         super.onCleared()
+    }
+
+    private suspend fun isFirebaseAvailableForQueueAction(action: String): Boolean {
+        if (authRepository.isFirebaseAvailable()) return true
+        _uiState.update {
+            it.copy(matchmakingError = "Cannot $action right now. Firebase is unavailable.")
+        }
+        return false
     }
 }

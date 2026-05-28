@@ -9,9 +9,11 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -136,6 +138,22 @@ class AuthRepository(
         val name = user.displayName?.takeIf { it.isNotBlank() }
             ?: if (user.isAnonymous) DisplayNames.guestName(uid) else DisplayNames.DEFAULT
         return UserProfile(uid = uid, displayName = name, photoUrl = user.photoUrl?.toString())
+    }
+
+    suspend fun isFirebaseAvailable(): Boolean {
+        return try {
+            withTimeout(6_000) {
+                awaitFirestoreAuth()
+                firestore.collection("users").limit(1).get(Source.SERVER).await()
+            }
+            true
+        } catch (e: FirebaseFirestoreException) {
+            // Permission/rules failures still prove Firebase is reachable.
+            e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
+                e.code == FirebaseFirestoreException.Code.UNAUTHENTICATED
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private suspend fun loadUserSnapshot(
