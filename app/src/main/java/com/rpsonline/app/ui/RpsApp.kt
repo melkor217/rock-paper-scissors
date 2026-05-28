@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
@@ -157,6 +159,16 @@ fun RpsApp() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(topPanelGradient)
+                            .windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(
+                                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                                ),
+                            )
+                            .windowInsetsPadding(
+                                WindowInsets.displayCutout.only(
+                                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                                ),
+                            )
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
