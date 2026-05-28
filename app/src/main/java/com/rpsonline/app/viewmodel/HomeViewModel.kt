@@ -52,6 +52,11 @@ class HomeViewModel(
     private var queueObserveJob: Job? = null
     private var queueTimerJob: Job? = null
     private var awaitingMatchFromQueue = false
+    private var awaitingMatchStartedAtMs: Long? = null
+
+    companion object {
+        private const val MATCH_ASSIGNMENT_GRACE_MS = 30_000L
+    }
 
     private val _navigateToGameMatchId = MutableStateFlow<String?>(null)
     val navigateToGameMatchId: StateFlow<String?> = _navigateToGameMatchId.asStateFlow()
@@ -111,17 +116,20 @@ class HomeViewModel(
         if (_uiState.value.isInQueue || _uiState.value.activeMatchId != null) return
         MatchModePreferences(context).set(matchModes)
         awaitingMatchFromQueue = true
+        awaitingMatchStartedAtMs = System.currentTimeMillis()
         _uiState.update { it.copy(selectedMatchModes = matchModes, matchmakingError = null) }
         viewModelScope.launch {
             try {
                 val immediateMatchId = matchRepository.joinQueue(matchModes)
                 if (immediateMatchId != null) {
                     awaitingMatchFromQueue = false
+                    awaitingMatchStartedAtMs = null
                     _navigateToGameMatchId.value = immediateMatchId
                     return@launch
                 }
             } catch (e: Exception) {
                 awaitingMatchFromQueue = false
+                awaitingMatchStartedAtMs = null
                 _uiState.update {
                     it.copy(matchmakingError = e.message ?: "Matchmaking failed")
                 }
@@ -131,6 +139,7 @@ class HomeViewModel(
 
     fun leaveQueue() {
         awaitingMatchFromQueue = false
+        awaitingMatchStartedAtMs = null
         viewModelScope.launch {
             try {
                 matchRepository.leaveQueue()
@@ -154,14 +163,23 @@ class HomeViewModel(
             MatchSessionMonitor.queueJoinedAtMs.collect { joinedAtMs ->
                 if (joinedAtMs == null) {
                     stopQueueTimer()
-                    if (awaitingMatchFromQueue || _navigateToGameMatchId.value != null) {
-                        return@collect
+                    // Queue doc may disappear slightly before activeMatch arrives; keep a short handoff window.
+                    val withinAssignmentGrace = awaitingMatchFromQueue &&
+                        ((awaitingMatchStartedAtMs?.let { System.currentTimeMillis() - it } ?: Long.MAX_VALUE) <= MATCH_ASSIGNMENT_GRACE_MS)
+                    if (!withinAssignmentGrace) {
+                        awaitingMatchFromQueue = false
+                        awaitingMatchStartedAtMs = null
                     }
                     _uiState.update {
-                        it.copy(isInQueue = false, queueElapsedSeconds = 0)
+                        it.copy(
+                            isInQueue = false,
+                            queueElapsedSeconds = 0,
+                            matchmakingError = null,
+                        )
                     }
                 } else {
                     awaitingMatchFromQueue = true
+                    awaitingMatchStartedAtMs = System.currentTimeMillis()
                     _uiState.update { it.copy(isInQueue = true, matchmakingError = null) }
                     startQueueTimer(joinedAtMs)
                 }
@@ -197,6 +215,7 @@ class HomeViewModel(
                 if (shouldAutoNavigate) {
                     val matchId = match?.id ?: return@collect
                     awaitingMatchFromQueue = false
+                    awaitingMatchStartedAtMs = null
                     stopQueueTimer()
                     _navigateToGameMatchId.value = matchId
                     _uiState.update {
@@ -221,6 +240,21 @@ class HomeViewModel(
             val uid = authRepository.currentUserId ?: return@launch
             userRepository.getUserProfile(uid)?.let { profile ->
                 _uiState.update { it.copy(profile = profile) }
+            }
+            // Reconcile queue state on resume in case listener updates were missed while away.
+            val joinedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
+            if (joinedAtMs == null) {
+                awaitingMatchFromQueue = false
+                awaitingMatchStartedAtMs = null
+                stopQueueTimer()
+                _uiState.update {
+                    it.copy(isInQueue = false, queueElapsedSeconds = 0, matchmakingError = null)
+                }
+            } else {
+                awaitingMatchFromQueue = true
+                awaitingMatchStartedAtMs = System.currentTimeMillis()
+                _uiState.update { it.copy(isInQueue = true, matchmakingError = null) }
+                startQueueTimer(joinedAtMs)
             }
         }
         refresh()
@@ -302,6 +336,7 @@ class HomeViewModel(
 
     fun signOut(context: Context) {
         awaitingMatchFromQueue = false
+        awaitingMatchStartedAtMs = null
         _navigateToGameMatchId.value = null
         viewModelScope.launch {
             stopPresenceHeartbeat()
