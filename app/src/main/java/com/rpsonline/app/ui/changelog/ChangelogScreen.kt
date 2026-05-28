@@ -23,9 +23,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.R
 import com.rpsonline.app.data.update.ReleaseChangelog
 import com.rpsonline.app.data.update.ReleaseChangelogEntry
 import com.rpsonline.app.ui.components.HomeOutlinedButton
@@ -64,12 +66,12 @@ fun ChangelogScreen(
 
     Column(modifier = Modifier.rpsScreenPadding()) {
         Text(
-            text = "Changelog",
+            text = stringResource(R.string.changelog_title),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            text = "Installed: v${uiState.versionName}",
+            text = stringResource(R.string.installed_version, uiState.versionName),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -81,7 +83,7 @@ fun ChangelogScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    message = "Loading release notes…",
+                    message = stringResource(R.string.loading_release_notes),
                 )
             }
             uiState.error != null && uiState.entries.isEmpty() -> {

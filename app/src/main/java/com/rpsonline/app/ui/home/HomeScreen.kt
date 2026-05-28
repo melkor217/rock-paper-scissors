@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.BuildConfig
+import com.rpsonline.app.R
 import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
@@ -97,7 +99,7 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                RpsLoadingColumn(message = "Loading profile…")
+                RpsLoadingColumn(message = stringResource(R.string.loading_profile))
             }
             return
         }
@@ -109,18 +111,18 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = uiState.error ?: "Could not load your profile.",
+                    text = uiState.error ?: stringResource(R.string.could_not_load_profile),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(onClick = { viewModel.refresh() }) {
-                    Text("Retry")
+                    Text(stringResource(R.string.retry))
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(onClick = { viewModel.signOut(context) }) {
-                    Text("Sign Out")
+                    Text(stringResource(R.string.sign_out))
                 }
             }
             return
@@ -131,7 +133,7 @@ fun HomeScreen(
         val matchModesLocked = uiState.isInQueue
 
         Text(
-            text = "Welcome, ${profile?.displayName ?: DisplayNames.DEFAULT}",
+            text = profile?.displayName ?: DisplayNames.DEFAULT,
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -226,8 +228,16 @@ fun HomeScreen(
         if ((uiState.isInQueue || openingMatchId != null) && uiState.activeMatchId == null) {
             HomeQueueStatusCard(
                 queueElapsedSeconds = uiState.queueElapsedSeconds,
-                title = if (openingMatchId != null) "Match found" else "In queue",
-                subtitle = if (openingMatchId != null) "Opening game…" else "Finding an opponent…",
+                title = if (openingMatchId != null) {
+                    stringResource(R.string.match_found)
+                } else {
+                    stringResource(R.string.in_queue)
+                },
+                subtitle = if (openingMatchId != null) {
+                    stringResource(R.string.opening_game)
+                } else {
+                    stringResource(R.string.finding_opponent)
+                },
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -242,7 +252,7 @@ fun HomeScreen(
                         .height(80.dp),
                 ) {
                     Text(
-                        text = "Opening match…",
+                        text = stringResource(R.string.opening_match),
                         style = MaterialTheme.typography.headlineSmall,
                     )
                 }
@@ -255,7 +265,7 @@ fun HomeScreen(
                         .height(80.dp),
                 ) {
                     Text(
-                        text = "Reconnect to Game",
+                        text = stringResource(R.string.reconnect_to_game),
                         style = MaterialTheme.typography.headlineSmall,
                     )
                 }
@@ -265,7 +275,7 @@ fun HomeScreen(
                     onClick = { viewModel.leaveQueue() },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Leave Queue")
+                    Text(stringResource(R.string.leave_queue))
                 }
             }
             else -> {
@@ -276,7 +286,7 @@ fun HomeScreen(
                         .height(80.dp),
                 ) {
                     Text(
-                        text = "Find Match",
+                        text = stringResource(R.string.find_match),
                         style = MaterialTheme.typography.headlineSmall,
                     )
                 }
@@ -287,7 +297,7 @@ fun HomeScreen(
             onClick = onLeaderboard,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Leaderboard")
+            Text(stringResource(R.string.leaderboard))
         }
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -295,7 +305,7 @@ fun HomeScreen(
             onClick = { viewModel.signOut(context) },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Sign Out")
+            Text(stringResource(R.string.sign_out))
         }
         Spacer(modifier = Modifier.height(12.dp))
         HomeAppInfoFooter(
@@ -318,8 +328,8 @@ fun HomeScreen(
 @Composable
 private fun HomeQueueStatusCard(
     queueElapsedSeconds: Long,
-    title: String = "In queue",
-    subtitle: String = "Finding an opponent…",
+    title: String = "",
+    subtitle: String = "",
 ) {
     RpsCard(modifier = Modifier.fillMaxWidth()) {
         Column(

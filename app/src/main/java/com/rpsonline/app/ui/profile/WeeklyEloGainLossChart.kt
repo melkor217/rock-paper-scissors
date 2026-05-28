@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +46,7 @@ import com.rpsonline.app.domain.DailyEloDelta
 import com.rpsonline.app.domain.weeklyEloDailyDeltas
 import com.rpsonline.app.domain.weeklyEloMatchCount
 import com.rpsonline.app.domain.weeklyEloNetDelta
+import com.rpsonline.app.R
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.formatEloDelta
 import kotlin.math.abs
@@ -67,6 +69,7 @@ fun WeeklyEloGainLossChart(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     sharedMatchesOnly: Boolean = false,
+    sharedMatchupLabel: String? = null,
 ) {
     Crossfade(
         targetState = isLoading,
@@ -79,6 +82,7 @@ fun WeeklyEloGainLossChart(
             WeeklyEloChartContent(
                 days = days,
                 sharedMatchesOnly = sharedMatchesOnly,
+                sharedMatchupLabel = sharedMatchupLabel,
             )
         }
     }
@@ -88,6 +92,7 @@ fun WeeklyEloGainLossChart(
 private fun WeeklyEloChartContent(
     days: List<DailyEloDelta>,
     sharedMatchesOnly: Boolean,
+    sharedMatchupLabel: String?,
 ) {
     val chartDays = remember(days) {
         if (days.size == 7) days else weeklyEloDailyDeltas(emptyList())
@@ -151,14 +156,14 @@ private fun WeeklyEloChartContent(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = "This week",
+                        text = stringResource(R.string.this_week),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    if (sharedMatchesOnly) {
+                    if (sharedMatchesOnly && !sharedMatchupLabel.isNullOrBlank()) {
                         Text(
-                            text = "Matches you played against",
+                            text = sharedMatchupLabel,
                             style = MaterialTheme.typography.labelSmall,
                             color = labelColor,
                         )
@@ -244,6 +249,7 @@ private fun WeeklyEloChartContent(
 private fun WeeklyEloChartSkeleton(
     sharedMatchesOnly: Boolean,
 ) {
+    val loadingChartDescription = stringResource(R.string.loading_weekly_chart)
     val pulseAlpha by rememberInfiniteTransition(label = "weeklyChartSkeleton")
         .animateFloat(
             initialValue = 0.28f,
@@ -260,7 +266,7 @@ private fun WeeklyEloChartSkeleton(
     RpsCard(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics { contentDescription = "Loading weekly chart" },
+            .semantics { contentDescription = loadingChartDescription },
     ) {
         Column(
             modifier = Modifier
@@ -467,7 +473,7 @@ private fun ChartLegend(
                 )
             }
             Text(
-                text = "Matches",
+                text = stringResource(R.string.matches),
                 style = MaterialTheme.typography.labelSmall,
                 color = labelColor,
             )
@@ -477,7 +483,7 @@ private fun ChartLegend(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "ELO",
+                text = stringResource(R.string.elo_label),
                 style = MaterialTheme.typography.labelSmall,
                 color = labelColor,
             )

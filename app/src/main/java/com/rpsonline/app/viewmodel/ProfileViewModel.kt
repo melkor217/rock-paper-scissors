@@ -30,6 +30,7 @@ data class ProfileUiState(
     val weeklyEloChart: List<DailyEloDelta> = emptyList(),
     val hasMoreMatches: Boolean = true,
     val isOwnProfile: Boolean = false,
+    val viewerDisplayName: String? = null,
     val error: String? = null,
     val matchHistoryError: String? = null,
 )
@@ -90,6 +91,12 @@ class ProfileViewModel(
                     ?: throw IllegalStateException("Not signed in")
                 val profile = userRepository.getUserProfile(userId)
                     ?: throw IllegalStateException("Player not found")
+                val viewerDisplayName = if (isOwnProfile) {
+                    profile.displayName
+                } else {
+                    userRepository.getUserProfile(viewerId)?.displayName
+                        ?: authRepository.currentUser?.displayName
+                }
                 cachedViewerId = viewerId
                 val sinceMs = weeklyChartWindowStartMs()
                 val matchPool = fetchMatchPool(
@@ -125,6 +132,7 @@ class ProfileViewModel(
                         weeklyEloChart = weeklyEloChart,
                         hasMoreMatches = historyMatches.size >= MATCH_HISTORY_PAGE_SIZE,
                         isOwnProfile = isOwnProfile,
+                        viewerDisplayName = viewerDisplayName,
                         matchHistoryError = null,
                     )
                 }

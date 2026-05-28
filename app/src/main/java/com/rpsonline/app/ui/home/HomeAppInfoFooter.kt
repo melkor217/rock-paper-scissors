@@ -21,7 +21,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.data.update.AppUpdateInfo
 
 @Composable
@@ -65,17 +67,20 @@ fun HomeAppInfoFooter(
             Column(modifier = Modifier.weight(1f)) {
                 if (versionName.isNotBlank()) {
                     Text(
-                        text = "Version $versionName",
+                        text = stringResource(R.string.version_label, versionName),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable(onClick = onVersionClick),
                     )
                 }
                 val statusText = when {
-                    isDownloadingUpdate -> "Downloading update…"
-                    pendingUpdate != null -> "v${pendingUpdate.versionLabel} is available"
+                    isDownloadingUpdate -> stringResource(R.string.downloading_update)
+                    pendingUpdate != null -> stringResource(
+                        R.string.version_available,
+                        pendingUpdate.versionLabel,
+                    )
                     !updateMessage.isNullOrBlank() -> updateMessage
-                    updatesEnabled -> "Installed from GitHub Releases"
+                    updatesEnabled -> stringResource(R.string.installed_from_github)
                     else -> null
                 }
                 statusText?.let { text ->
@@ -112,7 +117,7 @@ fun HomeAppInfoFooter(
                                     modifier = Modifier.size(18.dp),
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Update")
+                                Text(stringResource(R.string.update))
                             }
                         }
                     }
@@ -121,7 +126,7 @@ fun HomeAppInfoFooter(
                             onClick = onCheckForUpdate,
                             modifier = Modifier.padding(start = 4.dp),
                         ) {
-                            Text("Check")
+                            Text(stringResource(R.string.check))
                         }
                     }
                 }

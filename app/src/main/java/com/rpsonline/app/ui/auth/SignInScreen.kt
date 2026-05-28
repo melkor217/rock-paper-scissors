@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import com.rpsonline.app.BuildConfig
+import com.rpsonline.app.R
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.AutofillTextField
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -98,13 +100,13 @@ fun SignInScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = "RPS Online",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Ranked rock-paper-scissors.\nBest of 3 or 5. ELO matchmaking.",
+            text = stringResource(R.string.app_tagline),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
@@ -179,11 +181,11 @@ private fun SignInLoadingState(isRestoringSession: Boolean) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         RpsLoadingColumn(
-            message = if (isRestoringSession) "Restoring session…" else "Signing in…",
+            message = if (isRestoringSession) stringResource(R.string.restoring_session) else stringResource(R.string.signing_in),
         )
         if (!isOnline) {
             Text(
-                text = "No internet connection. Connect to Wi‑Fi or mobile data and try again.",
+                text = stringResource(R.string.no_internet_try_again),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
@@ -201,14 +203,14 @@ private fun AuthButtons(
         onClick = onGoogle,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Sign in with Google")
+        Text(stringResource(R.string.sign_in_with_google))
     }
     Spacer(modifier = Modifier.height(8.dp))
     OutlinedButton(
         onClick = onGuest,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text("Continue as guest")
+        Text(stringResource(R.string.continue_as_guest))
     }
 }
 
@@ -225,7 +227,7 @@ private fun EmailAuthSection(
     onSubmit: () -> Unit,
 ) {
     Text(
-        text = "Email",
+        text = stringResource(R.string.email),
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -238,7 +240,7 @@ private fun EmailAuthSection(
             shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
             modifier = Modifier.weight(1f),
         ) {
-            Text("Sign in")
+            Text(stringResource(R.string.sign_in))
         }
         SegmentedButton(
             selected = mode == EmailAuthMode.REGISTER,
@@ -246,7 +248,7 @@ private fun EmailAuthSection(
             shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
             modifier = Modifier.weight(1f),
         ) {
-            Text("Register")
+            Text(stringResource(R.string.register))
         }
     }
 
@@ -273,7 +275,7 @@ private fun EmailAuthSection(
     AutofillTextField(
         value = email,
         onValueChange = onEmailChange,
-        label = "Email",
+        label = stringResource(R.string.email),
         autofillHints = emailHints,
         imeAction = EditorInfo.IME_ACTION_NEXT,
     )
@@ -281,7 +283,7 @@ private fun EmailAuthSection(
     AutofillTextField(
         value = password,
         onValueChange = onPasswordChange,
-        label = "Password",
+        label = stringResource(R.string.password),
         autofillHints = passwordHints,
         isPassword = true,
         imeAction = if (isRegister) EditorInfo.IME_ACTION_NEXT else EditorInfo.IME_ACTION_DONE,
@@ -293,7 +295,7 @@ private fun EmailAuthSection(
         OutlinedTextField(
             value = displayName,
             onValueChange = onDisplayNameChange,
-            label = { Text("Display name (optional)") },
+            label = { Text(stringResource(R.string.display_name_optional)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
                 imeAction = ImeAction.Done,
@@ -313,6 +315,12 @@ private fun EmailAuthSection(
         onClick = onSubmit,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(if (mode == EmailAuthMode.SIGN_IN) "Sign in with email" else "Create account")
+        Text(
+            if (mode == EmailAuthMode.SIGN_IN) {
+                stringResource(R.string.sign_in_with_email)
+            } else {
+                stringResource(R.string.create_account)
+            },
+        )
     }
 }

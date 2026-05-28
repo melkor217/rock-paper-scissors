@@ -24,8 +24,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.viewerResolution
 import com.rpsonline.app.data.model.UserProfile
@@ -98,7 +100,7 @@ fun ResultScreen(
         val opponentWins = userId?.let { currentMatch.opponentWins(it) } ?: 0
         val resolution = userId?.let { currentMatch.viewerResolution(it) }
         val eloDelta = userId?.let { currentMatch.myEloDelta(it) }
-        val opponentName = userId?.let { currentMatch.opponentName(it) } ?: "Opponent"
+        val opponentName = userId?.let { currentMatch.opponentName(it) } ?: stringResource(R.string.opponent)
         val opponentId = userId?.let { currentMatch.opponentId(it) }
         val opponentElo = userId?.let { uid ->
             myCurrentElo?.let { currentMatch.opponentEloAtMatch(uid, it) }
@@ -158,7 +160,7 @@ fun ResultScreen(
             onClick = { onPlayAgain(currentMatch.matchMode) },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Play Again")
+            Text(stringResource(R.string.play_again))
         }
         Spacer(modifier = Modifier.height(8.dp))
         HomeOutlinedButton(onClick = onHome)
@@ -181,7 +183,10 @@ private fun FinalScoreCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Final score: ${formatMatchScore(myWins, opponentWins)}",
+                text = stringResource(
+                    R.string.final_score,
+                    formatMatchScore(myWins, opponentWins),
+                ),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )

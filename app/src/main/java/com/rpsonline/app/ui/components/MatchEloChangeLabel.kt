@@ -6,8 +6,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import com.rpsonline.app.R
 
 @Composable
 fun MatchEloChangeLabel(
@@ -32,7 +34,7 @@ fun MatchEloChangeLabel(
         ) {
             if (showEloPrefix) {
                 Text(
-                    text = "ELO ",
+                    text = "${stringResource(R.string.elo_label)} ",
                     style = textStyle,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -51,7 +53,7 @@ fun MatchEloChangeLabel(
         }
     } else {
         Text(
-            text = "ELO ${formatEloDelta(eloDelta)}",
+            text = stringResource(R.string.elo_with_delta, formatEloDelta(eloDelta)),
             modifier = modifier,
             style = textStyle,
             fontWeight = FontWeight.Bold,

@@ -10,7 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.domain.GameRules
 
 fun formatClockSeconds(totalSeconds: Int): String {
@@ -74,7 +76,7 @@ fun GameTimerRow(
     ) {
         MatchClockDisplay(
             secondsRemaining = myClockSeconds,
-            label = "You",
+            label = stringResource(R.string.you),
             isRunning = myClockRunning,
             compact = compact,
             modifier = Modifier.weight(1f),
@@ -82,7 +84,7 @@ fun GameTimerRow(
         if (roundSecondsRemaining != null) {
             RoundCountdown(
                 secondsRemaining = roundSecondsRemaining,
-                label = clockLabel("Round"),
+                label = clockLabel(stringResource(R.string.round_label)),
                 isRunning = !isResolvingTimeout,
                 isResolvingTimeout = isResolvingTimeout,
                 hasSubmittedMove = hasSubmittedMove,
@@ -93,7 +95,7 @@ fun GameTimerRow(
         }
         MatchClockDisplay(
             secondsRemaining = opponentClockSeconds,
-            label = "Opp",
+            label = stringResource(R.string.opponent_short),
             isRunning = opponentClockRunning,
             compact = compact,
             modifier = Modifier.weight(1f),

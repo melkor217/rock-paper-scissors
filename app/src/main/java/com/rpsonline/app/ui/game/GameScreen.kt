@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +38,7 @@ import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.domain.GameRules
+import com.rpsonline.app.R
 import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -93,17 +95,31 @@ fun GameScreen(
         val pickPrompt = when {
             uiState.hasSubmittedMove -> null
             drawReplay != null ->
-                "Pick your move to replay the round (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)"
+                stringResource(
+                    R.string.pick_move_replay,
+                    GameRules.ROUND_TIMEOUT_SECONDS,
+                )
             awaitingNextRound ->
-                "Pick your move for round ${openRound!!.roundNumber} (${GameRules.ROUND_TIMEOUT_SECONDS}s limit)"
+                stringResource(
+                    R.string.pick_move_round,
+                    openRound!!.roundNumber,
+                    GameRules.ROUND_TIMEOUT_SECONDS,
+                )
             showMovePicker ->
-                "Pick your move — ${GameRules.ROUND_TIMEOUT_SECONDS}s per round"
+                stringResource(
+                    R.string.pick_move_per_round,
+                    GameRules.ROUND_TIMEOUT_SECONDS,
+                )
             else -> null
         }
 
         val compactLayout = LocalConfiguration.current.screenHeightDp < 700
         val opponentScoreLabel =
-            if (LocalConfiguration.current.screenWidthDp < 360) "Opp." else "Opponent"
+            if (LocalConfiguration.current.screenWidthDp < 360) {
+                stringResource(R.string.opponent_short)
+            } else {
+                stringResource(R.string.opponent)
+            }
 
         Column(
             modifier = Modifier
@@ -113,7 +129,7 @@ fun GameScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "vs ${match.opponentName(userId)}",
+                text = stringResource(R.string.vs_user, match.opponentName(userId)),
                 style = if (compactLayout) {
                     MaterialTheme.typography.titleLarge
                 } else {
@@ -124,7 +140,11 @@ fun GameScreen(
             )
             Spacer(modifier = Modifier.height(if (compactLayout) 4.dp else 8.dp))
             Text(
-                text = "Round ${match.currentRound}  •  ${formatMatchSeriesDetail(match.matchMode)}",
+                text = stringResource(
+                    R.string.round_series,
+                    match.currentRound,
+                    formatMatchSeriesDetail(match.matchMode),
+                ),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onBackground,
             )
@@ -270,7 +290,7 @@ private fun MatchScoreCard(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ScoreColumn(
-            label = "You",
+            label = stringResource(R.string.you),
             score = myWins,
             winsToFinish = winsToFinish,
             progressColor = MaterialTheme.colorScheme.primary,

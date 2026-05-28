@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -40,6 +41,7 @@ import com.rpsonline.app.data.monitoring.FirebaseConnectionMonitor
 import com.rpsonline.app.data.preferences.AppThemeStyle
 import com.rpsonline.app.data.preferences.SoundPreferences
 import com.rpsonline.app.data.preferences.ThemePreferences
+import com.rpsonline.app.R
 import com.rpsonline.app.navigation.RpsNavGraph
 import com.rpsonline.app.ui.components.AppearanceMenuButton
 import com.rpsonline.app.ui.components.ClockSoundMuteButton
@@ -208,8 +210,11 @@ private fun QueueOrMatchStatusChip(
 
     val inMatch = activeMatch?.status == MatchStatus.ACTIVE
     val label = when {
-        inMatch -> "In match"
-        queueJoinedAtMs != null -> "In queue: ${formatQueueTime(queueElapsedSeconds)}"
+        inMatch -> stringResource(R.string.in_match)
+        queueJoinedAtMs != null -> stringResource(
+            R.string.in_queue_with_time,
+            formatQueueTime(queueElapsedSeconds),
+        )
         else -> null
     } ?: return
 
