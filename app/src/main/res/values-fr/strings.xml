@@ -23,7 +23,6 @@
     <string name="you">Vous</string>
     <string name="opponent">Adversaire</string>
     <string name="round_label">Manche</string>
-    <string name="welcome_user">Bienvenue, %1$s</string>
     <string name="profile">Profil</string>
     <string name="profile_title_own">%1$s (vous)</string>
     <string name="this_week">Cette semaine</string>

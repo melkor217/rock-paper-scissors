@@ -23,7 +23,6 @@
     <string name="you">Kamu</string>
     <string name="opponent">Lawan</string>
     <string name="round_label">Ronde</string>
-    <string name="welcome_user">Selamat datang, %1$s</string>
     <string name="profile">Profil</string>
     <string name="profile_title_own">%1$s (kamu)</string>
     <string name="this_week">Minggu ini</string>

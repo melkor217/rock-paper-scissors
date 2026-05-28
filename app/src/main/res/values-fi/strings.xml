@@ -23,7 +23,6 @@
     <string name="you">Sinä</string>
     <string name="opponent">Vastustaja</string>
     <string name="round_label">Era</string>
-    <string name="welcome_user">Tervetuloa, %1$s</string>
     <string name="profile">Profiili</string>
     <string name="profile_title_own">%1$s (sinä)</string>
     <string name="this_week">Tama viikko</string>

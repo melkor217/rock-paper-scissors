@@ -8,7 +8,6 @@
     <string name="could_not_load_profile">Could not load your profile.</string>
     <string name="retry">Retry</string>
     <string name="sign_out">Sign Out</string>
-    <string name="welcome_user">Welcome, %1$s</string>
     <string name="profile">Profile</string>
     <string name="profile_title_own">%1$s (you)</string>
     <string name="match_found">Match found</string>

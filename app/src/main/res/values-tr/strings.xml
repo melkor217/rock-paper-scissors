@@ -23,7 +23,6 @@
     <string name="you">Sen</string>
     <string name="opponent">Rakip</string>
     <string name="round_label">Raunt</string>
-    <string name="welcome_user">Hos geldin, %1$s</string>
     <string name="profile">Profil</string>
     <string name="profile_title_own">%1$s (sen)</string>
     <string name="this_week">Bu hafta</string>

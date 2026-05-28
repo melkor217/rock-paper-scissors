@@ -23,7 +23,6 @@
     <string name="you">Вы</string>
     <string name="opponent">Соперник</string>
     <string name="round_label">Раунд</string>
-    <string name="welcome_user">Добро пожаловать, %1$s</string>
     <string name="profile">Профиль</string>
     <string name="profile_title_own">%1$s (вы)</string>
     <string name="this_week">На этой неделе</string>

@@ -23,7 +23,6 @@
     <string name="you">あなた</string>
     <string name="opponent">相手</string>
     <string name="round_label">ラウンド</string>
-    <string name="welcome_user">ようこそ、%1$s</string>
     <string name="profile">プロフィール</string>
     <string name="profile_title_own">%1$s（あなた）</string>
     <string name="this_week">今週</string>

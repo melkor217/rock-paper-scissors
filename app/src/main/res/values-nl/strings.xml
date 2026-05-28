@@ -23,7 +23,6 @@
     <string name="you">Jij</string>
     <string name="opponent">Tegenstander</string>
     <string name="round_label">Ronde</string>
-    <string name="welcome_user">Welkom, %1$s</string>
     <string name="profile">Profiel</string>
     <string name="profile_title_own">%1$s (jij)</string>
     <string name="this_week">Deze week</string>

@@ -23,7 +23,6 @@
     <string name="you">Dig</string>
     <string name="opponent">Modstander</string>
     <string name="round_label">Runde</string>
-    <string name="welcome_user">Velkommen, %1$s</string>
     <string name="profile">Profil</string>
     <string name="profile_title_own">%1$s (dig)</string>
     <string name="this_week">Denne uge</string>

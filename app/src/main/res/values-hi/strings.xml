@@ -23,7 +23,6 @@
     <string name="you">आप</string>
     <string name="opponent">प्रतिद्वंद्वी</string>
     <string name="round_label">राउंड</string>
-    <string name="welcome_user">स्वागत है, %1$s</string>
     <string name="profile">प्रोफाइल</string>
     <string name="profile_title_own">%1$s (आप)</string>
     <string name="this_week">इस सप्ताह</string>

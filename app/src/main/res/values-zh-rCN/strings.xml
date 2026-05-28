@@ -23,7 +23,6 @@
     <string name="you">你</string>
     <string name="opponent">对手</string>
     <string name="round_label">回合</string>
-    <string name="welcome_user">欢迎，%1$s</string>
     <string name="profile">个人资料</string>
     <string name="profile_title_own">%1$s（你）</string>
     <string name="this_week">本周</string>

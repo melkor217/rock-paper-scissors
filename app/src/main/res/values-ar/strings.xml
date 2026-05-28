@@ -23,7 +23,6 @@
     <string name="you">انت</string>
     <string name="opponent">الخصم</string>
     <string name="round_label">جولة</string>
-    <string name="welcome_user">مرحبا، %1$s</string>
     <string name="profile">الملف الشخصي</string>
     <string name="profile_title_own">%1$s (انت)</string>
     <string name="this_week">هذا الاسبوع</string>
