@@ -117,45 +117,65 @@ class HomeViewModel(
         MatchModePreferences(context).set(matchModes)
         awaitingMatchFromQueue = true
         awaitingMatchStartedAtMs = System.currentTimeMillis()
-        _uiState.update { it.copy(selectedMatchModes = matchModes, matchmakingError = null) }
+        _uiState.update {
+            it.copy(
+                selectedMatchModes = matchModes,
+                isInQueue = true,
+                matchmakingError = null,
+            )
+        }
         viewModelScope.launch {
-            if (!isFirebaseAvailableForQueueAction("join queue")) {
-                awaitingMatchFromQueue = false
-                awaitingMatchStartedAtMs = null
-                return@launch
-            }
             try {
+                val alreadyQueuedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
+                if (alreadyQueuedAtMs != null) {
+                    awaitingMatchFromQueue = true
+                    awaitingMatchStartedAtMs = System.currentTimeMillis()
+                    _uiState.update { it.copy(isInQueue = true, matchmakingError = null) }
+                    startQueueTimer(alreadyQueuedAtMs)
+                    return@launch
+                }
                 val immediateMatchId = matchRepository.joinQueue(matchModes)
                 if (immediateMatchId != null) {
                     awaitingMatchFromQueue = false
                     awaitingMatchStartedAtMs = null
+                    stopQueueTimer()
+                    _uiState.update {
+                        it.copy(
+                            isInQueue = false,
+                            queueElapsedSeconds = 0,
+                            matchmakingError = null,
+                        )
+                    }
                     _navigateToGameMatchId.value = immediateMatchId
                     return@launch
                 }
             } catch (e: Exception) {
                 awaitingMatchFromQueue = false
                 awaitingMatchStartedAtMs = null
+                stopQueueTimer()
                 _uiState.update {
-                    it.copy(matchmakingError = e.message ?: "Matchmaking failed")
+                    it.copy(
+                        isInQueue = false,
+                        queueElapsedSeconds = 0,
+                        matchmakingError = e.message ?: "Matchmaking failed",
+                    )
                 }
             }
         }
     }
 
     fun leaveQueue() {
+        val userId = authRepository.currentUserId
         awaitingMatchFromQueue = false
         awaitingMatchStartedAtMs = null
-        viewModelScope.launch {
-            if (!isFirebaseAvailableForQueueAction("leave queue")) {
-                return@launch
-            }
-            try {
-                matchRepository.leaveQueue()
-            } catch (_: Exception) {
-            } finally {
-                _uiState.update {
-                    it.copy(isInQueue = false, queueElapsedSeconds = 0, matchmakingError = null)
-                }
+        stopQueueTimer()
+        MatchSessionMonitor.clearQueueState()
+        _uiState.update {
+            it.copy(isInQueue = false, queueElapsedSeconds = 0, matchmakingError = null)
+        }
+        userId?.let { uid ->
+            viewModelScope.launch {
+                matchRepository.leaveQueueBestEffort(uid)
             }
         }
     }
@@ -343,26 +363,25 @@ class HomeViewModel(
     }
 
     fun signOut(context: Context) {
+        val uid = authRepository.currentUserId
         awaitingMatchFromQueue = false
         awaitingMatchStartedAtMs = null
         _navigateToGameMatchId.value = null
+        stopPresenceHeartbeat()
+        uid?.let { userId ->
+            // Queue/presence cleanup is best-effort and must not block local sign-out.
+            matchRepository.leaveQueueBestEffort(userId)
+            presenceRepository.clearPresence(userId)
+        }
         viewModelScope.launch {
-            stopPresenceHeartbeat()
-            try {
-                matchRepository.leaveQueue()
-            } catch (_: Exception) {
-            }
-            authRepository.currentUserId?.let { uid ->
-                presenceRepository.clearPresence(uid)
-            }
             authRepository.signOut(context)
-            _uiState.update {
-                HomeUiState(
-                    isLoading = false,
-                    profile = null,
-                    onlinePlayerCount = null,
-                )
-            }
+        }
+        _uiState.update {
+            HomeUiState(
+                isLoading = false,
+                profile = null,
+                onlinePlayerCount = null,
+            )
         }
     }
 
