@@ -91,12 +91,18 @@ class ProfileViewModel(
                     ?: throw IllegalStateException("Not signed in")
                 val profile = userRepository.getUserProfile(userId)
                     ?: throw IllegalStateException("Player not found")
+                val viewerProfile = if (isOwnProfile) {
+                    profile
+                } else {
+                    userRepository.getUserProfile(viewerId)
+                }
                 val viewerDisplayName = if (isOwnProfile) {
                     profile.displayName
                 } else {
-                    userRepository.getUserProfile(viewerId)?.displayName
-                        ?: authRepository.currentUser?.displayName
+                    viewerProfile?.displayName ?: authRepository.currentUser?.displayName
                 }
+                val historyPerspectiveUserId = if (isOwnProfile) userId else viewerId
+                val historyPerspectiveElo = if (isOwnProfile) profile.elo else (viewerProfile?.elo ?: 1000)
                 cachedViewerId = viewerId
                 val sinceMs = weeklyChartWindowStartMs()
                 val matchPool = fetchMatchPool(
@@ -108,16 +114,16 @@ class ProfileViewModel(
                 val weeklyMatches = matchPool.filter { it.lastActivityAt >= sinceMs }
                 val weeklyEloChart = weeklyEloDailyDeltas(
                     enrichMatchHistoryWithOpponentElos(
-                        viewerId = userId,
-                        myCurrentElo = profile.elo,
+                        viewerId = historyPerspectiveUserId,
+                        myCurrentElo = historyPerspectiveElo,
                         matches = weeklyMatches,
                     ),
                 )
                 val historyMatches = matchPool.take(MATCH_HISTORY_PAGE_SIZE)
-                // Chart and match history both use the profile subject's perspective (userId).
+                // For other-player profiles, show shared data from the signed-in viewer perspective.
                 val history = enrichMatchHistoryWithOpponentElos(
-                    viewerId = userId,
-                    myCurrentElo = profile.elo,
+                    viewerId = historyPerspectiveUserId,
+                    myCurrentElo = historyPerspectiveElo,
                     matches = historyMatches,
                 )
                 loadedUserId = userId
@@ -175,9 +181,15 @@ class ProfileViewModel(
                     profileUserId = userId,
                     limit = nextLimit,
                 )
+                val historyPerspectiveUserId = if (state.isOwnProfile) userId else currentViewerId
+                val historyPerspectiveElo = if (state.isOwnProfile) {
+                    profile.elo
+                } else {
+                    userRepository.getUserProfile(currentViewerId)?.elo ?: 1000
+                }
                 val history = enrichMatchHistoryWithOpponentElos(
-                    viewerId = userId,
-                    myCurrentElo = profile.elo,
+                    viewerId = historyPerspectiveUserId,
+                    myCurrentElo = historyPerspectiveElo,
                     matches = matches,
                 )
                 _uiState.update {
