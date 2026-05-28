@@ -24,7 +24,9 @@ const kotlin = `package com.rpsonline.app.domain
 object GeneratedGameRules {
     const val ROUND_TIMEOUT_SECONDS: Int = ${rules.roundTimeoutSeconds}
     const val INITIAL_CLOCK_MS: Long = ${rules.initialClockMs}L
+    const val MAX_CLOCK_MS: Long = ${rules.maxClockMs}L
     const val CLOCK_INCREMENT_MS: Long = ${rules.clockIncrementMs}L
+    const val CLOCK_RING_FULL_SECONDS: Int = 60
 
     enum class Mode(
         val winsToFinish: Int,

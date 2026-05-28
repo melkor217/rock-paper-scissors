@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.R
-import com.rpsonline.app.domain.GameRules
 
 fun formatClockSeconds(totalSeconds: Int): String {
     val safe = totalSeconds.coerceAtLeast(0)
@@ -32,7 +31,6 @@ fun MatchClockDisplay(
     compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val initialClockSeconds = (GameRules.INITIAL_CLOCK_MS / 1000L).toFloat()
     val labelColor = if (isRunning) {
         MaterialTheme.colorScheme.onSurfaceVariant
     } else {
@@ -50,7 +48,6 @@ fun MatchClockDisplay(
         )
         CircularGameClock(
             secondsRemaining = secondsRemaining,
-            totalSeconds = initialClockSeconds,
             isRunning = isRunning,
             compact = compact,
         )

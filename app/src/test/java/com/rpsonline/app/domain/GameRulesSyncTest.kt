@@ -11,6 +11,7 @@ class GameRulesSyncTest {
         val json = readTestResource("/game-rules.json")
         assertEquals(parseInt(json, "roundTimeoutSeconds"), GameRules.ROUND_TIMEOUT_SECONDS)
         assertEquals(parseLong(json, "initialClockMs"), GameRules.INITIAL_CLOCK_MS)
+        assertEquals(parseLong(json, "maxClockMs"), GameRules.MAX_CLOCK_MS)
         assertEquals(parseLong(json, "clockIncrementMs"), GameRules.CLOCK_INCREMENT_MS)
 
         MatchMode.entries.forEach { mode ->

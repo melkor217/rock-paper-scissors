@@ -5,7 +5,9 @@ import com.rpsonline.app.data.model.Move
 object GameRules {
     const val ROUND_TIMEOUT_SECONDS = GeneratedGameRules.ROUND_TIMEOUT_SECONDS
     const val INITIAL_CLOCK_MS = GeneratedGameRules.INITIAL_CLOCK_MS
+    const val MAX_CLOCK_MS = GeneratedGameRules.MAX_CLOCK_MS
     const val CLOCK_INCREMENT_MS = GeneratedGameRules.CLOCK_INCREMENT_MS
+    const val CLOCK_RING_FULL_SECONDS = GeneratedGameRules.CLOCK_RING_FULL_SECONDS
 
     /**
      * Returns winner move on victory, null on tie.

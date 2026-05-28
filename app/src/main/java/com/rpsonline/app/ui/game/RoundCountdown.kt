@@ -75,9 +75,9 @@ fun RoundCountdown(
         )
         CircularGameClock(
             secondsRemaining = secondsRemaining,
-            totalSeconds = GameRules.ROUND_TIMEOUT_SECONDS.toFloat(),
             isRunning = isRunning,
             compact = compact,
+            ringFullSeconds = GameRules.ROUND_TIMEOUT_SECONDS,
         )
         if (showFooter) {
             Spacer(modifier = Modifier.height(4.dp))

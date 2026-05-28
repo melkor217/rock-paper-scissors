@@ -12,13 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.domain.GameRules
 
 @Composable
 fun CircularGameClock(
     secondsRemaining: Int,
-    totalSeconds: Float,
     isRunning: Boolean,
     compact: Boolean,
+    ringFullSeconds: Int = GameRules.CLOCK_RING_FULL_SECONDS,
     modifier: Modifier = Modifier,
 ) {
     val activeColor = when {
@@ -38,7 +39,9 @@ fun CircularGameClock(
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     }
     val timerSize = if (compact) 56.dp else 72.dp
-    val progress = (secondsRemaining / totalSeconds).coerceIn(0f, 1f)
+    val ringFull = ringFullSeconds.toFloat()
+    val ringSeconds = secondsRemaining.coerceAtMost(ringFullSeconds)
+    val progress = (ringSeconds / ringFull).coerceIn(0f, 1f)
     val strokeWidth = if (isRunning) {
         ProgressIndicatorDefaults.CircularStrokeWidth
     } else {
