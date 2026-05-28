@@ -211,7 +211,7 @@ class MatchRepository(
 
     /**
      * Keeps the queue entry alive while the user is actively waiting for a match.
-     * On failure, removes the queue doc so the user is not left as a stale matchmaking entry.
+     * Failures are treated as transient; cleanup of truly stale entries is server-driven.
      */
     suspend fun sendQueueHeartbeat(): Boolean {
         val userId = auth.currentUser?.uid ?: return false
@@ -220,8 +220,6 @@ class MatchRepository(
             firestore.collection("queue").document(userId)
                 .update(mapOf("lastHeartbeatAt" to FieldValue.serverTimestamp()))
                 .await()
-        }.onFailure {
-            runCatching { leaveQueue() }
         }.isSuccess
     }
 
@@ -232,6 +230,13 @@ class MatchRepository(
     fun observeQueue(): Flow<Long?> {
         MatchSessionMonitor.ensureStarted()
         return MatchSessionMonitor.queueJoinedAtMs
+    }
+
+    suspend fun getQueueJoinedAtMs(): Long? {
+        val snap = firestore.collection("queue").document(uid).get().await()
+        if (!snap.exists()) return null
+        return snap.getTimestamp("joinedAt")?.toDate()?.time
+            ?: snap.getLong("clientJoinedAt")
     }
 
     suspend fun requestRoundTimeout(matchId: String, roundNumber: Int) {

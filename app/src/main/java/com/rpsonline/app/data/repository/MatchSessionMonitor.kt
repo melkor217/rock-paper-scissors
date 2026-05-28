@@ -89,4 +89,9 @@ object MatchSessionMonitor {
         matchListener?.remove()
         matchListener = null
     }
+
+    /** Local fallback when queue heartbeat fails and snapshot lag leaves stale UI. */
+    fun clearQueueState() {
+        _queueJoinedAtMs.value = null
+    }
 }

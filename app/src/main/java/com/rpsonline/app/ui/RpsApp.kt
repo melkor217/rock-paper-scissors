@@ -53,6 +53,7 @@ import com.rpsonline.app.ui.theme.RpsTheme
 import com.rpsonline.app.ui.util.ClockTickPlayer
 import com.rpsonline.app.ui.util.RoundResolutionSoundEffect
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun RpsApp() {
@@ -92,10 +93,28 @@ fun RpsApp() {
 
     LaunchedEffect(queueJoinedAtMs) {
         if (queueJoinedAtMs == null) return@LaunchedEffect
+        var consecutiveFailures = 0
         while (true) {
+            if (!matchRepository.sendQueueHeartbeat()) {
+                consecutiveFailures += 1
+                if (consecutiveFailures >= 3) {
+                    MatchSessionMonitor.clearQueueState()
+                    break
+                }
+            } else {
+                consecutiveFailures = 0
+            }
             delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
-            if (!matchRepository.sendQueueHeartbeat()) break
         }
+    }
+
+    LifecycleResumeEffect(queueJoinedAtMs) {
+        if (queueJoinedAtMs != null) {
+            scope.launch {
+                matchRepository.sendQueueHeartbeat()
+            }
+        }
+        onPauseOrDispose { }
     }
 
     RpsTheme(style = themeStyle) {
