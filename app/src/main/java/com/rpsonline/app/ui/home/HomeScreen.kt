@@ -141,7 +141,7 @@ fun HomeScreen(
         val matchModesLocked = uiState.isInQueue
 
         Text(
-            text = "RPS Online",
+            text = "Welcome!",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
