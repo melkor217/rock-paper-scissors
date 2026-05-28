@@ -6,6 +6,7 @@ import {
   clockExpiry,
   CLOCK_INCREMENT_MS,
   INITIAL_CLOCK_MS,
+  MAX_CLOCK_MS,
   tickClocks,
 } from "./clockControl";
 
@@ -14,18 +15,25 @@ describe("clockControl", () => {
     const t0 = Timestamp.fromMillis(0);
     const t5 = Timestamp.fromMillis(5_000);
     const result = tickClocks(
-      { player1ClockMs: 90_000, player2ClockMs: 90_000, clocksUpdatedAt: t0 },
+      { player1ClockMs: 50_000, player2ClockMs: 50_000, clocksUpdatedAt: t0 },
       { player1Choice: "ROCK" },
       t5,
     );
-    assert.equal(result.player1ClockMs, 90_000);
-    assert.equal(result.player2ClockMs, 85_000);
+    assert.equal(result.player1ClockMs, 50_000);
+    assert.equal(result.player2ClockMs, 45_000);
   });
 
   it("adds increment after each resolved round", () => {
     assert.deepEqual(applyClockIncrement(10_000, 20_000), {
       player1ClockMs: 10_000 + CLOCK_INCREMENT_MS,
       player2ClockMs: 20_000 + CLOCK_INCREMENT_MS,
+    });
+  });
+
+  it("caps clock increment at max", () => {
+    assert.deepEqual(applyClockIncrement(88_000, MAX_CLOCK_MS), {
+      player1ClockMs: MAX_CLOCK_MS,
+      player2ClockMs: MAX_CLOCK_MS,
     });
   });
 

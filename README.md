@@ -7,7 +7,7 @@ Online rock–paper–scissors for Android. Match with another player in real ti
 - **Matchmaking** — on Home, select any combination of **Best of 3**, **Best of 5**, and **Best of 10** (saved for next time). Queue until an opponent is found; pairing requires at least one shared format (chosen at random) and prefers players within **±300 ELO**.
 - **Rounds** — each player picks rock, paper, or scissors before the **60s** round deadline. Same move is a draw and the round is replayed with no point awarded. A short pre-game countdown runs before the first round.
 - **Match formats** — **BO3** (first to 2), **BO5** (first to 3), or **BO10** (first to 6; if still tied 5–5 after 10 rounds, the series is a draw).
-- **Match clocks** — each player starts with **90s** of thinking time; **+5s** is added after each round you complete. Running out of match clock forfeits the series (separate from the per-round deadline).
+- **Match clocks** — each player starts with **50s** of thinking time (up to **90s** via **+5s** per completed round). Running out of match clock forfeits the series (separate from the per-round deadline).
 - **Rating** — ELO updates after each completed match.
 - **Profiles** — ELO, W/L/D, round and throw stats, a **7-day ELO chart**, and paginated match history (10 per page) with per-round recaps. Your profile lists your recent matches; other players’ profiles list matches you played together. Open profiles from Home, the leaderboard, or the result screen.
 - **Leaderboard** — ranked players with win/loss and throw tendencies; tap a row to open their profile.

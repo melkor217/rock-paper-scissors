@@ -1,7 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
-import { CLOCK_INCREMENT_MS, INITIAL_CLOCK_MS } from "./gameRules";
+import { CLOCK_INCREMENT_MS, INITIAL_CLOCK_MS, MAX_CLOCK_MS } from "./gameRules";
 
-export { CLOCK_INCREMENT_MS, INITIAL_CLOCK_MS };
+export { CLOCK_INCREMENT_MS, INITIAL_CLOCK_MS, MAX_CLOCK_MS };
 
 export interface ClockFields {
   player1ClockMs?: number;
@@ -56,8 +56,8 @@ export function applyClockIncrement(player1ClockMs: number, player2ClockMs: numb
   player2ClockMs: number;
 } {
   return {
-    player1ClockMs: player1ClockMs + CLOCK_INCREMENT_MS,
-    player2ClockMs: player2ClockMs + CLOCK_INCREMENT_MS,
+    player1ClockMs: Math.min(MAX_CLOCK_MS, player1ClockMs + CLOCK_INCREMENT_MS),
+    player2ClockMs: Math.min(MAX_CLOCK_MS, player2ClockMs + CLOCK_INCREMENT_MS),
   };
 }
 

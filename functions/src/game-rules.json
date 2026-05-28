@@ -1,7 +1,8 @@
 {
   "roundTimeoutSeconds": 60,
   "roundTimeoutMs": 60000,
-  "initialClockMs": 90000,
+  "initialClockMs": 50000,
+  "maxClockMs": 90000,
   "clockIncrementMs": 5000,
   "matchModes": {
     "BO3": {

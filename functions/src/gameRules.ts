@@ -13,6 +13,7 @@ export interface GameRulesFile {
   roundTimeoutSeconds: number;
   roundTimeoutMs: number;
   initialClockMs: number;
+  maxClockMs: number;
   clockIncrementMs: number;
   matchModes: Record<MatchModeName, MatchModeRules>;
 }
@@ -34,4 +35,5 @@ export const GAME_RULES: GameRulesFile = loadGameRules();
 
 export const ROUND_TIMEOUT_MS = GAME_RULES.roundTimeoutMs;
 export const INITIAL_CLOCK_MS = GAME_RULES.initialClockMs;
+export const MAX_CLOCK_MS = GAME_RULES.maxClockMs;
 export const CLOCK_INCREMENT_MS = GAME_RULES.clockIncrementMs;
