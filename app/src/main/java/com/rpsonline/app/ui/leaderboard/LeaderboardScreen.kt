@@ -2,7 +2,6 @@ package com.rpsonline.app.ui.leaderboard
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
@@ -31,8 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.R
 import com.rpsonline.app.data.model.LeaderboardEntry
 import com.rpsonline.app.ui.components.HomeOutlinedButton
-import com.rpsonline.app.ui.components.EloRatingText
-import com.rpsonline.app.ui.components.WinLossStatLine
+import com.rpsonline.app.ui.components.PlayerSummaryBody
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
@@ -164,77 +161,32 @@ private fun LeaderboardEntryContent(
     entry: LeaderboardEntry,
     isCurrentUser: Boolean,
 ) {
-    val darkTheme = isRpsDarkTheme()
-    val nameLine = remember(rank, entry.displayName, isCurrentUser) {
-        buildString {
-            append("#$rank ${entry.displayName}")
-            if (isCurrentUser) append(" · You")
-        }
+    val nameLine = buildString {
+        append("#$rank ${entry.displayName}")
+        if (isCurrentUser) append(" · You")
     }
-    val rankLabelColor = remember(rank, isCurrentUser, darkTheme) {
-        when {
-            isCurrentUser -> Color.Unspecified
-            else -> leaderboardRankLabelColor(rank, darkTheme)
-        }
+    val rankLabelColor = when {
+        isCurrentUser -> Color.Unspecified
+        else -> leaderboardRankLabelColor(rank, isRpsDarkTheme())
     }
-    val throwsPerRound = entry.throwsPerRound()
-    val rpsPerRoundColor = remember(throwsPerRound, darkTheme) {
-        throwsPerRound?.let { rpsPerRoundColor(it, darkTheme) }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = nameLine,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (isCurrentUser) {
-                    MaterialTheme.colorScheme.primary
-                } else if (rankLabelColor == Color.Unspecified) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    rankLabelColor
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            WinLossStatLine(
-                wins = entry.wins,
-                losses = entry.losses,
-                draws = entry.draws,
-                textStyle = MaterialTheme.typography.bodySmall,
-            )
-            if (throwsPerRound != null && rpsPerRoundColor != null) {
-                RpsPerRoundLabel(
-                    throwsPerRound = throwsPerRound,
-                    color = rpsPerRoundColor,
-                )
-            }
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ThrowDistributionRadialChart(
-                rock = entry.throwsRock,
-                paper = entry.throwsPaper,
-                scissors = entry.throwsScissors,
-                size = 56.dp,
-            )
-            EloRatingText(
-                elo = entry.elo,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.widthIn(min = 40.dp),
-            )
-        }
-    }
+    PlayerSummaryBody(
+        nameLine = nameLine,
+        nameColor = if (isCurrentUser) {
+            MaterialTheme.colorScheme.primary
+        } else if (rankLabelColor == Color.Unspecified) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            rankLabelColor
+        },
+        wins = entry.wins,
+        losses = entry.losses,
+        draws = entry.draws,
+        roundsWon = entry.roundsWon,
+        roundsLost = entry.roundsLost,
+        roundsDraw = entry.roundsDraw,
+        throwsRock = entry.throwsRock,
+        throwsPaper = entry.throwsPaper,
+        throwsScissors = entry.throwsScissors,
+        elo = entry.elo,
+    )
 }

@@ -48,7 +48,7 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
-import com.rpsonline.app.ui.components.ProfileSummaryStatsCard
+import com.rpsonline.app.ui.components.ProfileSummaryCardWidget
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -141,25 +141,15 @@ fun HomeScreen(
         val matchModesLocked = uiState.isInQueue
 
         Text(
-            text = profile?.displayName ?: DisplayNames.DEFAULT,
+            text = "RPS Online",
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.primary,
         )
         Spacer(modifier = Modifier.height(12.dp))
 
-        ProfileSummaryStatsCard(
-            elo = profile?.elo ?: 1000,
-            wins = profile?.wins ?: 0,
-            losses = profile?.losses ?: 0,
-            draws = profile?.draws ?: 0,
-            roundsWon = profile?.roundsWon ?: 0,
-            roundsLost = profile?.roundsLost ?: 0,
-            roundsDraw = profile?.roundsDraw ?: 0,
-            throwsRock = profile?.throwsRock ?: 0,
-            throwsPaper = profile?.throwsPaper ?: 0,
-            throwsScissors = profile?.throwsScissors ?: 0,
-            showHeader = true,
-            showChevron = true,
+        ProfileSummaryCardWidget(
+            displayName = profile?.displayName ?: DisplayNames.DEFAULT,
+            profile = profile,
             onClick = onProfile,
         )
 
