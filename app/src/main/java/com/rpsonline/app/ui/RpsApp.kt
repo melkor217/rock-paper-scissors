@@ -2,19 +2,15 @@ package com.rpsonline.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Surface
@@ -52,6 +48,7 @@ import com.rpsonline.app.navigation.RpsNavGraph
 import com.rpsonline.app.ui.components.AppearanceMenuButton
 import com.rpsonline.app.ui.components.ClockSoundMuteButton
 import com.rpsonline.app.ui.components.NetworkConnectionIndicator
+import com.rpsonline.app.ui.components.rpsTopBarLayout
 import com.rpsonline.app.ui.util.applyImmersiveFullscreen
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.ui.util.formatQueueTime
@@ -169,52 +166,55 @@ fun RpsApp() {
             )
             Column(modifier = Modifier.fillMaxSize()) {
                 Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .windowInsetsPadding(
-                            WindowInsets.displayCutout.only(WindowInsetsSides.Top),
-                        ),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RectangleShape,
                     color = topPanelColor,
                     tonalElevation = 2.dp,
                     shadowElevation = 2.dp,
                 ) {
-                    Row(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(topPanelGradient)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .rpsTopBarLayout(),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        NetworkConnectionIndicator(status = connectionStatus)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        QueueOrMatchStatusLabel(
-                            activeMatch = activeMatch,
-                            queueJoinedAtMs = queueJoinedAtMs,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        CompositionLocalProvider(
-                            LocalMinimumInteractiveComponentSize provides 36.dp,
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                            NetworkConnectionIndicator(status = connectionStatus)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            QueueOrMatchStatusLabel(
+                                activeMatch = activeMatch,
+                                queueJoinedAtMs = queueJoinedAtMs,
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            CompositionLocalProvider(
+                                LocalMinimumInteractiveComponentSize provides 36.dp,
                             ) {
-                                ClockSoundMuteButton(
-                                    muted = clockSoundMuted,
-                                    onMutedChange = { muted ->
-                                        clockSoundMuted = muted
-                                        soundPreferences.setClockMuted(muted)
-                                    },
-                                )
-                                AppearanceMenuButton(
-                                    currentStyle = themeStyle,
-                                    onStyleSelected = { style ->
-                                        themeStyle = style
-                                        themePreferences.set(style)
-                                    },
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                                ) {
+                                    ClockSoundMuteButton(
+                                        muted = clockSoundMuted,
+                                        onMutedChange = { muted ->
+                                            clockSoundMuted = muted
+                                            soundPreferences.setClockMuted(muted)
+                                        },
+                                    )
+                                    AppearanceMenuButton(
+                                        currentStyle = themeStyle,
+                                        onStyleSelected = { style ->
+                                            themeStyle = style
+                                            themePreferences.set(style)
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
