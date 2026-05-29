@@ -26,6 +26,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Date
@@ -48,6 +50,9 @@ class MatchRepository(
 
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
+        private const val JOIN_QUEUE_TIMEOUT_MS = 20_000L
+        private const val QUEUE_READ_TIMEOUT_MS = 8_000L
+        private const val USER_PROFILE_POLL_MS = 200L
 
         /**
          * Simple in-memory cache for concluded match queries.
@@ -187,10 +192,10 @@ class MatchRepository(
      */
     suspend fun joinQueue(matchModes: Set<MatchMode>): JoinQueueResult {
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
+        awaitFirestoreAuth()
         val userId = uid
-        val userSnap = firestore.collection("users").document(userId).get().await()
-        if (!userSnap.exists()) {
-            throw IllegalStateException("User profile missing. Sign out and sign in again.")
+        val userSnap = withTimeout(JOIN_QUEUE_TIMEOUT_MS) {
+            waitForUserDocument(userId)
         }
 
         val activeMatchId = userSnap.getString("activeMatchId")
@@ -205,18 +210,31 @@ class MatchRepository(
         val displayName = DisplayNames.resolve(userSnap.getString("displayName"), userId)
         val clientJoinedAtMs = System.currentTimeMillis()
 
-        firestore.collection("queue").document(userId).set(
-            mapOf(
-                "joinedAt" to FieldValue.serverTimestamp(),
-                "lastHeartbeatAt" to FieldValue.serverTimestamp(),
-                "clientJoinedAt" to clientJoinedAtMs,
-                "elo" to elo,
-                "displayName" to displayName,
-                "matchModes" to matchModes.map { it.name },
-            ),
-        ).await()
+        withTimeout(JOIN_QUEUE_TIMEOUT_MS) {
+            firestore.collection("queue").document(userId).set(
+                mapOf(
+                    "joinedAt" to FieldValue.serverTimestamp(),
+                    "lastHeartbeatAt" to FieldValue.serverTimestamp(),
+                    "clientJoinedAt" to clientJoinedAtMs,
+                    "elo" to elo,
+                    "displayName" to displayName,
+                    "matchModes" to matchModes.map { it.name },
+                ),
+            ).await()
+        }
 
         return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = clientJoinedAtMs)
+    }
+
+    private suspend fun waitForUserDocument(userId: String): DocumentSnapshot {
+        val deadline = System.currentTimeMillis() + JOIN_QUEUE_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            awaitFirestoreAuth()
+            val snap = firestore.collection("users").document(userId).get().await()
+            if (snap.exists()) return snap
+            delay(USER_PROFILE_POLL_MS)
+        }
+        throw IllegalStateException("User profile missing. Sign out and sign in again.")
     }
 
     /**
@@ -263,7 +281,12 @@ class MatchRepository(
     }
 
     private suspend fun readQueueJoinedAtFromServer(): Long? {
-        val snap = firestore.collection("queue").document(uid).get(Source.SERVER).await()
+        awaitFirestoreAuth()
+        val snap = withTimeoutOrNull(QUEUE_READ_TIMEOUT_MS) {
+            firestore.collection("queue").document(uid).get(Source.SERVER).await()
+        } ?: withTimeoutOrNull(2_000) {
+            firestore.collection("queue").document(uid).get().await()
+        } ?: return null
         if (!snap.exists()) return null
         return resolveQueueJoinedAtMs(snap)
     }

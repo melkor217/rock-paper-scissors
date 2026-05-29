@@ -47,7 +47,7 @@ import com.rpsonline.app.navigation.RpsNavGraph
 import com.rpsonline.app.ui.components.AppearanceMenuButton
 import com.rpsonline.app.ui.components.ClockSoundMuteButton
 import com.rpsonline.app.ui.components.NetworkConnectionIndicator
-import com.rpsonline.app.ui.components.rpsTopBarLayout
+import com.rpsonline.app.ui.components.RpsTopStatusBar
 import com.rpsonline.app.ui.util.applyImmersiveFullscreen
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.ui.util.formatQueueTime
@@ -171,28 +171,18 @@ fun RpsApp() {
                     tonalElevation = 2.dp,
                     shadowElevation = 2.dp,
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(topPanelGradient)
-                            .rpsTopBarLayout()
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        NetworkConnectionIndicator(status = connectionStatus)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        QueueOrMatchStatusLabel(
-                            activeMatch = activeMatch,
-                            queueJoinedAtMs = queueJoinedAtMs,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        CompositionLocalProvider(
-                            LocalMinimumInteractiveComponentSize provides 32.dp,
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    RpsTopStatusBar(
+                        background = Modifier.background(topPanelGradient),
+                        leftContent = {
+                            NetworkConnectionIndicator(status = connectionStatus)
+                            QueueOrMatchStatusLabel(
+                                activeMatch = activeMatch,
+                                queueJoinedAtMs = queueJoinedAtMs,
+                            )
+                        },
+                        rightContent = {
+                            CompositionLocalProvider(
+                                LocalMinimumInteractiveComponentSize provides 28.dp,
                             ) {
                                 ClockSoundMuteButton(
                                     muted = clockSoundMuted,
@@ -209,8 +199,8 @@ fun RpsApp() {
                                     },
                                 )
                             }
-                        }
-                    }
+                        },
+                    )
                 }
                 Box(
                     modifier = Modifier

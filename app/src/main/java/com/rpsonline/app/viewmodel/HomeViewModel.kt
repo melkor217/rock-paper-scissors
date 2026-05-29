@@ -16,6 +16,7 @@ import com.rpsonline.app.domain.MatchMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,6 +62,8 @@ class HomeViewModel(
 
     companion object {
         private const val MATCH_ASSIGNMENT_GRACE_MS = 30_000L
+        private const val MATCHMAKING_WATCHDOG_MS = 45_000L
+        private const val PROFILE_READY_TIMEOUT_MS = 20_000L
     }
 
     val navigateToGameMatchId: StateFlow<String?> = MatchSessionMonitor.pendingGameNavigationMatchId
@@ -141,7 +144,20 @@ class HomeViewModel(
             )
         }
         viewModelScope.launch {
+            val watchdog = launch {
+                delay(MATCHMAKING_WATCHDOG_MS)
+                if (generation != matchmakingGeneration) return@launch
+                if (!_uiState.value.isJoiningQueue) return@launch
+                failMatchmaking(
+                    generation = generation,
+                    message = "Matchmaking timed out. Check your connection and try again.",
+                )
+            }
             try {
+                if (!isFirebaseAvailableForQueueAction("join the queue", generation)) return@launch
+                awaitUserProfileReady()
+                if (generation != matchmakingGeneration) return@launch
+
                 val alreadyQueuedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
                 if (generation != matchmakingGeneration) return@launch
                 if (alreadyQueuedAtMs != null) {
@@ -182,20 +198,42 @@ class HomeViewModel(
                 }
             } catch (e: Exception) {
                 if (generation != matchmakingGeneration) return@launch
-                MatchSessionMonitor.setMatchmakingInProgress(false)
-                awaitingMatchFromQueue = false
-                awaitingMatchStartedAtMs = null
-                stopQueueTimer()
-                _uiState.update {
-                    it.copy(
-                        isJoiningQueue = false,
-                        isInQueue = false,
-                        queueElapsedSeconds = 0,
-                        matchmakingError = e.message ?: "Matchmaking failed",
-                    )
-                }
+                failMatchmaking(generation, e.message ?: "Matchmaking failed")
+            } finally {
+                watchdog.cancel()
             }
         }
+    }
+
+    private fun failMatchmaking(generation: Int, message: String) {
+        if (generation != matchmakingGeneration) return
+        MatchSessionMonitor.setMatchmakingInProgress(false)
+        awaitingMatchFromQueue = false
+        awaitingMatchStartedAtMs = null
+        stopQueueTimer()
+        _uiState.update {
+            it.copy(
+                isJoiningQueue = false,
+                isInQueue = false,
+                queueElapsedSeconds = 0,
+                matchmakingError = message,
+            )
+        }
+    }
+
+    /** Waits for Firestore user doc after auth (Google sign-in can navigate before profile sync). */
+    private suspend fun awaitUserProfileReady() {
+        val user = authRepository.currentUser ?: error("Not signed in")
+        val deadline = System.currentTimeMillis() + PROFILE_READY_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            userRepository.getUserProfile(user.uid)?.let { return }
+            delay(200)
+        }
+        authRepository.ensureUserProfile(
+            uid = user.uid,
+            displayName = user.displayName,
+            photoUrl = user.photoUrl?.toString(),
+        )
     }
 
     fun leaveQueue() {
@@ -494,11 +532,12 @@ class HomeViewModel(
         super.onCleared()
     }
 
-    private suspend fun isFirebaseAvailableForQueueAction(action: String): Boolean {
+    private suspend fun isFirebaseAvailableForQueueAction(action: String, generation: Int): Boolean {
         if (authRepository.isFirebaseAvailable()) return true
-        _uiState.update {
-            it.copy(matchmakingError = "Cannot $action right now. Firebase is unavailable.")
-        }
+        failMatchmaking(
+            generation = generation,
+            message = "Cannot $action right now. Firebase is unavailable.",
+        )
         return false
     }
 }
