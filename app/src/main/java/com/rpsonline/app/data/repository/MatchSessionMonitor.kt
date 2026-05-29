@@ -82,7 +82,7 @@ object MatchSessionMonitor {
         _pendingGameNavigationMatchId.value = null
     }
 
-    /** Called after [MatchRepository.joinQueue] is confirmed with a server read. */
+    /** Called when queue entry is confirmed (server or client join timestamp). */
     fun confirmQueueJoinedAt(joinedAtMs: Long) {
         _hasQueueEntry.value = true
         _queueJoinedAtMs.value = joinedAtMs
@@ -125,7 +125,7 @@ object MatchSessionMonitor {
         val queueExists = queueSnap != null && queueSnap.exists()
         _hasQueueEntry.value = queueExists
         _queueJoinedAtMs.value = if (queueExists) {
-            queueSnap.getTimestamp("joinedAt")?.toDate()?.time
+            resolveQueueJoinedAtMs(queueSnap)
         } else {
             null
         }
@@ -177,11 +177,17 @@ object MatchSessionMonitor {
             return
         }
         _hasQueueEntry.value = true
-        // Only start the queue timer once Firestore has applied the server timestamp.
-        if (snapshot.metadata.hasPendingWrites() || snapshot.metadata.isFromCache) {
+        if (snapshot.metadata.hasPendingWrites()) {
             return
         }
-        _queueJoinedAtMs.value = snapshot.getTimestamp("joinedAt")?.toDate()?.time
+        resolveQueueJoinedAtMs(snapshot)?.let { joinedAtMs ->
+            _queueJoinedAtMs.value = joinedAtMs
+        }
+    }
+
+    private fun resolveQueueJoinedAtMs(snapshot: DocumentSnapshot): Long? {
+        return snapshot.getTimestamp("joinedAt")?.toDate()?.time
+            ?: snapshot.getLong("clientJoinedAt")?.takeIf { it > 0L }
     }
 
     private fun attachMatchListener(matchId: String) {

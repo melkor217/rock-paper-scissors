@@ -46,6 +46,16 @@ Release builds need [**Digital Asset Links**](https://developer.android.com/iden
 
 ## App Check (required when enforcement is on)
 
+### Release policy (GitHub only)
+
+This project ships **release APKs via [GitHub Releases](https://github.com/melkor217/rock-paper-scissors/releases)** — not Google Play. Sideloaded APKs cannot use **Play Integrity** App Check reliably, so **release builds keep the debug App Check provider enabled**:
+
+- **Gradle default:** `useDebugAppCheck` is `true` for `assembleRelease` (see `app/build.gradle.kts`).
+- **CI:** [android-release.yml](../.github/workflows/android-release.yml) passes `-PuseDebugAppCheck=true` explicitly.
+- **You must register** the upload-keystore debug token in Firebase (Logcat → **Manage debug tokens**) once per signing key.
+
+Only switch to Play Integrity (`-PuseDebugAppCheck=false`) if you later publish the same signed app through Play Store and configure Play Integrity in Firebase.
+
 If sign-in shows **App attestation failed** or **403 App Check**, Firebase is rejecting the app — not SHA-1 or Wi‑Fi.
 
 ### Debug build (Android Studio Run, emulator **or** physical phone)
@@ -68,7 +78,21 @@ The upload-keystore release uses a **different** debug secret than your local `~
 
 ### Play Store release (future)
 
-When you ship through Google Play with `USE_DEBUG_APP_CHECK=false`, register **Play Integrity** in Firebase → **App Check** for `com.rpsonline.app` (app must be in Play Console with the same package name and signing key).
+When you ship through Google Play, build with Play Integrity (not the GitHub sideload path):
+
+```bash
+./gradlew :app:assembleRelease -PuseDebugAppCheck=false
+```
+
+Register **Play Integrity** in Firebase → **App Check** for `com.rpsonline.app` (app must be in Play Console with the same package name and signing key).
+
+### CI
+
+| Workflow | Gradle flag | App Check |
+|----------|-------------|-----------|
+| [android-release.yml](../.github/workflows/android-release.yml) (GitHub Releases) | `-PuseDebugAppCheck=true` | Debug token (Logcat → Firebase) |
+| [android-apk.yml](../.github/workflows/android-apk.yml) | debug build only | Debug token |
+| Play Store (not automated yet) | `-PuseDebugAppCheck=false` | Play Integrity |
 
 For day-to-day dev, use a **debug** build from Android Studio and register that debug token as above.
 

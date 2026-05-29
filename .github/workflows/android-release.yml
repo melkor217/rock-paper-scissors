@@ -75,8 +75,10 @@ jobs:
           VERSION_NAME="${VERSION_NAME#v}"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION_NAME"
           VERSION_CODE=$((10#${MAJOR:-0} * 10000 + 10#${MINOR:-0} * 100 + 10#${PATCH:-0}))
+          # Sideloaded GitHub APKs: debug App Check (Play Integrity does not apply). See scripts/ENABLE_AUTH.md
           ./gradlew :app:assembleRelease --no-daemon --stacktrace \
-            -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME"
+            -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME" \
+            -PuseDebugAppCheck=true
 
       - name: Prepare release asset
         run: |

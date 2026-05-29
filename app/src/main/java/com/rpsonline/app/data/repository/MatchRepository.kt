@@ -175,10 +175,17 @@ class MatchRepository(
     private val uid: String
         get() = auth.currentUser?.uid ?: error("Not signed in")
 
+    data class JoinQueueResult(
+        /** Non-null when the user already has an active match and should open it immediately. */
+        val immediateMatchId: String?,
+        /** Wall-clock ms written as `clientJoinedAt` when queued; null for immediate-match path. */
+        val clientJoinedAtMs: Long?,
+    )
+
     /**
      * Join matchmaking via Firestore (not Callable). Writes queue/{uid}; Cloud Function pairs players.
      */
-    suspend fun joinQueue(matchModes: Set<MatchMode>): String? {
+    suspend fun joinQueue(matchModes: Set<MatchMode>): JoinQueueResult {
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
         val userId = uid
         val userSnap = firestore.collection("users").document(userId).get().await()
@@ -190,25 +197,26 @@ class MatchRepository(
         if (!activeMatchId.isNullOrBlank()) {
             val match = getMatch(activeMatchId)
             if (match?.status == MatchStatus.ACTIVE) {
-                return activeMatchId
+                return JoinQueueResult(immediateMatchId = activeMatchId, clientJoinedAtMs = null)
             }
         }
 
         val elo = userSnap.getLong("elo")?.toInt() ?: 1000
         val displayName = DisplayNames.resolve(userSnap.getString("displayName"), userId)
+        val clientJoinedAtMs = System.currentTimeMillis()
 
         firestore.collection("queue").document(userId).set(
             mapOf(
                 "joinedAt" to FieldValue.serverTimestamp(),
                 "lastHeartbeatAt" to FieldValue.serverTimestamp(),
-                "clientJoinedAt" to System.currentTimeMillis(),
+                "clientJoinedAt" to clientJoinedAtMs,
                 "elo" to elo,
                 "displayName" to displayName,
                 "matchModes" to matchModes.map { it.name },
             ),
         ).await()
 
-        return null
+        return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = clientJoinedAtMs)
     }
 
     /**
@@ -257,7 +265,12 @@ class MatchRepository(
     private suspend fun readQueueJoinedAtFromServer(): Long? {
         val snap = firestore.collection("queue").document(uid).get(Source.SERVER).await()
         if (!snap.exists()) return null
+        return resolveQueueJoinedAtMs(snap)
+    }
+
+    private fun resolveQueueJoinedAtMs(snap: DocumentSnapshot): Long? {
         return snap.getTimestamp("joinedAt")?.toDate()?.time
+            ?: snap.getLong("clientJoinedAt")?.takeIf { it > 0L }
     }
 
     suspend fun requestRoundTimeout(matchId: String, roundNumber: Int) {
