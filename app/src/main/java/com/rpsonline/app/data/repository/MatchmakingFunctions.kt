@@ -9,14 +9,13 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 
 internal object MatchmakingFunctions {
-    private const val REGION = "europe-west1"
     private const val JOIN_CALLABLE = "joinMatchmakingQueue"
     private const val CALL_TIMEOUT_MS = 22_000L
 
     suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): Long {
         require(matchModes.isNotEmpty())
         awaitFirestoreAuth(forceRefresh = true)
-        val functions = FirebaseFunctions.getInstance(FirebaseApp.getInstance(), REGION)
+        val functions = FirebaseFunctions.getInstance(FirebaseApp.getInstance(), FIREBASE_FUNCTIONS_REGION)
         val payload = hashMapOf(
             "matchModes" to matchModes.map { it.name },
             "displayName" to profile.displayName,

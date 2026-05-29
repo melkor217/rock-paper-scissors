@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { setGlobalOptions } from "firebase-functions/v2";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
@@ -34,6 +35,9 @@ import {
 } from "./moveTiming";
 
 admin.initializeApp();
+
+/** All Cloud Functions deploy to the same region as Firestore triggers (not us-central1). */
+setGlobalOptions({ region: "europe-west1" });
 
 const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
@@ -1057,7 +1061,7 @@ export const resolveTimedOutRounds = onSchedule(
 );
 
 /** Server-side queue join (admin write) for clients that cannot confirm Firestore queue writes. */
-export const joinMatchmakingQueue = onCall({ region: "europe-west1" }, async (request) => {
+export const joinMatchmakingQueue = onCall(async (request) => {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Sign in required.");

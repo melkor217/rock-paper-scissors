@@ -4,11 +4,11 @@
 set -euo pipefail
 
 PROJECT="${1:-rps-online-9771e}"
-REGION="${2:-us-central1}"
+REGION="${2:-europe-west1}"
 
 echo "Granting public invoker on Cloud Run services for project $PROJECT ($REGION)..."
 
-for SERVICE in ping; do
+for SERVICE in ping joinMatchmakingQueue; do
   echo "→ $SERVICE"
   gcloud run services add-iam-policy-binding "$SERVICE" \
     --project="$PROJECT" \
