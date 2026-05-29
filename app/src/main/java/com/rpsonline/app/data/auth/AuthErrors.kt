@@ -35,13 +35,12 @@ fun Throwable.toAuthMessage(): String = when {
     this is TimeoutCancellationException ->
         "Sign-in timed out. Try again in a moment."
     isAppCheckError() ->
-        "App Check verification failed. Debug/emulator: filter Logcat for DebugAppCheckProvider, " +
-            "register the token in Firebase Console → App Check → Manage debug tokens, then retry."
+        "Firebase App Check rejected this request. In Firebase Console set App Check to Monitoring " +
+            "(not Enforced) for sideload builds, or re-enable App Check in the app for Play Store."
     isFirestoreCacheMiss() ->
         "Still syncing your profile. Try Google sign-in again."
     isNetworkError() ->
-        "Could not reach sign-in servers. If you are on an emulator, register the App Check debug token " +
-            "(Logcat: DebugAppCheckProvider) and enable Anonymous sign-in in Firebase Authentication."
+        "Could not reach sign-in servers. Check your connection and that Anonymous sign-in is enabled in Firebase."
     this is FirebaseAuthWeakPasswordException -> "Password must be at least 6 characters"
     this is FirebaseAuthInvalidCredentialsException -> "Incorrect email or password"
     this is FirebaseAuthInvalidUserException -> "No account found for this email"
@@ -65,7 +64,7 @@ fun GetCredentialException.toGoogleSignInMessage(isDebugBuild: Boolean = false):
         detail.contains("network", ignoreCase = true) ||
             detail.contains("unreachable", ignoreCase = true) ||
             detail.contains("timeout", ignoreCase = true) ->
-            "Could not reach Google sign-in. Check connection or App Check debug token on emulator."
+            "Could not reach Google sign-in. Check your connection."
         detail.contains("No credentials", ignoreCase = true) ||
             detail.contains("NoCredential", ignoreCase = true) ->
             if (isDebugBuild) {

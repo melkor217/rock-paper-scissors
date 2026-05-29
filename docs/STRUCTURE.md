@@ -76,5 +76,5 @@ Security: [firestore.rules](../firestore.rules).
 
 ## Related docs
 
-- [scripts/ENABLE_AUTH.md](../scripts/ENABLE_AUTH.md) — Auth providers; GitHub release uses debug App Check (`useDebugAppCheck=true`)
+- [scripts/ENABLE_AUTH.md](../scripts/ENABLE_AUTH.md) — Auth providers; App Check is Monitoring-only in Firebase (not in the app)
 - [scripts/deploy-backend.sh](../scripts/deploy-backend.sh) — Deploy functions + rules

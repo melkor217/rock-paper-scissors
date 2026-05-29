@@ -47,7 +47,6 @@ android {
     buildTypes {
         debug {
             buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "false")
-            buildConfigField("boolean", "USE_DEBUG_APP_CHECK", "false")
         }
         release {
             isMinifyEnabled = false
@@ -57,8 +56,6 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
             buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "true")
-            // GitHub-only distribution: sideloaded release APKs always use debug App Check tokens.
-            buildConfigField("boolean", "USE_DEBUG_APP_CHECK", "true")
         }
     }
 
@@ -94,9 +91,6 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-functions-ktx")
-    implementation("com.google.firebase:firebase-appcheck")
-    implementation("com.google.firebase:firebase-appcheck-playintegrity")
-    implementation("com.google.firebase:firebase-appcheck-debug")
 
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
