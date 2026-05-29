@@ -66,6 +66,7 @@ class GameViewModel(
     private var locallySubmittedRound: Int? = null
     private var lastObservedOpenRound: Int? = null
     private var submitGeneration = 0
+    private var submitWatchdogJob: Job? = null
     private var matchSnapshotAtTimeoutRequest: String? = null
     private var resolvingRetryJob: Job? = null
     init {
@@ -399,31 +400,55 @@ class GameViewModel(
         val generation = ++submitGeneration
 
         viewModelScope.launch {
-            locallySubmittedRound = roundNumber
-            lockedMoveRound = roundNumber
+            submitWatchdogJob?.cancel()
             _uiState.update {
                 it.copy(
-                    hasSubmittedMove = true,
+                    isSubmitting = true,
+                    pendingMove = move,
                     lockedMove = move,
-                    isSubmitting = false,
-                    pendingMove = null,
                     error = null,
                 )
+            }
+            submitWatchdogJob = launch {
+                delay(SUBMIT_STUCK_WATCHDOG_MS)
+                if (generation != submitGeneration) return@launch
+                if (!_uiState.value.isSubmitting) return@launch
+                revertMoveIfServerMissing(generation, roundNumber) {
+                    "Move is taking too long to reach the server. Tap a move to try again."
+                }
             }
             try {
                 withTimeout(SUBMIT_MOVE_TIMEOUT_MS) {
                     matchRepository.submitMove(matchId, move, roundNumber)
                 }
+                submitWatchdogJob?.cancel()
+                if (generation != submitGeneration) return@launch
+                locallySubmittedRound = roundNumber
+                lockedMoveRound = roundNumber
+                _uiState.update {
+                    it.copy(
+                        hasSubmittedMove = true,
+                        lockedMove = move,
+                        isSubmitting = false,
+                        pendingMove = null,
+                    )
+                }
             } catch (e: CancellationException) {
+                submitWatchdogJob?.cancel()
                 throw e
             } catch (e: TimeoutCancellationException) {
+                submitWatchdogJob?.cancel()
                 if (generation != submitGeneration) return@launch
                 revertMoveIfServerMissing(generation, roundNumber) {
                     "Connection timed out. Check your network and tap a move to try again."
                 }
             } catch (e: Exception) {
+                submitWatchdogJob?.cancel()
                 if (generation != submitGeneration) return@launch
-                if (isIgnorableFirestoreRace(e)) return@launch
+                if (isIgnorableFirestoreRace(e)) {
+                    _uiState.update { it.copy(isSubmitting = false, pendingMove = null, error = null) }
+                    return@launch
+                }
                 revertMoveIfServerMissing(generation, roundNumber) {
                     userFacingGameError(e, "Failed to submit move")
                 }
@@ -470,6 +495,7 @@ class GameViewModel(
 
     companion object {
         private const val SUBMIT_MOVE_TIMEOUT_MS = 12_000L
+        private const val SUBMIT_STUCK_WATCHDOG_MS = 14_000L
 
         fun factory(matchId: String): androidx.lifecycle.ViewModelProvider.Factory =
             object : androidx.lifecycle.ViewModelProvider.Factory {

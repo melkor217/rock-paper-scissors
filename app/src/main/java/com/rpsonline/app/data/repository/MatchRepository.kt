@@ -383,20 +383,55 @@ class MatchRepository(
     }
 
     suspend fun submitMove(matchId: String, move: Move, roundNumber: Int) {
-        awaitFirestoreAuth()
-        firestore.collection("matches")
+        awaitFirestoreAuth(forceRefresh = true)
+        val choiceRef = firestore.collection("matches")
             .document(matchId)
             .collection("rounds")
             .document(roundNumber.toString())
             .collection("choices")
             .document(uid)
-            .set(
-                mapOf(
-                    "choice" to move.name,
-                    "submittedAt" to FieldValue.serverTimestamp(),
-                ),
-            )
-            .awaitTask()
+        val payload = mapOf(
+            "choice" to move.name,
+            "submittedAt" to FieldValue.serverTimestamp(),
+        )
+        withTimeout(10_000) {
+            choiceRef.set(payload).awaitTask()
+        }
+        if (!choiceRef.confirmChoiceOnServer(move.name, confirmTimeoutMs = 10_000)) {
+            error("Timed out waiting for the server to record your move")
+        }
+        if (!awaitMyChoiceInMatch(matchId, roundNumber, timeoutMs = 12_000)) {
+            error("Move was sent but the match did not update. Try again.")
+        }
+    }
+
+    /** Waits until the match read model includes this player's choice (Cloud Function applied it). */
+    private suspend fun awaitMyChoiceInMatch(
+        matchId: String,
+        roundNumber: Int,
+        timeoutMs: Long = 12_000,
+    ): Boolean {
+        val userId = uid
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            val snap = withTimeoutOrNull(4_000) {
+                firestore.collection("matches").document(matchId).get(Source.SERVER).await()
+            }
+            if (snap != null && snap.exists()) {
+                val match = snap.toMatch(matchId)
+                val open = match.openRound()
+                if (open?.roundNumber == roundNumber) {
+                    val choice = if (userId == match.player1) {
+                        open.player1Choice
+                    } else {
+                        open.player2Choice
+                    }
+                    if (choice != null) return true
+                }
+            }
+            delay(300)
+        }
+        return false
     }
 
     fun observeMatch(matchId: String): Flow<Match?> = callbackFlow {

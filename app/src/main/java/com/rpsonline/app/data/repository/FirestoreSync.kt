@@ -48,6 +48,24 @@ internal suspend fun DocumentReference.confirmExistsOnServer(
     return false
 }
 
+internal suspend fun DocumentReference.confirmChoiceOnServer(
+    choice: String,
+    confirmTimeoutMs: Long = 10_000,
+    pollIntervalMs: Long = 300L,
+): Boolean {
+    val deadline = System.currentTimeMillis() + confirmTimeoutMs
+    while (System.currentTimeMillis() < deadline) {
+        val snap = withTimeoutOrNull(4_000) {
+            get(Source.SERVER).await()
+        }
+        if (snap != null && snap.exists() && snap.getString("choice") == choice) {
+            return true
+        }
+        delay(pollIntervalMs)
+    }
+    return false
+}
+
 internal suspend fun DocumentReference.setAndAwaitServerSync(
     data: Map<String, Any>,
     writeTimeoutMs: Long = 10_000,
