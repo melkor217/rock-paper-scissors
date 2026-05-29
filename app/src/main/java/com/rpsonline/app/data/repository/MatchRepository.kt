@@ -199,13 +199,6 @@ class MatchRepository(
      */
     suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueResult {
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
-        MatchSessionMonitor.awaitSessionBootstrap()
-        return QueueWriteGate.withLock {
-            joinQueueLocked(matchModes, profile)
-        }
-    }
-
-    private suspend fun joinQueueLocked(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueResult {
         val userId = uid
         require(profile.uid == userId) { "Profile uid mismatch" }
         awaitFirestoreAuth(forceRefresh = true)
@@ -213,43 +206,57 @@ class MatchRepository(
             runCatching { firestore.enableNetwork().await() }
         }
 
-        var queueProfile = UserProfileSync.queueReadyProfile(userId) ?: profile
-        if (UserProfileSync.queueReadyProfile(userId) == null) {
-            val authRepository = AuthRepository()
-            queueProfile = authRepository.fetchServerProfile(userId)
-                ?: authRepository.ensureUserProfile(
-                    uid = userId,
-                    displayName = profile.displayName,
-                    photoUrl = profile.photoUrl,
-                )
-            UserProfileSync.rememberQueueReady(userId, queueProfile)
-        }
+        val queueProfile = resolveQueueProfile(userId, profile)
 
         val clientJoinedAtMs = try {
             MatchmakingFunctions.joinQueue(matchModes, queueProfile)
         } catch (callableError: Exception) {
-            val joinedAt = Timestamp.now()
-            val clientJoinedAt = System.currentTimeMillis()
-            val queuePayload = mapOf(
-                "joinedAt" to joinedAt,
-                "lastHeartbeatAt" to joinedAt,
-                "clientJoinedAt" to clientJoinedAt,
-                "elo" to queueProfile.elo,
-                "displayName" to queueProfile.displayName,
-                "matchModes" to matchModes.map { it.name },
-            )
-            val queueRef = firestore.collection("queue").document(userId)
-            try {
-                writeQueueEntry(queueRef, queuePayload)
-                clientJoinedAt
-            } catch (directError: Exception) {
-                MatchmakingFunctions.toJoinErrorMessage(callableError)?.let { throw IllegalStateException(it, callableError) }
+            runCatching {
+                MatchSessionMonitor.awaitSessionBootstrap()
+                QueueWriteGate.withLock {
+                    writeQueueEntryDirect(matchModes, queueProfile)
+                }
+            }.getOrElse { directError ->
+                MatchmakingFunctions.toJoinErrorMessage(callableError)?.let {
+                    throw IllegalStateException(it, callableError)
+                }
                 throw directError
             }
         }
         MatchSessionMonitor.confirmQueueJoinedAt(clientJoinedAtMs)
 
         return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = clientJoinedAtMs)
+    }
+
+    private suspend fun resolveQueueProfile(userId: String, profile: UserProfile): UserProfile {
+        UserProfileSync.queueReadyProfile(userId)?.let { return it }
+        if (profile.uid == userId) return profile
+        val authRepository = AuthRepository()
+        return authRepository.fetchServerProfile(userId)
+            ?: authRepository.ensureUserProfile(
+                uid = userId,
+                displayName = profile.displayName,
+                photoUrl = profile.photoUrl,
+            ).also { UserProfileSync.rememberQueueReady(userId, it) }
+    }
+
+    private suspend fun writeQueueEntryDirect(
+        matchModes: Set<MatchMode>,
+        queueProfile: UserProfile,
+    ): Long {
+        val userId = uid
+        val clientJoinedAt = System.currentTimeMillis()
+        val joinedAt = Timestamp.now()
+        val queuePayload = mapOf(
+            "joinedAt" to joinedAt,
+            "lastHeartbeatAt" to joinedAt,
+            "clientJoinedAt" to clientJoinedAt,
+            "elo" to queueProfile.elo,
+            "displayName" to queueProfile.displayName,
+            "matchModes" to matchModes.map { it.name },
+        )
+        writeQueueEntry(firestore.collection("queue").document(userId), queuePayload)
+        return clientJoinedAt
     }
 
     private suspend fun writeQueueEntry(queueRef: DocumentReference, payload: Map<String, Any>) {

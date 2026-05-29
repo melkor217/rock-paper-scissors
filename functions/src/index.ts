@@ -1100,7 +1100,10 @@ export const joinMatchmakingQueue = onCall(async (request) => {
   };
 
   await db.collection("queue").doc(uid).set(queueData);
-  await attemptQueueMatch(uid, queueData as Record<string, unknown>);
+  // Return immediately; onQueueEntry / onQueueEntryUpdated run matchmaking.
+  void attemptQueueMatch(uid, queueData as Record<string, unknown>).catch((err) => {
+    console.error("joinMatchmakingQueue matchmaking failed", uid, err);
+  });
 
   return {
     clientJoinedAtMs,

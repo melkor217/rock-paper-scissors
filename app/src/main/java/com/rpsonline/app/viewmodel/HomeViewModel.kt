@@ -12,6 +12,7 @@ import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.MatchSessionMonitor
 import com.rpsonline.app.data.repository.MatchmakingFunctions
 import com.rpsonline.app.data.repository.PresenceRepository
+import com.rpsonline.app.data.repository.UserProfileSync
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.MatchMode
 import kotlinx.coroutines.Job
@@ -66,8 +67,9 @@ class HomeViewModel(
     companion object {
         private const val MATCH_ASSIGNMENT_GRACE_MS = 30_000L
         private const val MATCHMAKING_WATCHDOG_MS = 45_000L
-        private const val JOIN_QUEUE_WATCHDOG_MS = 20_000L
-        private const val JOIN_QUEUE_TIMEOUT_MS = 25_000L
+        private const val JOIN_QUEUE_WATCHDOG_MS = 15_000L
+        private const val JOIN_QUEUE_TIMEOUT_MS = 18_000L
+        private const val PROFILE_READY_TIMEOUT_MS = 6_000L
     }
 
     val navigateToGameMatchId: StateFlow<String?> = MatchSessionMonitor.pendingGameNavigationMatchId
@@ -179,17 +181,8 @@ class HomeViewModel(
                 withTimeout(JOIN_QUEUE_TIMEOUT_MS) {
                     withContext(Dispatchers.IO) {
                         if (!isFirebaseAvailableForQueueAction("join the queue", generation)) return@withContext
-                        MatchSessionMonitor.awaitSessionBootstrap()
-                        if (generation != matchmakingGeneration) return@withContext
                         val profile = awaitUserProfileReady()
                         if (generation != matchmakingGeneration) return@withContext
-
-                        val alreadyQueuedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
-                        if (generation != matchmakingGeneration) return@withContext
-                        if (alreadyQueuedAtMs != null) {
-                            enterConfirmedQueue(alreadyQueuedAtMs)
-                            return@withContext
-                        }
                         val joinResult = matchRepository.joinQueue(matchModes, profile)
                         if (generation != matchmakingGeneration) {
                             if (joinResult.immediateMatchId == null) {
@@ -283,11 +276,17 @@ class HomeViewModel(
     private suspend fun awaitUserProfileReady(): UserProfile {
         val user = authRepository.currentUser ?: error("Not signed in")
         authRepository.queueReadyProfile(user.uid)?.let { return it }
-        return authRepository.ensureUserProfile(
-            uid = user.uid,
-            displayName = user.displayName,
-            photoUrl = user.photoUrl?.toString(),
-        )
+        _uiState.value.profile?.takeIf { it.uid == user.uid }?.let { cached ->
+            UserProfileSync.rememberQueueReady(user.uid, cached)
+            return cached
+        }
+        return withTimeout(PROFILE_READY_TIMEOUT_MS) {
+            authRepository.ensureUserProfile(
+                uid = user.uid,
+                displayName = user.displayName,
+                photoUrl = user.photoUrl?.toString(),
+            )
+        }
     }
 
     fun leaveQueue() {

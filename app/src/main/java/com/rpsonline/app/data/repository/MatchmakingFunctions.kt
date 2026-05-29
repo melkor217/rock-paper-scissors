@@ -10,7 +10,7 @@ import kotlinx.coroutines.withTimeout
 
 internal object MatchmakingFunctions {
     private const val JOIN_CALLABLE = "joinMatchmakingQueue"
-    private const val CALL_TIMEOUT_MS = 22_000L
+    private const val CALL_TIMEOUT_MS = 15_000L
 
     suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): Long {
         require(matchModes.isNotEmpty())
