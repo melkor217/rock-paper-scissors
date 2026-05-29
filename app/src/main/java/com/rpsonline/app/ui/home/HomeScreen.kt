@@ -102,6 +102,16 @@ fun HomeScreen(
     Column(
         modifier = Modifier.rpsScreenPadding(),
     ) {
+        if (uiState.isSigningOut) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                RpsLoadingColumn()
+            }
+            return
+        }
+
         if (uiState.isLoading && uiState.profile == null) {
             Box(
                 modifier = Modifier.fillMaxSize(),

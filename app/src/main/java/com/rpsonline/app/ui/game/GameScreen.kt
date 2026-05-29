@@ -156,7 +156,7 @@ fun GameScreen(
             Spacer(modifier = Modifier.height(if (compactLayout) 8.dp else 12.dp))
 
             val showTimers = match.status == MatchStatus.ACTIVE &&
-                match.openRound()?.deadline != null &&
+                match.openRound()?.roundStartMs() != null &&
                 uiState.countdownSeconds != null &&
                 uiState.myClockSeconds != null &&
                 uiState.opponentClockSeconds != null

@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rpsonline.app.viewmodel.HomeViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -20,7 +21,6 @@ import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.MatchSessionMonitor
 import com.rpsonline.app.domain.MatchMode
-import com.rpsonline.app.viewmodel.HomeViewModel
 import com.rpsonline.app.ui.auth.SignInScreen
 import com.rpsonline.app.ui.changelog.ChangelogScreen
 import com.rpsonline.app.ui.game.GameScreen
@@ -60,21 +60,23 @@ private fun NavHostController.navigateToHome() {
 
 @Composable
 private fun MatchFoundNavigationEffect(navController: NavHostController) {
+    val pendingMatchId by MatchSessionMonitor.pendingGameNavigationMatchId
+        .collectAsStateWithLifecycle()
     val backStackEntries by navController.currentBackStack.collectAsStateWithLifecycle()
-    val homeBackStackEntry = backStackEntries.lastOrNull { entry ->
-        entry.destination.route?.startsWith("home") == true
-    }
-    val homeViewModel = homeBackStackEntry?.let { viewModel<HomeViewModel>(it) }
-    val navigateToGameMatchId by homeViewModel?.navigateToGameMatchId?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf<String?>(null) }
+    val currentRoute = backStackEntries.lastOrNull()?.destination?.route
 
-    LaunchedEffect(navigateToGameMatchId, homeViewModel) {
-        val matchId = navigateToGameMatchId ?: return@LaunchedEffect
-        val viewModel = homeViewModel ?: return@LaunchedEffect
+    LaunchedEffect(pendingMatchId, currentRoute) {
+        val matchId = pendingMatchId ?: return@LaunchedEffect
+        if (currentRoute?.startsWith("game/") == true) {
+            MatchSessionMonitor.consumeGameNavigation()
+            MatchSessionMonitor.setMatchmakingInProgress(false)
+            return@LaunchedEffect
+        }
         navController.navigate(Routes.game(matchId)) {
             popUpTo(Routes.HOME)
         }
-        viewModel.consumeNavigateToGameMatch()
+        MatchSessionMonitor.consumeGameNavigation()
+        MatchSessionMonitor.setMatchmakingInProgress(false)
     }
 }
 
@@ -84,13 +86,23 @@ fun RpsNavGraph() {
     val authRepository = remember { AuthRepository() }
     var isSignedIn by remember { mutableStateOf(authRepository.currentUser != null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(navController) {
         authRepository.authStateFlow().collect { user ->
             isSignedIn = user != null
-            if (user == null) {
-                navController.navigate(Routes.SIGN_IN) {
-                    popUpTo(navController.graph.id) { inclusive = true }
-                    launchSingleTop = true
+            if (user != null) {
+                val currentRoute = navController.currentBackStackEntry?.destination?.route
+                if (currentRoute == Routes.SIGN_IN) {
+                    navController.navigate(Routes.home()) {
+                        popUpTo(Routes.SIGN_IN) { inclusive = true }
+                    }
+                }
+            } else {
+                val onSignIn = navController.currentBackStackEntry?.destination?.route == Routes.SIGN_IN
+                if (!onSignIn) {
+                    navController.navigate(Routes.SIGN_IN) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             }
         }
@@ -104,12 +116,6 @@ fun RpsNavGraph() {
     ) {
         composable(Routes.SIGN_IN) {
             SignInScreen(
-                onSignedIn = {
-                    isSignedIn = true
-                    navController.navigate(Routes.home()) {
-                        popUpTo(Routes.SIGN_IN) { inclusive = true }
-                    }
-                },
                 onChangelog = { navController.navigate(Routes.CHANGELOG) },
             )
         }

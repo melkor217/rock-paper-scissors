@@ -72,6 +72,15 @@ data class RoundResult(
     fun roundStartMs(): Long? =
         startedAt ?: deadline?.let { it - GameRules.ROUND_TIMEOUT_SECONDS * 1000L }
 
+    /** Seconds left in this round, capped at [GameRules.ROUND_TIMEOUT_SECONDS]. */
+    fun roundSecondsRemaining(nowMs: Long = System.currentTimeMillis()): Int? {
+        val startMs = roundStartMs() ?: return null
+        val timeoutMs = GameRules.ROUND_TIMEOUT_SECONDS * 1000L
+        val remainingMs = startMs + timeoutMs - nowMs
+        return ((remainingMs + 999) / 1000).toInt()
+            .coerceIn(0, GameRules.ROUND_TIMEOUT_SECONDS)
+    }
+
     fun isRecapRound(): Boolean = resolvedAt != null
 
     fun isCancelledRound(): Boolean =

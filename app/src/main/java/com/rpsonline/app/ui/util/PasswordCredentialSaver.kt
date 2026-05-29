@@ -5,6 +5,7 @@ import androidx.credentials.CreatePasswordRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.exceptions.CreateCredentialCancellationException
 import androidx.credentials.exceptions.CreateCredentialException
+import kotlinx.coroutines.CancellationException
 
 /**
  * Shows the system UI (e.g. Google Password Manager) to save email + password.
@@ -26,7 +27,19 @@ suspend fun offerSavePassword(
         CredentialManager.create(activity).createCredential(activity, request)
     } catch (_: CreateCredentialCancellationException) {
         // User dismissed save dialog
-    } catch (_: CreateCredentialException) {
+    } catch (_: CancellationException) {
+        // Activity paused while the system save UI was open
+    } catch (e: CreateCredentialException) {
+        if (e.isBenignSaveCancellation()) return
+        commitAutofillSave(activity)
+    } catch (e: Exception) {
+        if (e.isBenignSaveCancellation()) return
         commitAutofillSave(activity)
     }
+}
+
+private fun Throwable.isBenignSaveCancellation(): Boolean {
+    if (this is CancellationException) return true
+    val message = message.orEmpty()
+    return message.contains("cancel", ignoreCase = true)
 }

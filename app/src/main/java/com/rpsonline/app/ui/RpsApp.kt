@@ -2,10 +2,12 @@ package com.rpsonline.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -93,21 +95,33 @@ fun RpsApp() {
     val matchRepository = remember { MatchRepository() }
     val user by authRepository.authStateFlow().collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
 
+    val presenceRepository = remember { PresenceRepository() }
+
+    LaunchedEffect(user?.uid) {
+        val uid = user?.uid ?: return@LaunchedEffect
+        presenceRepository.touchPresence(uid)
+        while (true) {
+            delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
+            presenceRepository.touchPresence(uid)
+        }
+    }
+
     LifecycleResumeEffect(user?.uid) {
         val uid = user?.uid
         if (uid != null) {
             scope.launch {
                 runCatching { MatchSessionMonitor.refreshOnResume() }
-                runCatching { PresenceRepository().touchPresence(uid) }
+                runCatching { presenceRepository.touchPresence(uid) }
             }
         }
         onPauseOrDispose { }
     }
     val activeMatch by MatchSessionMonitor.activeMatch.collectAsStateWithLifecycle()
+    val hasQueueEntry by MatchSessionMonitor.hasQueueEntry.collectAsStateWithLifecycle()
     val queueJoinedAtMs by MatchSessionMonitor.queueJoinedAtMs.collectAsStateWithLifecycle()
 
-    LaunchedEffect(queueJoinedAtMs) {
-        if (queueJoinedAtMs == null) return@LaunchedEffect
+    LaunchedEffect(hasQueueEntry) {
+        if (!hasQueueEntry) return@LaunchedEffect
         var consecutiveFailures = 0
         while (true) {
             if (!matchRepository.sendQueueHeartbeat()) {
@@ -123,8 +137,8 @@ fun RpsApp() {
         }
     }
 
-    LifecycleResumeEffect(queueJoinedAtMs) {
-        if (queueJoinedAtMs != null) {
+    LifecycleResumeEffect(hasQueueEntry) {
+        if (hasQueueEntry) {
             scope.launch {
                 matchRepository.sendQueueHeartbeat()
             }
@@ -153,12 +167,13 @@ fun RpsApp() {
                     topPanelColor,
                 ),
             )
-            Box(modifier = Modifier.fillMaxSize()) {
-                RpsNavGraph()
+            Column(modifier = Modifier.fillMaxSize()) {
                 Surface(
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .windowInsetsPadding(
+                            WindowInsets.displayCutout.only(WindowInsetsSides.Top),
+                        ),
                     shape = RectangleShape,
                     color = topPanelColor,
                     tonalElevation = 2.dp,
@@ -203,6 +218,13 @@ fun RpsApp() {
                             }
                         }
                     }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                ) {
+                    RpsNavGraph()
                 }
             }
         }
