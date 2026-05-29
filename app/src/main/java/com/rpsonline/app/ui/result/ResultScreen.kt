@@ -59,6 +59,7 @@ fun ResultScreen(
     val matchRepository = remember { MatchRepository() }
     val userRepository = remember { UserRepository() }
     var match by remember { mutableStateOf<Match?>(null) }
+    var myProfile by remember { mutableStateOf<UserProfile?>(null) }
     var myCurrentElo by remember { mutableStateOf<Int?>(null) }
     var opponentProfile by remember { mutableStateOf<UserProfile?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -67,8 +68,18 @@ fun ResultScreen(
         val userId = authRepository.currentUserId
         match = matchRepository.getMatch(matchId)
         myCurrentElo = userId?.let { userRepository.getUserProfile(it)?.elo }
+        myProfile = userId?.let { userRepository.getUserProfile(it) }
         isLoading = false
         val opponentId = userId?.let { uid -> match?.opponentId(uid) } ?: return@LaunchedEffect
+
+        userId?.let { uid ->
+            launch {
+                userRepository.observeUserProfile(uid).collectLatest { profile ->
+                    myProfile = profile
+                    myCurrentElo = profile?.elo ?: myCurrentElo
+                }
+            }
+        }
 
         launch {
             userRepository.observeUserProfile(opponentId).collectLatest { profile ->
@@ -79,6 +90,12 @@ fun ResultScreen(
         // Cloud Functions may finish incrementing throw stats after the result screen opens.
         repeat(8) {
             delay(2_000)
+            userId?.let { uid ->
+                userRepository.getUserProfile(uid)?.let { profile ->
+                    myProfile = profile
+                    myCurrentElo = profile.elo
+                }
+            }
             userRepository.getUserProfile(opponentId)?.let { opponentProfile = it }
         }
     }
@@ -138,6 +155,16 @@ fun ResultScreen(
             postMatchElo = myCurrentElo,
             eloDelta = eloDelta,
         )
+
+        if (userId != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            ProfileSummaryCard(
+                displayName = stringResource(R.string.you),
+                profile = myProfile,
+                eloOverride = myCurrentElo,
+                onClick = { onOpponentProfile(userId) },
+            )
+        }
 
         if (opponentId != null) {
             Spacer(modifier = Modifier.height(12.dp))

@@ -148,14 +148,14 @@ class HomeViewModel(
                     enterConfirmedQueue(alreadyQueuedAtMs)
                     return@launch
                 }
-                val immediateMatchId = matchRepository.joinQueue(matchModes)
+                val joinResult = matchRepository.joinQueue(matchModes)
                 if (generation != matchmakingGeneration) {
-                    if (immediateMatchId == null) {
+                    if (joinResult.immediateMatchId == null) {
                         authRepository.currentUserId?.let { matchRepository.leaveQueueBestEffort(it) }
                     }
                     return@launch
                 }
-                if (immediateMatchId != null) {
+                if (joinResult.immediateMatchId != null) {
                     awaitingMatchFromQueue = false
                     awaitingMatchStartedAtMs = null
                     stopQueueTimer()
@@ -167,15 +167,19 @@ class HomeViewModel(
                             matchmakingError = null,
                         )
                     }
-                    MatchSessionMonitor.requestGameNavigation(immediateMatchId)
+                    MatchSessionMonitor.requestGameNavigation(joinResult.immediateMatchId)
                     return@launch
                 }
-                val joinedAtMs = matchRepository.awaitQueueJoinedAtFromServer()
-                if (generation != matchmakingGeneration) return@launch
-                if (joinedAtMs == null) {
-                    throw IllegalStateException("Server did not confirm queue entry.")
-                }
+                // Queue write succeeded — show "In queue" immediately; refine timer when server joinedAt lands.
+                val joinedAtMs = joinResult.clientJoinedAtMs ?: System.currentTimeMillis()
                 enterConfirmedQueue(joinedAtMs)
+                launch {
+                    val serverJoinedAtMs = matchRepository.awaitQueueJoinedAtFromServer(timeoutMs = 30_000)
+                    if (generation != matchmakingGeneration) return@launch
+                    if (serverJoinedAtMs != null && _uiState.value.isInQueue) {
+                        enterConfirmedQueue(serverJoinedAtMs)
+                    }
+                }
             } catch (e: Exception) {
                 if (generation != matchmakingGeneration) return@launch
                 MatchSessionMonitor.setMatchmakingInProgress(false)
@@ -242,7 +246,7 @@ class HomeViewModel(
                             matchmakingError = null,
                         )
                     }
-                } else if (!_uiState.value.isInQueue) {
+                } else {
                     enterConfirmedQueue(joinedAtMs)
                 }
             }
@@ -328,7 +332,10 @@ class HomeViewModel(
             // Reconcile queue state on resume in case listener updates were missed while away.
             val joinedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
             if (joinedAtMs == null) {
-                if (
+                val monitorJoinedAtMs = MatchSessionMonitor.queueJoinedAtMs.value
+                if (monitorJoinedAtMs != null) {
+                    enterConfirmedQueue(monitorJoinedAtMs)
+                } else if (
                     MatchSessionMonitor.isMatchmakingInProgress() ||
                     MatchSessionMonitor.isQueueEntryPending()
                 ) {
