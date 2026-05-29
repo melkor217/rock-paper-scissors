@@ -1,6 +1,8 @@
 package com.rpsonline.app.data.auth
 
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -59,26 +61,38 @@ fun Throwable.toAuthMessage(): String = when {
 }
 
 fun GetCredentialException.toGoogleSignInMessage(isDebugBuild: Boolean = false): String {
+    when (this) {
+        is GetCredentialCancellationException ->
+            return "Google sign-in was cancelled."
+        is NoCredentialException ->
+            return noGoogleCredentialMessage(isDebugBuild)
+    }
     val detail = message.orEmpty()
     return when {
         detail.contains("network", ignoreCase = true) ||
             detail.contains("unreachable", ignoreCase = true) ||
             detail.contains("timeout", ignoreCase = true) ->
-            "Could not reach Google sign-in. Check your connection."
-        detail.contains("No credentials", ignoreCase = true) ||
-            detail.contains("NoCredential", ignoreCase = true) ->
-            if (isDebugBuild) {
-                "Google Sign-In could not start on this device. Use an emulator image with Play Store, " +
-                    "add a Google account (Settings → Passwords & accounts), rebuild after placing " +
-                    "google-services.json in app/, then retry."
-            } else {
-                "Google Sign-In is not configured for this build. Add your release keystore SHA-1 " +
-                    "in Firebase → Project settings → Android app → Fingerprints, download a new " +
-                    "google-services.json, rebuild, then retry."
-            }
+            "Could not reach Google sign-in. Check your connection and try again."
+        detail.contains("cancel", ignoreCase = true) ->
+            "Google sign-in was cancelled."
         detail.contains("28433", ignoreCase = true) ||
             detail.contains("Cannot find a matching credential", ignoreCase = true) ->
             "Google Sign-In could not access credentials on this device. Add a Google account or use guest/email."
-        else -> detail.ifBlank { "Google sign-in cancelled" }
+        detail.contains("No credentials", ignoreCase = true) ||
+            detail.contains("NoCredential", ignoreCase = true) ->
+            noGoogleCredentialMessage(isDebugBuild)
+        else -> detail.ifBlank { "Google sign-in failed. Try again." }
+    }
+}
+
+private fun noGoogleCredentialMessage(isDebugBuild: Boolean): String {
+    return if (isDebugBuild) {
+        "Google Sign-In could not start. Add a Google account on this device (Settings → Passwords & accounts), " +
+            "use an emulator with Play Store, and ensure your debug SHA-1 is in Firebase → Project settings → " +
+            "Android app → Fingerprints. Place google-services.json in app/ and rebuild."
+    } else {
+        "Google Sign-In could not start. Add a Google account on this device and try again. " +
+            "If you installed from GitHub, register the release keystore SHA-1 in Firebase → Project settings → " +
+            "Android app → Fingerprints (see scripts/ENABLE_AUTH.md)."
     }
 }

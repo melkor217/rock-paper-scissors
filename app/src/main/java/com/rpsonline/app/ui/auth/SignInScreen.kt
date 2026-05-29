@@ -150,7 +150,10 @@ fun SignInScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
             AuthButtons(
-                onGoogle = { viewModel.signInWithGoogle(context) },
+                onGoogle = {
+                    val signInContext = activity ?: context
+                    viewModel.signInWithGoogle(signInContext)
+                },
                 onGuest = viewModel::signInAnonymously,
                 enabled = uiState.isFirebaseAvailable && !uiState.isCheckingFirebase,
             )

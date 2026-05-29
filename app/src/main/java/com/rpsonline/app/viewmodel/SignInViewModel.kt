@@ -1,10 +1,12 @@
 package com.rpsonline.app.viewmodel
 
 import android.content.Context
+import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.ui.util.offerSavePassword
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -132,7 +134,8 @@ class SignInViewModel(
                     "Set default_web_client_id in strings.xml from Firebase console"
                 }
 
-                val idToken = requestGoogleIdToken(context, webClientId)
+                val signInContext = context.findActivity() ?: context
+                val idToken = requestGoogleIdToken(signInContext, webClientId)
                 val profile = authRepository.signInWithGoogle(idToken)
                 UserProfileSync.rememberQueueReady(profile.uid, profile)
                 clearAuthError()
@@ -330,21 +333,37 @@ class SignInViewModel(
      * [GetSignInWithGoogleOption] first, then falls back to the other option.
      */
     private suspend fun requestGoogleIdToken(context: Context, webClientId: String): String {
+        var lastError: GetCredentialException? = null
+        repeat(2) { attempt ->
+            try {
+                return requestGoogleIdTokenOnce(context, webClientId)
+            } catch (e: GetCredentialException) {
+                if (e is GetCredentialCancellationException) throw e
+                lastError = e
+                if (attempt == 0) delay(400)
+            }
+        }
+        throw lastError ?: error("Google sign-in failed")
+    }
+
+    private suspend fun requestGoogleIdTokenOnce(context: Context, webClientId: String): String {
         val credentialManager = CredentialManager.create(context)
         return if (BuildConfig.DEBUG) {
             try {
                 requestGoogleIdTokenViaIdOption(credentialManager, context, webClientId)
             } catch (first: GetCredentialException) {
+                if (first is GetCredentialCancellationException) throw first
                 try {
                     requestGoogleIdTokenViaSignInWithGoogle(credentialManager, context, webClientId)
-                } catch (_: GetCredentialException) {
+                } catch (second: GetCredentialException) {
                     throw first
                 }
             }
         } else {
             try {
                 requestGoogleIdTokenViaSignInWithGoogle(credentialManager, context, webClientId)
-            } catch (_: GetCredentialException) {
+            } catch (first: GetCredentialException) {
+                if (first is GetCredentialCancellationException) throw first
                 requestGoogleIdTokenViaIdOption(credentialManager, context, webClientId)
             }
         }
