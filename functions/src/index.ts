@@ -226,17 +226,32 @@ async function recordRoundResolutionStats(
   };
 }
 
-async function getUserProfile(uid: string) {
-  const snap = await db.collection("users").doc(uid).get();
-  if (!snap.exists) {
-    throw new Error(`User profile missing: ${uid}`);
-  }
+function profileFromSnapshot(
+  uid: string,
+  snap: FirebaseFirestore.DocumentSnapshot,
+  queueData?: Record<string, unknown>,
+) {
   return {
     uid,
-    displayName: (snap.get("displayName") as string) ?? "Player",
-    elo: (snap.get("elo") as number) ?? 1000,
+    displayName: (snap.get("displayName") as string)
+      ?? (queueData?.displayName as string)
+      ?? "Player",
+    elo: (snap.get("elo") as number) ?? (queueData?.elo as number) ?? 1000,
     activeMatchId: snap.get("activeMatchId") as string | undefined,
   };
+}
+
+async function getUserProfile(uid: string, queueData?: Record<string, unknown>) {
+  const snap = await db.collection("users").doc(uid).get();
+  if (!snap.exists) {
+    return {
+      uid,
+      displayName: (queueData?.displayName as string) ?? "Player",
+      elo: (queueData?.elo as number) ?? 1000,
+      activeMatchId: undefined,
+    };
+  }
+  return profileFromSnapshot(uid, snap, queueData);
 }
 
 async function createMatch(playerA: string, playerB: string, matchMode: MatchMode): Promise<string> {
@@ -275,14 +290,14 @@ async function createMatch(playerA: string, playerB: string, matchMode: MatchMod
   batch.set(matchRef, match);
   batch.delete(db.collection("queue").doc(playerA));
   batch.delete(db.collection("queue").doc(playerB));
-  batch.update(db.collection("users").doc(playerA), {
+  batch.set(db.collection("users").doc(playerA), {
     activeMatchId: matchRef.id,
     lastSeen: FieldValue.serverTimestamp(),
-  });
-  batch.update(db.collection("users").doc(playerB), {
+  }, { merge: true });
+  batch.set(db.collection("users").doc(playerB), {
     activeMatchId: matchRef.id,
     lastSeen: FieldValue.serverTimestamp(),
-  });
+  }, { merge: true });
   await batch.commit();
   return matchRef.id;
 }
@@ -297,18 +312,20 @@ async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Prom
     const sharedMode = pickSharedMatchMode(matchModes, otherModes);
     if (!sharedMode) continue;
     const otherElo = (doc.get("elo") as number) ?? 1000;
-    if (Math.abs(otherElo - elo) <= ELO_WINDOW) {
-      return createMatch(uid, otherId, sharedMode);
+    if (Math.abs(otherElo - elo) > ELO_WINDOW) continue;
+
+    const [myQueue, theirQueue] = await Promise.all([
+      db.collection("queue").doc(uid).get(),
+      db.collection("queue").doc(otherId).get(),
+    ]);
+    if (!myQueue.exists || !theirQueue.exists) continue;
+    if (!isQueueEntryActive(myQueue.data()!) || !isQueueEntryActive(theirQueue.data()!)) {
+      continue;
     }
+
+    return createMatch(uid, otherId, sharedMode);
   }
   return null;
-}
-
-function isActiveMatchLive(matchSnap: FirebaseFirestore.DocumentSnapshot): boolean {
-  if (!matchSnap.exists || matchSnap.get("status") !== "active") return false;
-  const lastActivity = matchSnap.get("lastActivityAt") as Timestamp | undefined;
-  const lastMs = lastActivity?.toMillis() ?? 0;
-  return Date.now() - lastMs <= QUEUE_STALE_MS;
 }
 
 async function releaseStaleActiveMatchBeforeQueue(
@@ -352,12 +369,7 @@ async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Pr
   // update() fails when the profile doc is missing (common right after Google sign-in).
   await userRef.set({ lastSeen: FieldValue.serverTimestamp() }, { merge: true });
 
-  let profile: Awaited<ReturnType<typeof getUserProfile>>;
-  try {
-    profile = await getUserProfile(uid);
-  } catch {
-    return;
-  }
+  const profile = await getUserProfile(uid, data);
 
   if (profile.activeMatchId) {
     const active = await db.collection("matches").doc(profile.activeMatchId).get();
@@ -365,10 +377,7 @@ async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Pr
       const player1 = active.get("player1");
       const player2 = active.get("player2");
       if (player1 === uid || player2 === uid) {
-        if (isActiveMatchLive(active)) {
-          await db.collection("queue").doc(uid).delete();
-          return;
-        }
+        // Queuing means the player wants a new opponent, not to stay in the old match.
         await releaseStaleActiveMatchBeforeQueue(active);
       } else {
         await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);

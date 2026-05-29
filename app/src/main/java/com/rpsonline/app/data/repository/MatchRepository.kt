@@ -216,18 +216,6 @@ class MatchRepository(
         }
         UserProfileSync.rememberQueueReady(userId, queueProfile)
 
-        val activeMatchId = queueProfile.activeMatchId
-        if (!activeMatchId.isNullOrBlank()) {
-            val match = withTimeoutOrNull(3_000) { getMatchFromServer(activeMatchId) }
-            if (
-                match?.status == MatchStatus.ACTIVE &&
-                match.isParticipant(userId) &&
-                match.isLiveForReconnect()
-            ) {
-                return JoinQueueResult(immediateMatchId = activeMatchId, clientJoinedAtMs = null)
-            }
-        }
-
         val clientJoinedAtMs = System.currentTimeMillis()
         val joinedAt = Timestamp.now()
         val queuePayload = mapOf(
