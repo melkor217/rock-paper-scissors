@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,7 +45,9 @@ import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.MovePicker
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
+import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.viewmodel.GameViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun GameScreen(
@@ -55,9 +59,22 @@ fun GameScreen(
     val match = uiState.match
     val userId = uiState.userId
 
-    LifecycleResumeEffect(matchId) {
+    val presenceRepository = remember { PresenceRepository() }
+    val scope = rememberCoroutineScope()
+
+    LifecycleResumeEffect(matchId, userId) {
+        userId?.let { uid ->
+            scope.launch {
+                runCatching { presenceRepository.touchPresence(uid, forceAuthRefresh = true) }
+            }
+        }
         viewModel.refreshOnResume()
         onPauseOrDispose { }
+    }
+
+    LaunchedEffect(userId) {
+        val uid = userId ?: return@LaunchedEffect
+        presenceRepository.touchPresence(uid, forceAuthRefresh = true)
     }
 
     LaunchedEffect(match?.status, match?.id) {

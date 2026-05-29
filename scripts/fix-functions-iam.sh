@@ -8,7 +8,7 @@ REGION="${2:-europe-west1}"
 
 echo "Granting public invoker on Cloud Run services for project $PROJECT ($REGION)..."
 
-for SERVICE in ping joinMatchmakingQueue; do
+for SERVICE in ping joinMatchmakingQueue submitmatchmove; do
   echo "→ $SERVICE"
   gcloud run services add-iam-policy-binding "$SERVICE" \
     --project="$PROJECT" \

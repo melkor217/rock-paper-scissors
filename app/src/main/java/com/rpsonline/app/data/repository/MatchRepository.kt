@@ -383,6 +383,22 @@ class MatchRepository(
     }
 
     suspend fun submitMove(matchId: String, move: Move, roundNumber: Int) {
+        try {
+            GameFunctions.submitMove(matchId, roundNumber, move)
+        } catch (callableError: Exception) {
+            submitMoveDirect(matchId, move, roundNumber, callableError)
+        }
+        if (!awaitMyChoiceInMatch(matchId, roundNumber, timeoutMs = 8_000)) {
+            error("Move was sent but the match did not update. Try again.")
+        }
+    }
+
+    private suspend fun submitMoveDirect(
+        matchId: String,
+        move: Move,
+        roundNumber: Int,
+        callableError: Exception,
+    ) {
         awaitFirestoreAuth(forceRefresh = true)
         val choiceRef = firestore.collection("matches")
             .document(matchId)
@@ -394,15 +410,17 @@ class MatchRepository(
             "choice" to move.name,
             "submittedAt" to FieldValue.serverTimestamp(),
         )
-        withTimeout(10_000) {
-            choiceRef.set(payload).awaitTask()
+        try {
+            withTimeout(10_000) {
+                choiceRef.set(payload).awaitTask()
+            }
+        } catch (directError: Exception) {
+            GameFunctions.toSubmitErrorMessage(callableError)?.let {
+                throw IllegalStateException(it, callableError)
+            }
+            throw directError
         }
-        if (!choiceRef.confirmChoiceOnServer(move.name, confirmTimeoutMs = 10_000)) {
-            error("Timed out waiting for the server to record your move")
-        }
-        if (!awaitMyChoiceInMatch(matchId, roundNumber, timeoutMs = 12_000)) {
-            error("Move was sent but the match did not update. Try again.")
-        }
+        // Choice docs are deleted after the Cloud Function runs — only wait on the match doc.
     }
 
     /** Waits until the match read model includes this player's choice (Cloud Function applied it). */

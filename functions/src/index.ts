@@ -1060,6 +1060,56 @@ export const resolveTimedOutRounds = onSchedule(
   },
 );
 
+/** Applies a move server-side (choice subcollection docs are deleted after processing). */
+export const submitMatchMove = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const matchId = request.data?.matchId;
+  const roundNumber = request.data?.roundNumber;
+  const choice = request.data?.choice;
+  if (typeof matchId !== "string" || !matchId) {
+    throw new HttpsError("invalid-argument", "matchId is required.");
+  }
+  if (typeof roundNumber !== "number" || !Number.isFinite(roundNumber)) {
+    throw new HttpsError("invalid-argument", "roundNumber is required.");
+  }
+  if (!isValidMove(choice)) {
+    throw new HttpsError("invalid-argument", "choice must be ROCK, PAPER, or SCISSORS.");
+  }
+
+  const matchSnap = await db.collection("matches").doc(matchId).get();
+  if (!matchSnap.exists) {
+    throw new HttpsError("not-found", "Match not found.");
+  }
+  const match = matchSnap.data() as MatchDoc;
+  if (match.status !== "active") {
+    throw new HttpsError("failed-precondition", "Match is not active.");
+  }
+  if (uid !== match.player1 && uid !== match.player2) {
+    throw new HttpsError("permission-denied", "You are not in this match.");
+  }
+  if (match.currentRound !== roundNumber) {
+    throw new HttpsError("failed-precondition", "This round is no longer open.");
+  }
+
+  const choiceRef = db.collection("matches")
+    .doc(matchId)
+    .collection("rounds")
+    .doc(String(roundNumber))
+    .collection("choices")
+    .doc(uid);
+  await choiceRef.set({
+    choice,
+    submittedAt: FieldValue.serverTimestamp(),
+  });
+  await applyPlayerChoice(matchId, uid, choice, roundNumber);
+
+  return { ok: true };
+});
+
 /** Server-side queue join (admin write) for clients that cannot confirm Firestore queue writes. */
 export const joinMatchmakingQueue = onCall(async (request) => {
   const uid = request.auth?.uid;
