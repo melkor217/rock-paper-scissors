@@ -12,6 +12,5 @@ class RpsApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         FirebaseApp.initializeApp(this)
-        AppCheckSetup.install(this)
     }
 }

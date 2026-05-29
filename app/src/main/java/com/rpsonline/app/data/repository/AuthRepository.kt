@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import com.google.firebase.Timestamp
-import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -13,7 +12,6 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Source
-import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
 import kotlinx.coroutines.Dispatchers
@@ -267,80 +265,6 @@ class AuthRepository(
     suspend fun isFirebaseAvailable(): Boolean {
         runCatching { appFirestore().enableNetwork().await() }
         return probeFirestoreReachability() || probeFirestoreReachabilityFromCache()
-    }
-
-    /**
-     * GitHub release and Studio debug builds use the debug App Check provider. Preflight token
-     * probes cause "Too many attempts" and block sign-in before the user can register a token.
-     */
-    private fun usesDebugAppCheckProvider(): Boolean =
-        BuildConfig.DEBUG || BuildConfig.USE_DEBUG_APP_CHECK
-
-    suspend fun isAppCheckTokenAvailable(): Boolean {
-        if (usesDebugAppCheckProvider()) return true
-        return probeAppCheckToken()
-    }
-
-    /**
-     * Play Integrity releases only. Debug-provider builds must not preflight App Check — sign-in
-     * is attempted and [buildAppCheckErrorMessage] is shown only if Firebase rejects the call.
-     */
-    suspend fun appCheckErrorMessageOrNull(): String? {
-        if (usesDebugAppCheckProvider()) return null
-        return withContext(Dispatchers.IO) {
-            try {
-                withTimeout(10_000) {
-                    FirebaseAppCheck.getInstance().getAppCheckToken(false).await()
-                }
-                null
-            } catch (e: Exception) {
-                Log.w(TAG, "App Check token unavailable", e)
-                buildAppCheckErrorMessage(e)
-            }
-        }
-    }
-
-    fun appCheckSetupHintForSideloadBuild(): String? {
-        if (!BuildConfig.USE_DEBUG_APP_CHECK) return null
-        return "GitHub APK: if sign-in fails, register the App Check debug token from Logcat " +
-            "(filter DebugAppCheckProvider) in Firebase → App Check → Manage debug tokens."
-    }
-
-    private fun buildAppCheckErrorMessage(cause: Exception): String {
-        val detail = cause.message?.takeIf { it.isNotBlank() } ?: cause.javaClass.simpleName
-        if (!usesDebugAppCheckProvider()) {
-            return "App Check failed ($detail). Play Store releases need Play Integrity in Firebase Console → " +
-                "App Check → register Play Integrity for com.rpsonline.app (same package and signing key " +
-                "as Google Play). GitHub APKs use a debug token — install a release from GitHub Releases " +
-                "or a debug build from Android Studio."
-        }
-
-        val buildLabel = if (BuildConfig.DEBUG) {
-            "On this debug build"
-        } else {
-            "On this release APK"
-        }
-        val rateLimitHint = if (detail.contains("Too many attempts", ignoreCase = true)) {
-            " Wait 1–2 minutes before retrying after registering the token."
-        } else {
-            ""
-        }
-        return "$buildLabel App Check is not set up yet ($detail). " +
-            "In Android Studio Logcat on this device, filter DebugAppCheckProvider, copy the debug secret, " +
-            "add it in Firebase Console → App Check → com.rpsonline.app → Manage debug tokens, " +
-            "then force-stop and reopen the app. " +
-            "GitHub APK and Studio release builds use different signing keys — register the token from the APK you installed.$rateLimitHint"
-    }
-
-    private suspend fun probeAppCheckToken(): Boolean {
-        return try {
-            withTimeoutOrNull(8_000) {
-                FirebaseAppCheck.getInstance().getAppCheckToken(false).await()
-                true
-            } == true
-        } catch (_: Exception) {
-            false
-        }
     }
 
     /**
