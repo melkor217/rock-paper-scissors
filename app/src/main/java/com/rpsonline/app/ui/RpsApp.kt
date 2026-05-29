@@ -95,10 +95,10 @@ fun RpsApp() {
 
     LaunchedEffect(user?.uid) {
         val uid = user?.uid ?: return@LaunchedEffect
-        presenceRepository.touchPresence(uid, forceAuthRefresh = true)
+        presenceRepository.touchPresence(uid, forceAuthRefresh = true, awaitServerAck = true)
         while (true) {
             delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
-            presenceRepository.touchPresence(uid)
+            presenceRepository.touchPresence(uid, awaitServerAck = false)
         }
     }
 
@@ -107,7 +107,9 @@ fun RpsApp() {
         if (uid != null) {
             scope.launch {
                 runCatching { MatchSessionMonitor.refreshOnResume() }
-                runCatching { presenceRepository.touchPresence(uid) }
+                runCatching {
+                    presenceRepository.touchPresence(uid, forceAuthRefresh = true, awaitServerAck = true)
+                }
             }
         }
         onPauseOrDispose { }

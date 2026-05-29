@@ -105,7 +105,11 @@ class HomeViewModel(
                     startOnlineCountObserver()
                     viewModelScope.launch {
                         runCatching {
-                            presenceRepository.touchPresence(user.uid, forceAuthRefresh = true)
+                            presenceRepository.touchPresence(
+                                user.uid,
+                                forceAuthRefresh = true,
+                                awaitServerAck = true,
+                            )
                         }
                         refreshOnlinePlayerCount()
                     }
@@ -139,6 +143,7 @@ class HomeViewModel(
         }
         val generation = ++matchmakingGeneration
         refreshJob?.cancel()
+        refreshOnlinePlayerCount()
         MatchSessionMonitor.setMatchmakingInProgress(true)
         MatchModePreferences(context).set(matchModes)
         awaitingMatchFromQueue = true
@@ -399,7 +404,7 @@ class HomeViewModel(
         viewModelScope.launch {
             runCatching { MatchSessionMonitor.refreshOnResume() }
             val uid = authRepository.currentUserId ?: return@launch
-            runCatching { presenceRepository.touchPresence(uid) }
+            runCatching { presenceRepository.touchPresence(uid, awaitServerAck = true) }
             userRepository.getUserProfile(uid)?.let { profile ->
                 _uiState.update { it.copy(profile = profile) }
             }

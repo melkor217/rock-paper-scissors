@@ -11,35 +11,44 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 
 class PresenceRepository(
     private val firestore: FirebaseFirestore = appFirestore(),
 ) {
     /**
      * Writes [COLLECTION]/[uid] so other clients can count this player as online.
-     * Uses [waitForPendingWrites] so the doc is visible to other devices (not just local cache).
+     * Heartbeats use a fast write; sign-in / resume use [awaitServerAck] so the count is accurate.
      */
-    suspend fun touchPresence(uid: String, forceAuthRefresh: Boolean = false) {
-        MatchSessionMonitor.awaitSessionBootstrap()
+    suspend fun touchPresence(
+        uid: String,
+        forceAuthRefresh: Boolean = false,
+        awaitServerAck: Boolean = false,
+    ) {
         val payload = mapOf("lastSeen" to Timestamp.now())
         val presenceRef = firestore.collection(COLLECTION).document(uid)
+        val attempts = if (awaitServerAck) 3 else 1
 
-        FirestoreSessionGate.withWriteLock {
-            for (attempt in 0..2) {
-                val wrote = runCatching {
-                    awaitFirestoreAuth(forceRefresh = forceAuthRefresh || attempt > 0)
+        for (attempt in 0 until attempts) {
+            val wrote = runCatching {
+                awaitFirestoreAuth(forceRefresh = forceAuthRefresh || attempt > 0)
+                if (awaitServerAck) {
                     presenceRef.setAndAwaitServerSync(
                         data = payload,
                         writeTimeoutMs = PRESENCE_WRITE_TIMEOUT_MS,
                         syncTimeoutMs = PRESENCE_SYNC_TIMEOUT_MS,
                     )
-                }.isSuccess
-                if (wrote) {
-                    firestore.collection("users").document(uid).updateBestEffort(payload)
-                    return@withWriteLock
+                } else {
+                    withTimeout(PRESENCE_FAST_WRITE_TIMEOUT_MS) {
+                        presenceRef.set(payload).awaitTask()
+                    }
                 }
-                delay(400)
+            }.isSuccess
+            if (wrote) {
+                firestore.collection("users").document(uid).updateBestEffort(payload)
+                return
             }
+            if (awaitServerAck) delay(400)
         }
     }
 
@@ -97,7 +106,8 @@ class PresenceRepository(
         const val HEARTBEAT_INTERVAL_MS = 30_000L
         private const val PRESENCE_WRITE_TIMEOUT_MS = 15_000L
         private const val PRESENCE_SYNC_TIMEOUT_MS = 18_000L
-        private const val SERVER_POLL_INTERVAL_MS = 12_000L
+        private const val PRESENCE_FAST_WRITE_TIMEOUT_MS = 5_000L
+        private const val SERVER_POLL_INTERVAL_MS = 8_000L
 
         fun countOnlineDocuments(
             documents: List<DocumentSnapshot>,

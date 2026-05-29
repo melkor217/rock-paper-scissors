@@ -199,7 +199,7 @@ class MatchRepository(
     suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueResult {
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
         MatchSessionMonitor.awaitSessionBootstrap()
-        return FirestoreSessionGate.withWriteLock {
+        return QueueWriteGate.withLock {
             joinQueueLocked(matchModes, profile)
         }
     }
@@ -292,7 +292,7 @@ class MatchRepository(
      */
     suspend fun clearStaleSessionQueue(userId: String) {
         if (MatchSessionMonitor.isMatchmakingInProgress()) return
-        FirestoreSessionGate.withWriteLock {
+        QueueWriteGate.withLock {
             MatchSessionMonitor.clearQueueState()
             runCatching {
                 awaitFirestoreAuth(forceRefresh = true)

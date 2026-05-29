@@ -58,7 +58,11 @@ class AuthRepository(
         val profile = ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
         runCatching { firestore.awaitPendingWritesSynced(18_000) }
         runCatching {
-            PresenceRepository().touchPresence(user.uid, forceAuthRefresh = true)
+            PresenceRepository().touchPresence(
+                user.uid,
+                forceAuthRefresh = true,
+                awaitServerAck = true,
+            )
         }
         return profile
     }

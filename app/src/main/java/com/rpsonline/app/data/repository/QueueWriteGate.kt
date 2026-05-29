@@ -5,15 +5,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
-/**
- * Serializes Firestore writes that conflict when run together (queue join vs session cleanup vs presence).
- */
-internal object FirestoreSessionGate {
+/** Serializes queue join/leave/cleanup so they do not race each other. */
+internal object QueueWriteGate {
     private val mutex = Mutex()
     @Volatile
     private var bootstrap: CompletableDeferred<Unit>? = null
 
-    suspend fun <T> withWriteLock(block: suspend () -> T): T = mutex.withLock { block() }
+    suspend fun <T> withLock(block: suspend () -> T): T = mutex.withLock { block() }
 
     fun startBootstrap(): CompletableDeferred<Unit> {
         val deferred = CompletableDeferred<Unit>()
