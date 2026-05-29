@@ -6,6 +6,8 @@
     <string name="sign_out">Odhlasit se</string>
     <string name="leaderboard">Zebricek</string>
     <string name="find_match">Najit zapas</string>
+    <string name="communicating_to_server">Komunikace se serverem…</string>
+
     <string name="in_queue">Ve fronte</string>
     <string name="in_match">V zapase</string>
     <string name="waiting_for_opponent">Cekani na soupere…</string>

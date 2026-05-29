@@ -138,7 +138,7 @@ fun HomeScreen(
 
         val profile = uiState.profile
         val selectedModes = uiState.selectedMatchModes
-        val matchModesLocked = uiState.isInQueue
+        val matchModesLocked = uiState.isJoiningQueue || uiState.isInQueue
 
         Text(
             text = "Welcome!",
@@ -223,18 +223,21 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        if ((uiState.isInQueue || openingMatchId != null) && uiState.activeMatchId == null) {
+        if (
+            (uiState.isJoiningQueue || uiState.isInQueue || openingMatchId != null) &&
+            uiState.activeMatchId == null
+        ) {
             HomeQueueStatusCard(
-                queueElapsedSeconds = uiState.queueElapsedSeconds,
-                title = if (openingMatchId != null) {
-                    stringResource(R.string.match_found)
-                } else {
-                    stringResource(R.string.in_queue)
+                queueElapsedSeconds = if (uiState.isInQueue) uiState.queueElapsedSeconds else null,
+                title = when {
+                    openingMatchId != null -> stringResource(R.string.match_found)
+                    uiState.isJoiningQueue -> stringResource(R.string.communicating_to_server)
+                    else -> stringResource(R.string.in_queue)
                 },
-                subtitle = if (openingMatchId != null) {
-                    stringResource(R.string.opening_game)
-                } else {
-                    stringResource(R.string.finding_opponent)
+                subtitle = when {
+                    openingMatchId != null -> stringResource(R.string.opening_game)
+                    uiState.isJoiningQueue -> ""
+                    else -> stringResource(R.string.finding_opponent)
                 },
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -268,7 +271,7 @@ fun HomeScreen(
                     )
                 }
             }
-            uiState.isInQueue -> {
+            uiState.isJoiningQueue || uiState.isInQueue -> {
                 OutlinedButton(
                     onClick = { viewModel.leaveQueue() },
                     modifier = Modifier.fillMaxWidth(),
@@ -343,7 +346,7 @@ fun HomeScreen(
 
 @Composable
 private fun HomeQueueStatusCard(
-    queueElapsedSeconds: Long,
+    queueElapsedSeconds: Long?,
     title: String = "",
     subtitle: String = "",
 ) {
@@ -357,20 +360,33 @@ private fun HomeQueueStatusCard(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = if (queueElapsedSeconds == null) {
+                    MaterialTheme.typography.titleMedium
+                } else {
+                    MaterialTheme.typography.labelMedium
+                },
+                fontWeight = if (queueElapsedSeconds == null) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (queueElapsedSeconds == null) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
-            Text(
-                text = formatQueueTime(queueElapsedSeconds),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (queueElapsedSeconds != null) {
+                Text(
+                    text = formatQueueTime(queueElapsedSeconds),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

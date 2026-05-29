@@ -7,11 +7,15 @@ import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.data.model.RoundResult
 import com.rpsonline.app.data.repository.AuthRepository
+import com.rpsonline.app.data.repository.FirestoreConnectivity
 import com.rpsonline.app.data.repository.MatchRepository
+import com.rpsonline.app.data.repository.MatchSessionMonitor
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +27,7 @@ data class GameUiState(
     val userId: String? = null,
     val hasSubmittedMove: Boolean = false,
     val isSubmitting: Boolean = false,
+    val pendingMove: Move? = null,
     val error: String? = null,
     val countdownSeconds: Int? = null,
     val myClockSeconds: Int? = null,
@@ -46,65 +51,101 @@ class GameViewModel(
     private var countdownDeadlineMs: Long? = null
     private var timeoutRequestedForRound: Int? = null
     private var lockedMoveRound: Int? = null
+    private var locallySubmittedRound: Int? = null
+    private var lastObservedOpenRound: Int? = null
+    private var submitGeneration = 0
     private var matchSnapshotAtTimeoutRequest: String? = null
     private var resolvingRetryJob: Job? = null
     init {
         observeJob = viewModelScope.launch {
             matchRepository.observeMatch(matchId).collect { match ->
-                val userId = authRepository.currentUserId
-                val openRound = match?.openRound()
-                val alreadySubmitted = when {
-                    match == null || userId == null || openRound == null -> false
-                    userId == match.player1 -> openRound.player1Choice != null
-                    else -> openRound.player2Choice != null
-                }
-                val serverChoice = when {
-                    match == null || userId == null || openRound == null -> null
-                    userId == match.player1 -> openRound.player1Choice
-                    else -> openRound.player2Choice
-                }
-                val openRoundNumber = openRound?.roundNumber
-                val lockedMove = when {
-                    !alreadySubmitted -> {
-                        lockedMoveRound = null
-                        null
-                    }
-                    openRoundNumber != lockedMoveRound -> {
-                        lockedMoveRound = openRoundNumber
-                        Move.fromString(serverChoice) ?: _uiState.value.lockedMove
-                    }
-                    else -> Move.fromString(serverChoice) ?: _uiState.value.lockedMove
-                }
-
-                val fingerprint = match?.let { matchFingerprint(it) }
-                val serverResponded = matchSnapshotAtTimeoutRequest != null &&
-                    fingerprint != null &&
-                    fingerprint != matchSnapshotAtTimeoutRequest
-                val clearResolving = _uiState.value.isResolvingTimeout && serverResponded
-
-                if (clearResolving) {
-                    matchSnapshotAtTimeoutRequest = null
-                    resolvingRetryJob?.cancel()
-                    resolvingRetryJob = null
-                }
-
-                _uiState.update {
-                    it.copy(
-                        match = match,
-                        userId = userId,
-                        hasSubmittedMove = alreadySubmitted,
-                        lockedMove = lockedMove,
-                        isSubmitting = false,
-                        isResolvingTimeout = if (clearResolving) false else it.isResolvingTimeout,
-                    )
-                }
-                if (openRound?.roundNumber != timeoutRequestedForRound) {
-                    timeoutRequestedForRound = null
-                }
-                syncCountdown(match)
-                syncMatchClocks(match, userId)
+                applyMatchSnapshot(match)
             }
         }
+    }
+
+    fun refreshOnResume() {
+        viewModelScope.launch {
+            runCatching {
+                FirestoreConnectivity.restoreOnResume()
+                MatchSessionMonitor.refreshOnResume()
+                val match = matchRepository.getMatchFromServer(matchId)
+                if (match != null) {
+                    applyMatchSnapshot(match)
+                }
+            }
+        }
+    }
+
+    private fun applyMatchSnapshot(match: Match?) {
+        val userId = authRepository.currentUserId
+        val openRound = match?.openRound()
+        val openRoundNumber = openRound?.roundNumber
+        if (openRoundNumber != lastObservedOpenRound) {
+            if (lastObservedOpenRound != null) {
+                submitGeneration++
+                locallySubmittedRound = null
+            }
+            lastObservedOpenRound = openRoundNumber
+        }
+
+        val alreadySubmitted = when {
+            match == null || userId == null || openRound == null -> false
+            userId == match.player1 -> openRound.player1Choice != null
+            else -> openRound.player2Choice != null
+        }
+        if (alreadySubmitted && openRoundNumber == locallySubmittedRound) {
+            locallySubmittedRound = null
+        }
+        val hasSubmittedMove = alreadySubmitted ||
+            (openRoundNumber != null && locallySubmittedRound == openRoundNumber)
+
+        val serverChoice = when {
+            match == null || userId == null || openRound == null -> null
+            userId == match.player1 -> openRound.player1Choice
+            else -> openRound.player2Choice
+        }
+        val lockedMove = when {
+            !hasSubmittedMove -> {
+                lockedMoveRound = null
+                null
+            }
+            alreadySubmitted && openRoundNumber != lockedMoveRound -> {
+                lockedMoveRound = openRoundNumber
+                Move.fromString(serverChoice) ?: _uiState.value.lockedMove
+            }
+            alreadySubmitted -> Move.fromString(serverChoice) ?: _uiState.value.lockedMove
+            else -> _uiState.value.pendingMove ?: _uiState.value.lockedMove
+        }
+
+        val fingerprint = match?.let { matchFingerprint(it) }
+        val serverResponded = matchSnapshotAtTimeoutRequest != null &&
+            fingerprint != null &&
+            fingerprint != matchSnapshotAtTimeoutRequest
+        val clearResolving = _uiState.value.isResolvingTimeout && serverResponded
+
+        if (clearResolving) {
+            matchSnapshotAtTimeoutRequest = null
+            resolvingRetryJob?.cancel()
+            resolvingRetryJob = null
+        }
+
+        _uiState.update {
+            val clearPending = hasSubmittedMove && !it.isSubmitting
+            it.copy(
+                match = match,
+                userId = userId,
+                hasSubmittedMove = hasSubmittedMove,
+                lockedMove = lockedMove,
+                pendingMove = if (clearPending) null else it.pendingMove,
+                isResolvingTimeout = if (clearResolving) false else it.isResolvingTimeout,
+            )
+        }
+        if (openRound?.roundNumber != timeoutRequestedForRound) {
+            timeoutRequestedForRound = null
+        }
+        syncCountdown(match)
+        syncMatchClocks(match, userId)
     }
 
     private fun matchFingerprint(match: Match): String {
@@ -283,28 +324,62 @@ class GameViewModel(
 
     fun submitMove(move: Move) {
         val state = _uiState.value
-        if (state.hasSubmittedMove || state.isSubmitting || state.match?.status != MatchStatus.ACTIVE) {
+        if (
+            state.hasSubmittedMove ||
+            state.isSubmitting ||
+            state.pendingMove != null ||
+            state.match?.status != MatchStatus.ACTIVE
+        ) {
             return
         }
 
+        val roundNumber = state.match?.currentRound ?: return
+        val generation = ++submitGeneration
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, error = null) }
+            _uiState.update {
+                it.copy(isSubmitting = true, pendingMove = move, error = null)
+            }
             try {
-                val roundNumber = state.match?.currentRound ?: return@launch
-                matchRepository.submitMove(matchId, move, roundNumber)
+                withTimeout(SUBMIT_MOVE_TIMEOUT_MS) {
+                    matchRepository.submitMove(matchId, move, roundNumber)
+                }
+                if (generation != submitGeneration) return@launch
+                locallySubmittedRound = roundNumber
                 lockedMoveRound = roundNumber
                 _uiState.update {
-                    it.copy(hasSubmittedMove = true, lockedMove = move, isSubmitting = false)
+                    it.copy(
+                        hasSubmittedMove = true,
+                        lockedMove = move,
+                        isSubmitting = false,
+                        pendingMove = null,
+                    )
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: TimeoutCancellationException) {
+                if (generation != submitGeneration) return@launch
+                locallySubmittedRound = null
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        pendingMove = null,
+                        error = "Connection timed out. Check your network and tap a move to try again.",
+                    )
+                }
             } catch (e: Exception) {
+                if (generation != submitGeneration) return@launch
                 if (isIgnorableFirestoreRace(e)) {
-                    _uiState.update { it.copy(isSubmitting = false, error = null) }
+                    _uiState.update { it.copy(isSubmitting = false, pendingMove = null, error = null) }
                     return@launch
                 }
+                locallySubmittedRound = null
                 _uiState.update {
-                    it.copy(isSubmitting = false, error = userFacingGameError(e, "Failed to submit move"))
+                    it.copy(
+                        isSubmitting = false,
+                        pendingMove = null,
+                        error = userFacingGameError(e, "Failed to submit move"),
+                    )
                 }
             }
         }
@@ -319,6 +394,8 @@ class GameViewModel(
     }
 
     companion object {
+        private const val SUBMIT_MOVE_TIMEOUT_MS = 20_000L
+
         fun factory(matchId: String): androidx.lifecycle.ViewModelProvider.Factory =
             object : androidx.lifecycle.ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

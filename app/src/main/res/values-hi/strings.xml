@@ -6,6 +6,8 @@
     <string name="sign_out">साइन आउट</string>
     <string name="leaderboard">लीडरबोर्ड</string>
     <string name="find_match">मैच खोजें</string>
+    <string name="communicating_to_server">सर्वर से संपर्क हो रहा है…</string>
+
     <string name="in_queue">कतार में</string>
     <string name="in_match">मैच में</string>
     <string name="waiting_for_opponent">प्रतिद्वंद्वी की प्रतीक्षा…</string>

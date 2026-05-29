@@ -6,6 +6,8 @@
     <string name="sign_out">تسجيل الخروج</string>
     <string name="leaderboard">لوحة الصدارة</string>
     <string name="find_match">ابحث عن مباراة</string>
+    <string name="communicating_to_server">جاري الاتصال بالخادم…</string>
+
     <string name="in_queue">في الطابور</string>
     <string name="in_match">في مباراة</string>
     <string name="waiting_for_opponent">بانتظار الخصم…</string>

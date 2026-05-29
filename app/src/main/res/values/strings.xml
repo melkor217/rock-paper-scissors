@@ -11,6 +11,7 @@
     <string name="profile">Profile</string>
     <string name="profile_title_own">%1$s (you)</string>
     <string name="match_found">Match found</string>
+    <string name="communicating_to_server">Communicating to server…</string>
     <string name="in_queue">In queue</string>
     <string name="opening_game">Opening game…</string>
     <string name="finding_opponent">Finding an opponent…</string>

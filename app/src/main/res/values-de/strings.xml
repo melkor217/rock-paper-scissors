@@ -6,6 +6,8 @@
     <string name="sign_out">Abmelden</string>
     <string name="leaderboard">Bestenliste</string>
     <string name="find_match">Match finden</string>
+    <string name="communicating_to_server">Verbindung zum Server…</string>
+
     <string name="in_queue">In Warteschlange</string>
     <string name="in_match">Im Match</string>
     <string name="waiting_for_opponent">Warte auf Gegner…</string>

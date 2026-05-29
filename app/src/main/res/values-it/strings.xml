@@ -6,6 +6,8 @@
     <string name="sign_out">Esci</string>
     <string name="leaderboard">Classifica</string>
     <string name="find_match">Trova partita</string>
+    <string name="communicating_to_server">Comunicazione con il server…</string>
+
     <string name="in_queue">In coda</string>
     <string name="in_match">In partita</string>
     <string name="waiting_for_opponent">In attesa dell\'avversario…</string>
