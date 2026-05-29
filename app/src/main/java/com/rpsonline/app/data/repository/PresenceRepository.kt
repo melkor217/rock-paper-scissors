@@ -31,6 +31,9 @@ class PresenceRepository(
                 withTimeout(PRESENCE_WRITE_TIMEOUT_MS) {
                     presenceRef.set(payload).awaitTask()
                 }
+                presenceRef.awaitVisibleOnServer(timeoutMs = PRESENCE_WRITE_TIMEOUT_MS) { snap ->
+                    snap.exists() && snap.contains("lastSeen")
+                }
             }.isSuccess
             if (wrote) return
             delay(350)
@@ -128,7 +131,8 @@ class PresenceRepository(
         ): Int {
             val cutoff = System.currentTimeMillis() - onlineWindowMs
             return documents.count { doc ->
-                doc.getTimestamp("lastSeen")?.toDate()?.time?.let { it >= cutoff } == true
+                !doc.metadata.hasPendingWrites() &&
+                    doc.getTimestamp("lastSeen")?.toDate()?.time?.let { it >= cutoff } == true
             }
         }
     }

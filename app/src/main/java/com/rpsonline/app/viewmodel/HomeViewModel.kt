@@ -218,7 +218,10 @@ class HomeViewModel(
                 if (generation != matchmakingGeneration) return@launch
                 val message = when {
                     e.message?.contains("profile", ignoreCase = true) == true -> e.message!!
-                    e.message?.contains("Timed out", ignoreCase = true) == true ->
+                    e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true ->
+                        "Could not write to the matchmaking queue. Check Firebase App Check (Monitoring, not Enforced) and try again."
+                    e.message?.contains("Timed out", ignoreCase = true) == true ||
+                        e.message?.contains("server", ignoreCase = true) == true ->
                         "Could not join the matchmaking queue in time. Check your connection and try again."
                     !e.message.isNullOrBlank() -> e.message!!
                     else -> "Matchmaking failed. Check your connection and try again."

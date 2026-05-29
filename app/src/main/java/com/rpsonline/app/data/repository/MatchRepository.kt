@@ -52,7 +52,8 @@ class MatchRepository(
 
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
-        private const val QUEUE_WRITE_TIMEOUT_MS = 20_000L
+        private const val QUEUE_WRITE_TIMEOUT_MS = 15_000L
+        private const val QUEUE_SERVER_ACK_TIMEOUT_MS = 12_000L
         private const val ENABLE_NETWORK_TIMEOUT_MS = 2_000L
         /** Align with [functions/src/queue.ts] [QUEUE_STALE_MS] and server matchmaking. */
         private const val ACTIVE_MATCH_RECONNECT_MAX_AGE_MS = 90_000L
@@ -243,6 +244,9 @@ class MatchRepository(
                 withTimeout(QUEUE_WRITE_TIMEOUT_MS) {
                     queueRef.set(payload).awaitTask()
                 }
+                queueRef.awaitVisibleOnServer(timeoutMs = QUEUE_SERVER_ACK_TIMEOUT_MS) { snap ->
+                    snap.exists() && snap.contains("joinedAt") && snap.contains("lastHeartbeatAt")
+                }
                 return
             } catch (e: Exception) {
                 lastError = e
@@ -303,8 +307,6 @@ class MatchRepository(
         awaitFirestoreAuth()
         val snap = withTimeoutOrNull(QUEUE_READ_TIMEOUT_MS) {
             firestore.collection("queue").document(uid).get(Source.SERVER).await()
-        } ?: withTimeoutOrNull(2_000) {
-            firestore.collection("queue").document(uid).get().await()
         } ?: return null
         if (!snap.exists()) return null
         return resolveQueueJoinedAtMs(snap)
