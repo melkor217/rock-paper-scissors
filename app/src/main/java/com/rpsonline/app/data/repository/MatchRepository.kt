@@ -204,8 +204,8 @@ class MatchRepository(
 
         val activeMatchId = serverProfile.activeMatchId
         if (!activeMatchId.isNullOrBlank()) {
-            val match = withTimeoutOrNull(5_000) { getMatch(activeMatchId) }
-            if (match?.status == MatchStatus.ACTIVE) {
+            val match = withTimeoutOrNull(5_000) { getMatchFromServer(activeMatchId) }
+            if (match?.status == MatchStatus.ACTIVE && match.isParticipant(userId)) {
                 return JoinQueueResult(immediateMatchId = activeMatchId, clientJoinedAtMs = null)
             }
         }

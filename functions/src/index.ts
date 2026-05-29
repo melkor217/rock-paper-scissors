@@ -306,10 +306,16 @@ async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Prom
 
 async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string): Promise<void> {
   const active = await db.collection("matches").doc(activeMatchId).get();
-  if (!active.exists || active.get("status") !== "active") {
-    await db.collection("users").doc(uid).update({
-      activeMatchId: FieldValue.delete(),
-    });
+  if (!active.exists) {
+    await db.collection("users").doc(uid).update({ activeMatchId: FieldValue.delete() });
+    return;
+  }
+  const status = active.get("status");
+  const player1 = active.get("player1");
+  const player2 = active.get("player2");
+  const isParticipant = player1 === uid || player2 === uid;
+  if (status !== "active" || !isParticipant) {
+    await db.collection("users").doc(uid).update({ activeMatchId: FieldValue.delete() });
   }
 }
 
@@ -328,8 +334,12 @@ async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Pr
   if (profile.activeMatchId) {
     const active = await db.collection("matches").doc(profile.activeMatchId).get();
     if (active.exists && active.get("status") === "active") {
-      await db.collection("queue").doc(uid).delete();
-      return;
+      const player1 = active.get("player1");
+      const player2 = active.get("player2");
+      if (player1 === uid || player2 === uid) {
+        await db.collection("queue").doc(uid).delete();
+        return;
+      }
     }
     await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
   }
