@@ -2,8 +2,12 @@ package com.rpsonline.app.ui.auth
 
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,9 +22,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -156,19 +157,19 @@ fun SignInScreen(
             uiState.error?.let { message ->
                 SignInAuthError(message = message)
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(24.dp))
-            EmailAuthSection(
+            CollapsibleEmailAuthSection(
                 email = uiState.email,
                 password = uiState.password,
                 displayName = uiState.displayName,
-                mode = uiState.emailMode,
                 onEmailChange = viewModel::updateEmail,
                 onPasswordChange = viewModel::updatePassword,
                 onDisplayNameChange = viewModel::updateDisplayName,
-                onModeChange = viewModel::setEmailMode,
-                onSubmit = { viewModel.submitEmailAuth(context) },
+                onSignIn = {
+                    viewModel.submitEmailAuth(context, EmailAuthMode.SIGN_IN)
+                },
+                onRegister = {
+                    viewModel.submitEmailAuth(context, EmailAuthMode.REGISTER)
+                },
                 enabled = uiState.isFirebaseAvailable && !uiState.isCheckingFirebase,
             )
         }
@@ -270,71 +271,77 @@ private fun AuthButtons(
 }
 
 @Composable
+private fun CollapsibleEmailAuthSection(
+    email: String,
+    password: String,
+    displayName: String,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onDisplayNameChange: (String) -> Unit,
+    onSignIn: () -> Unit,
+    onRegister: () -> Unit,
+    enabled: Boolean,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Spacer(modifier = Modifier.height(16.dp))
+    OutlinedButton(
+        onClick = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+    ) {
+        Text(
+            if (expanded) {
+                stringResource(R.string.hide_email_sign_in)
+            } else {
+                stringResource(R.string.sign_in_with_email)
+            },
+        )
+    }
+    AnimatedVisibility(
+        visible = expanded,
+        enter = expandVertically(),
+        exit = shrinkVertically(),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(16.dp))
+            EmailAuthSection(
+                email = email,
+                password = password,
+                displayName = displayName,
+                onEmailChange = onEmailChange,
+                onPasswordChange = onPasswordChange,
+                onDisplayNameChange = onDisplayNameChange,
+                onSignIn = onSignIn,
+                onRegister = onRegister,
+                enabled = enabled,
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmailAuthSection(
     email: String,
     password: String,
     displayName: String,
-    mode: EmailAuthMode,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onDisplayNameChange: (String) -> Unit,
-    onModeChange: (EmailAuthMode) -> Unit,
-    onSubmit: () -> Unit,
+    onSignIn: () -> Unit,
+    onRegister: () -> Unit,
     enabled: Boolean,
 ) {
-    Text(
-        text = stringResource(R.string.email),
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-
-    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-        SegmentedButton(
-            selected = mode == EmailAuthMode.SIGN_IN,
-            onClick = { onModeChange(EmailAuthMode.SIGN_IN) },
-            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-            modifier = Modifier.weight(1f),
-            enabled = enabled,
-        ) {
-            Text(stringResource(R.string.sign_in))
-        }
-        SegmentedButton(
-            selected = mode == EmailAuthMode.REGISTER,
-            onClick = { onModeChange(EmailAuthMode.REGISTER) },
-            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-            modifier = Modifier.weight(1f),
-            enabled = enabled,
-        ) {
-            Text(stringResource(R.string.register))
-        }
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
     val keyboardController = LocalSoftwareKeyboardController.current
-    val isRegister = mode == EmailAuthMode.REGISTER
-    val submitFromKeyboard: () -> Unit = {
-        keyboardController?.hide()
-        onSubmit()
-    }
-
-    val emailHints = if (isRegister) {
-        arrayOf(View.AUTOFILL_HINT_USERNAME)
-    } else {
-        arrayOf(View.AUTOFILL_HINT_EMAIL_ADDRESS)
-    }
-    val passwordHints = if (isRegister) {
-        arrayOf("newPassword")
-    } else {
-        arrayOf(View.AUTOFILL_HINT_PASSWORD)
-    }
+    val hideKeyboard: () -> Unit = { keyboardController?.hide() }
 
     AutofillTextField(
         value = email,
         onValueChange = onEmailChange,
         label = stringResource(R.string.email),
-        autofillHints = emailHints,
+        autofillHints = arrayOf(View.AUTOFILL_HINT_EMAIL_ADDRESS),
         imeAction = EditorInfo.IME_ACTION_NEXT,
         enabled = enabled,
     )
@@ -343,46 +350,57 @@ private fun EmailAuthSection(
         value = password,
         onValueChange = onPasswordChange,
         label = stringResource(R.string.password),
-        autofillHints = passwordHints,
+        autofillHints = arrayOf(View.AUTOFILL_HINT_PASSWORD),
         isPassword = true,
-        imeAction = if (isRegister) EditorInfo.IME_ACTION_NEXT else EditorInfo.IME_ACTION_DONE,
-        onImeAction = { submitFromKeyboard() },
+        imeAction = EditorInfo.IME_ACTION_NEXT,
         enabled = enabled,
     )
-
-    if (isRegister) {
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = displayName,
-            onValueChange = onDisplayNameChange,
-            label = { Text(stringResource(R.string.display_name_optional)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Done,
-                autoCorrectEnabled = false,
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { submitFromKeyboard() },
-            ),
-            enabled = enabled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .excludeFromAutofill(),
-        )
-    }
+    Spacer(modifier = Modifier.height(12.dp))
+    OutlinedTextField(
+        value = displayName,
+        onValueChange = onDisplayNameChange,
+        label = { Text(stringResource(R.string.display_name_optional)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Done,
+            autoCorrectEnabled = false,
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = {
+                hideKeyboard()
+                onRegister()
+            },
+        ),
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .excludeFromAutofill(),
+    )
 
     Spacer(modifier = Modifier.height(12.dp))
-    Button(
-        onClick = onSubmit,
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        enabled = enabled,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            if (mode == EmailAuthMode.SIGN_IN) {
-                stringResource(R.string.sign_in_with_email)
-            } else {
-                stringResource(R.string.create_account)
+        Button(
+            onClick = {
+                hideKeyboard()
+                onSignIn()
             },
-        )
+            modifier = Modifier.weight(1f),
+            enabled = enabled,
+        ) {
+            Text(stringResource(R.string.sign_in))
+        }
+        OutlinedButton(
+            onClick = {
+                hideKeyboard()
+                onRegister()
+            },
+            modifier = Modifier.weight(1f),
+            enabled = enabled,
+        ) {
+            Text(stringResource(R.string.create_account))
+        }
     }
 }

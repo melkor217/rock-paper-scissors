@@ -53,6 +53,7 @@
     <string name="password">Password</string>
     <string name="display_name_optional">Display name (optional)</string>
     <string name="sign_in_with_email">Sign in with email</string>
+    <string name="hide_email_sign_in">Hide email sign-in</string>
     <string name="create_account">Create account</string>
     <string name="vs_user">vs %1$s</string>
     <string name="round_series">Round %1$d  •  %2$s</string>
