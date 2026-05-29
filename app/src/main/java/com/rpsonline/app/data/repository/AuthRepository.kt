@@ -270,28 +270,45 @@ class AuthRepository(
     }
 
     /**
-     * App Check is required for Auth when enforcement is enabled, but it must not gate the launch
-     * connectivity probe (emulators often lack a registered debug token until first Logcat run).
+     * GitHub release and Studio debug builds use the debug App Check provider. Preflight token
+     * probes cause "Too many attempts" and block sign-in before the user can register a token.
      */
-    suspend fun isAppCheckTokenAvailable(): Boolean = probeAppCheckToken()
+    private fun usesDebugAppCheckProvider(): Boolean =
+        BuildConfig.DEBUG || BuildConfig.USE_DEBUG_APP_CHECK
 
-    /** When non-null, App Check is blocking Firebase Auth/Firestore. */
-    suspend fun appCheckErrorMessageOrNull(): String? = withContext(Dispatchers.IO) {
-        try {
-            withTimeout(10_000) {
-                FirebaseAppCheck.getInstance().getAppCheckToken(false).await()
+    suspend fun isAppCheckTokenAvailable(): Boolean {
+        if (usesDebugAppCheckProvider()) return true
+        return probeAppCheckToken()
+    }
+
+    /**
+     * Play Integrity releases only. Debug-provider builds must not preflight App Check — sign-in
+     * is attempted and [buildAppCheckErrorMessage] is shown only if Firebase rejects the call.
+     */
+    suspend fun appCheckErrorMessageOrNull(): String? {
+        if (usesDebugAppCheckProvider()) return null
+        return withContext(Dispatchers.IO) {
+            try {
+                withTimeout(10_000) {
+                    FirebaseAppCheck.getInstance().getAppCheckToken(false).await()
+                }
+                null
+            } catch (e: Exception) {
+                Log.w(TAG, "App Check token unavailable", e)
+                buildAppCheckErrorMessage(e)
             }
-            null
-        } catch (e: Exception) {
-            Log.w(TAG, "App Check token unavailable", e)
-            buildAppCheckErrorMessage(e)
         }
+    }
+
+    fun appCheckSetupHintForSideloadBuild(): String? {
+        if (!BuildConfig.USE_DEBUG_APP_CHECK) return null
+        return "GitHub APK: if sign-in fails, register the App Check debug token from Logcat " +
+            "(filter DebugAppCheckProvider) in Firebase → App Check → Manage debug tokens."
     }
 
     private fun buildAppCheckErrorMessage(cause: Exception): String {
         val detail = cause.message?.takeIf { it.isNotBlank() } ?: cause.javaClass.simpleName
-        val usesDebugAppCheck = BuildConfig.DEBUG || BuildConfig.USE_DEBUG_APP_CHECK
-        if (!usesDebugAppCheck) {
+        if (!usesDebugAppCheckProvider()) {
             return "App Check failed ($detail). Play Store releases need Play Integrity in Firebase Console → " +
                 "App Check → register Play Integrity for com.rpsonline.app (same package and signing key " +
                 "as Google Play). GitHub APKs use a debug token — install a release from GitHub Releases " +

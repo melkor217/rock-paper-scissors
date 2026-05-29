@@ -130,10 +130,6 @@ class SignInViewModel(
             return
         }
         viewModelScope.launch {
-            authRepository.appCheckErrorMessageOrNull()?.let { message ->
-                setAuthError(message)
-                return@launch
-            }
             beginExplicitSignIn()
             try {
                 val webClientId = context.getString(R.string.default_web_client_id)
@@ -169,10 +165,6 @@ class SignInViewModel(
         }
         if (guestSignInJob?.isActive == true) return
         guestSignInJob = viewModelScope.launch {
-            authRepository.appCheckErrorMessageOrNull()?.let { message ->
-                setAuthError(message)
-                return@launch
-            }
             beginExplicitSignIn()
             val watchdog = launch {
                 delay(GUEST_SIGN_IN_WATCHDOG_MS)
@@ -409,16 +401,11 @@ class SignInViewModel(
             )
         }
         val available = authRepository.isFirebaseAvailable()
-        val appCheckError = if (available) {
-            authRepository.appCheckErrorMessageOrNull()
-        } else {
-            null
-        }
         _uiState.update {
             it.copy(
                 isCheckingFirebase = false,
                 isFirebaseAvailable = available,
-                error = appCheckError,
+                error = null,
             )
         }
     }

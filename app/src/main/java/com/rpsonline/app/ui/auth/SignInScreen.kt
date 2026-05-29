@@ -51,6 +51,7 @@ import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.ui.home.HomeAppInfoFooter
 import com.rpsonline.app.ui.util.NetworkUtils
 import com.rpsonline.app.ui.util.findActivity
+import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.EmailAuthMode
 import com.rpsonline.app.viewmodel.SignInViewModel
@@ -66,6 +67,7 @@ fun SignInScreen(
     val updateState by updateViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val activity = context.findActivity()
+    val appCheckHint = remember { AuthRepository().appCheckSetupHintForSideloadBuild() }
 
     LaunchedEffect(Unit) {
         updateViewModel.onScreenVisible(context)
@@ -155,6 +157,16 @@ fun SignInScreen(
             )
             uiState.error?.let { message ->
                 SignInAuthError(message = message)
+            }
+            appCheckHint?.let { hint ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider(modifier = Modifier.fillMaxWidth())
