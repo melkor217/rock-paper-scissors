@@ -65,6 +65,8 @@ class HomeViewModel(
     companion object {
         private const val MATCH_ASSIGNMENT_GRACE_MS = 30_000L
         private const val MATCHMAKING_WATCHDOG_MS = 45_000L
+        private const val JOIN_QUEUE_WATCHDOG_MS = 20_000L
+        private const val JOIN_QUEUE_TIMEOUT_MS = 25_000L
     }
 
     val navigateToGameMatchId: StateFlow<String?> = MatchSessionMonitor.pendingGameNavigationMatchId
@@ -157,50 +159,61 @@ class HomeViewModel(
             val watchdog = launch {
                 delay(MATCHMAKING_WATCHDOG_MS)
                 if (generation != matchmakingGeneration) return@launch
-                if (!_uiState.value.isJoiningQueue) return@launch
+                if (!_uiState.value.isJoiningQueue && !_uiState.value.isInQueue) return@launch
                 failMatchmaking(
                     generation = generation,
                     message = "Matchmaking timed out. Check your connection and try again.",
                 )
             }
+            val joinWatchdog = launch {
+                delay(JOIN_QUEUE_WATCHDOG_MS)
+                if (generation != matchmakingGeneration) return@launch
+                if (!_uiState.value.isJoiningQueue) return@launch
+                failMatchmaking(
+                    generation = generation,
+                    message = "Could not join the matchmaking queue in time. Check your connection and try again.",
+                )
+            }
             try {
-                withContext(Dispatchers.IO) {
-                    if (!isFirebaseAvailableForQueueAction("join the queue", generation)) return@withContext
-                    MatchSessionMonitor.awaitSessionBootstrap()
-                    if (generation != matchmakingGeneration) return@withContext
-                    val profile = awaitUserProfileReady()
-                    if (generation != matchmakingGeneration) return@withContext
+                withTimeout(JOIN_QUEUE_TIMEOUT_MS) {
+                    withContext(Dispatchers.IO) {
+                        if (!isFirebaseAvailableForQueueAction("join the queue", generation)) return@withContext
+                        MatchSessionMonitor.awaitSessionBootstrap()
+                        if (generation != matchmakingGeneration) return@withContext
+                        val profile = awaitUserProfileReady()
+                        if (generation != matchmakingGeneration) return@withContext
 
-                    val alreadyQueuedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
-                    if (generation != matchmakingGeneration) return@withContext
-                    if (alreadyQueuedAtMs != null) {
-                        enterConfirmedQueue(alreadyQueuedAtMs)
-                        return@withContext
-                    }
-                    val joinResult = matchRepository.joinQueue(matchModes, profile)
-                    if (generation != matchmakingGeneration) {
-                        if (joinResult.immediateMatchId == null) {
-                            authRepository.currentUserId?.let { matchRepository.leaveQueueBestEffort(it) }
+                        val alreadyQueuedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
+                        if (generation != matchmakingGeneration) return@withContext
+                        if (alreadyQueuedAtMs != null) {
+                            enterConfirmedQueue(alreadyQueuedAtMs)
+                            return@withContext
                         }
-                        return@withContext
-                    }
-                    if (joinResult.immediateMatchId != null) {
-                        awaitingMatchFromQueue = false
-                        awaitingMatchStartedAtMs = null
-                        stopQueueTimer()
-                        _uiState.update {
-                            it.copy(
-                                isJoiningQueue = false,
-                                isInQueue = false,
-                                queueElapsedSeconds = 0,
-                                matchmakingError = null,
-                            )
+                        val joinResult = matchRepository.joinQueue(matchModes, profile)
+                        if (generation != matchmakingGeneration) {
+                            if (joinResult.immediateMatchId == null) {
+                                authRepository.currentUserId?.let { matchRepository.leaveQueueBestEffort(it) }
+                            }
+                            return@withContext
                         }
-                        MatchSessionMonitor.requestGameNavigation(joinResult.immediateMatchId)
-                        return@withContext
+                        if (joinResult.immediateMatchId != null) {
+                            awaitingMatchFromQueue = false
+                            awaitingMatchStartedAtMs = null
+                            stopQueueTimer()
+                            _uiState.update {
+                                it.copy(
+                                    isJoiningQueue = false,
+                                    isInQueue = false,
+                                    queueElapsedSeconds = 0,
+                                    matchmakingError = null,
+                                )
+                            }
+                            MatchSessionMonitor.requestGameNavigation(joinResult.immediateMatchId)
+                            return@withContext
+                        }
+                        val joinedAtMs = joinResult.clientJoinedAtMs ?: System.currentTimeMillis()
+                        enterConfirmedQueue(joinedAtMs)
                     }
-                    val joinedAtMs = joinResult.clientJoinedAtMs ?: System.currentTimeMillis()
-                    enterConfirmedQueue(joinedAtMs)
                 }
                 if (generation == matchmakingGeneration && _uiState.value.isInQueue) {
                     viewModelScope.launch {
@@ -234,6 +247,7 @@ class HomeViewModel(
                 failMatchmaking(generation, message)
             } finally {
                 watchdog.cancel()
+                joinWatchdog.cancel()
             }
         }
     }

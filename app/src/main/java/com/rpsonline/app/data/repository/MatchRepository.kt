@@ -52,8 +52,8 @@ class MatchRepository(
 
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
-        private const val QUEUE_WRITE_TIMEOUT_MS = 20_000L
-        private const val QUEUE_SERVER_ACK_TIMEOUT_MS = 18_000L
+        private const val QUEUE_WRITE_TIMEOUT_MS = 12_000L
+        private const val QUEUE_SERVER_CONFIRM_TIMEOUT_MS = 12_000L
         private const val ENABLE_NETWORK_TIMEOUT_MS = 2_000L
         /** Align with [functions/src/queue.ts] [QUEUE_STALE_MS] and server matchmaking. */
         private const val ACTIVE_MATCH_RECONNECT_MAX_AGE_MS = 90_000L
@@ -212,16 +212,17 @@ class MatchRepository(
             runCatching { firestore.enableNetwork().await() }
         }
 
-        val authRepository = AuthRepository()
         var queueProfile = UserProfileSync.queueReadyProfile(userId) ?: profile
-        if (authRepository.fetchServerProfile(userId) == null) {
-            queueProfile = authRepository.ensureUserProfile(
-                uid = userId,
-                displayName = profile.displayName,
-                photoUrl = profile.photoUrl,
-            )
+        if (UserProfileSync.queueReadyProfile(userId) == null) {
+            val authRepository = AuthRepository()
+            queueProfile = authRepository.fetchServerProfile(userId)
+                ?: authRepository.ensureUserProfile(
+                    uid = userId,
+                    displayName = profile.displayName,
+                    photoUrl = profile.photoUrl,
+                )
+            UserProfileSync.rememberQueueReady(userId, queueProfile)
         }
-        UserProfileSync.rememberQueueReady(userId, queueProfile)
 
         val clientJoinedAtMs = System.currentTimeMillis()
         val joinedAt = Timestamp.now()
@@ -245,10 +246,10 @@ class MatchRepository(
         repeat(2) { attempt ->
             try {
                 awaitFirestoreAuth(forceRefresh = attempt > 0)
-                queueRef.setAndAwaitServerSync(
+                queueRef.setAndConfirmOnServer(
                     data = payload,
                     writeTimeoutMs = QUEUE_WRITE_TIMEOUT_MS,
-                    syncTimeoutMs = QUEUE_SERVER_ACK_TIMEOUT_MS,
+                    confirmTimeoutMs = QUEUE_SERVER_CONFIRM_TIMEOUT_MS,
                 )
                 return
             } catch (e: Exception) {
@@ -298,7 +299,6 @@ class MatchRepository(
                 awaitFirestoreAuth(forceRefresh = true)
                 leaveQueueForUser(userId)
             }
-            runCatching { firestore.awaitPendingWritesSynced(3_000) }
         }
     }
 

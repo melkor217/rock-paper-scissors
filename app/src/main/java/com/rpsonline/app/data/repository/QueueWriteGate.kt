@@ -26,7 +26,7 @@ internal object QueueWriteGate {
         }
     }
 
-    suspend fun awaitBootstrap(timeoutMs: Long = 15_000) {
+    suspend fun awaitBootstrap(timeoutMs: Long = 8_000) {
         val deferred = bootstrap ?: return
         withTimeoutOrNull(timeoutMs) { deferred.await() }
     }
