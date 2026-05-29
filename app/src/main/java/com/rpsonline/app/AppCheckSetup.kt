@@ -15,35 +15,19 @@ object AppCheckSetup {
             val label = if (BuildConfig.DEBUG) {
                 "debug build"
             } else {
-                "GitHub release APK"
+                "release APK (GitHub or Studio)"
             }
             Log.i(
                 TAG,
-                "App Check ($label): open Logcat, filter DebugAppCheckProvider, register the debug " +
-                    "secret in Firebase → App Check → com.rpsonline.app → Manage debug tokens, " +
-                    "then cold-restart the app.",
+                "App Check ($label): filter Logcat for DebugAppCheckProvider, copy the debug secret, " +
+                    "add it in Firebase → App Check → com.rpsonline.app → Manage debug tokens, " +
+                    "then force-stop and reopen the app. Each signing key needs its own token.",
             )
-            logTokenProbe()
         } else {
             FirebaseAppCheck.getInstance()
                 .installAppCheckProviderFactory(PlayIntegrityAppCheckProviderFactory.getInstance())
             Log.i(TAG, "App Check: Play Integrity (Play Store / production release)")
         }
-    }
-
-    private fun logTokenProbe() {
-        FirebaseAppCheck.getInstance()
-            .getAppCheckToken(false)
-            .addOnSuccessListener {
-                Log.i(TAG, "App Check token obtained successfully.")
-            }
-            .addOnFailureListener { error ->
-                Log.e(
-                    TAG,
-                    "App Check token failed — register the DebugAppCheckProvider secret in Firebase.",
-                    error,
-                )
-            }
     }
 
     private const val TAG = "RpsApplication"

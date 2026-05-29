@@ -403,13 +403,20 @@ class SignInViewModel(
             it.copy(
                 isCheckingFirebase = true,
                 isFirebaseAvailable = false,
+                error = null,
             )
         }
         val available = authRepository.isFirebaseAvailable()
+        val appCheckError = if (available) {
+            authRepository.appCheckErrorMessageOrNull()
+        } else {
+            null
+        }
         _uiState.update {
             it.copy(
                 isCheckingFirebase = false,
                 isFirebaseAvailable = available,
+                error = appCheckError,
             )
         }
     }

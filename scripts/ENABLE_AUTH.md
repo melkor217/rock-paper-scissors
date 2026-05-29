@@ -50,8 +50,8 @@ Release builds need [**Digital Asset Links**](https://developer.android.com/iden
 
 This project ships **release APKs via [GitHub Releases](https://github.com/melkor217/rock-paper-scissors/releases)** — not Google Play. Sideloaded APKs cannot use **Play Integrity** App Check reliably, so **release builds keep the debug App Check provider enabled**:
 
-- **Gradle default:** `useDebugAppCheck` is `true` for `assembleRelease` (see `app/build.gradle.kts`).
-- **CI:** [android-release.yml](../.github/workflows/android-release.yml) passes `-PuseDebugAppCheck=true` explicitly.
+- **Release builds:** `USE_DEBUG_APP_CHECK` is hardcoded `true` in `app/build.gradle.kts` (debug App Check provider).
+- **CI:** [android-release.yml](../.github/workflows/android-release.yml) builds `assembleRelease` (same debug App Check behavior).
 - **You must register** the upload-keystore debug token in Firebase (Logcat → **Manage debug tokens**) once per signing key.
 
 Only switch to Play Integrity (`-PuseDebugAppCheck=false`) if you later publish the same signed app through Play Store and configure Play Integrity in Firebase.
@@ -67,14 +67,19 @@ If sign-in shows **App attestation failed** or **403 App Check**, Firebase is re
 
 ### GitHub release APK (v0.6.x from Releases)
 
-CI **release** APKs are **sideloaded**, not installed from Play Store. They use the **debug App Check provider** (not Play Integrity), same as a debug build:
+CI **release** APKs are **sideloaded**, not installed from Play Store. They use the **debug App Check provider** (not Play Integrity):
 
 1. Install `rps-online-vX.apk` from [GitHub Releases](https://github.com/melkor217/rock-paper-scissors/releases).
-2. Open the app once, then Logcat → filter **`DebugAppCheckProvider`** → copy the debug secret.
-3. Firebase → **App Check** → `com.rpsonline.app` → **Manage debug tokens** → **Add** → paste → Save.
-4. Force-stop the app and open again.
+2. Connect the phone to Android Studio → **Logcat** → filter **`DebugAppCheckProvider`**.
+3. Open the app once; copy the line **"Enter this debug secret into the allow list…"**
+4. Firebase → **App Check** → `com.rpsonline.app` → **Manage debug tokens** → **Add** → paste → Save.
+5. **Force-stop** the app, wait a minute if you saw **Too many attempts**, then open again.
 
-The upload-keystore release uses a **different** debug secret than your local `~/.android/debug.keystore` — register both if you test debug and GitHub APKs.
+The upload-keystore release uses a **different** debug secret than your local `~/.android/debug.keystore` — register both if you test GitHub APK and Studio **Run release** on a device.
+
+### Studio release on a physical device
+
+**Run → release** from Android Studio also uses debug App Check. Register the token from Logcat on **that device** for **that build** (usually the local debug keystore unless CI upload keystore env vars are set).
 
 ### Play Store release (future)
 
