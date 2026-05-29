@@ -254,52 +254,78 @@ async function getUserProfile(uid: string, queueData?: Record<string, unknown>) 
   return profileFromSnapshot(uid, snap, queueData);
 }
 
-async function createMatch(playerA: string, playerB: string, matchMode: MatchMode): Promise<string> {
-  const [userA, userB] = await Promise.all([
-    getUserProfile(playerA),
-    getUserProfile(playerB),
-  ]);
+async function createMatch(
+  playerA: string,
+  playerB: string,
+  matchMode: MatchMode,
+): Promise<string | null> {
+  return db.runTransaction(async (transaction) => {
+    const queueARef = db.collection("queue").doc(playerA);
+    const queueBRef = db.collection("queue").doc(playerB);
+    const queueASnap = await transaction.get(queueARef);
+    const queueBSnap = await transaction.get(queueBRef);
+    if (!queueASnap.exists || !queueBSnap.exists) return null;
+    const queueAData = queueASnap.data()!;
+    const queueBData = queueBSnap.data()!;
+    if (!isQueueEntryActive(queueAData) || !isQueueEntryActive(queueBData)) return null;
 
-  const now = Timestamp.now();
-  const deadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
-  const matchRef = db.collection("matches").doc();
+    const userARef = db.collection("users").doc(playerA);
+    const userBRef = db.collection("users").doc(playerB);
+    const userASnap = await transaction.get(userARef);
+    const userBSnap = await transaction.get(userBRef);
+    const userA = userASnap.exists
+      ? profileFromSnapshot(playerA, userASnap, queueAData)
+      : {
+        uid: playerA,
+        displayName: (queueAData.displayName as string) ?? "Player",
+        elo: (queueAData.elo as number) ?? 1000,
+      };
+    const userB = userBSnap.exists
+      ? profileFromSnapshot(playerB, userBSnap, queueBData)
+      : {
+        uid: playerB,
+        displayName: (queueBData.displayName as string) ?? "Player",
+        elo: (queueBData.elo as number) ?? 1000,
+      };
 
-  const match: MatchDoc = {
-    player1: playerA,
-    player2: playerB,
-    player1Name: userA.displayName,
-    player2Name: userB.displayName,
-    matchMode,
-    player1Elo: userA.elo,
-    player2Elo: userB.elo,
-    status: "active",
-    currentRound: 1,
-    player1Wins: 0,
-    player2Wins: 0,
-    player1MoveTimeMs: 0,
-    player2MoveTimeMs: 0,
-    player1MoveCount: 0,
-    player2MoveCount: 0,
-    ...initialClockFields(now),
-    rounds: [{ roundNumber: 1, deadline, startedAt: now }],
-    createdAt: now,
-    lastActivityAt: now,
-  };
+    const now = Timestamp.now();
+    const deadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
+    const matchRef = db.collection("matches").doc();
+    const match: MatchDoc = {
+      player1: playerA,
+      player2: playerB,
+      player1Name: userA.displayName,
+      player2Name: userB.displayName,
+      matchMode,
+      player1Elo: userA.elo,
+      player2Elo: userB.elo,
+      status: "active",
+      currentRound: 1,
+      player1Wins: 0,
+      player2Wins: 0,
+      player1MoveTimeMs: 0,
+      player2MoveTimeMs: 0,
+      player1MoveCount: 0,
+      player2MoveCount: 0,
+      ...initialClockFields(now),
+      rounds: [{ roundNumber: 1, deadline, startedAt: now }],
+      createdAt: now,
+      lastActivityAt: now,
+    };
 
-  const batch = db.batch();
-  batch.set(matchRef, match);
-  batch.delete(db.collection("queue").doc(playerA));
-  batch.delete(db.collection("queue").doc(playerB));
-  batch.set(db.collection("users").doc(playerA), {
-    activeMatchId: matchRef.id,
-    lastSeen: FieldValue.serverTimestamp(),
-  }, { merge: true });
-  batch.set(db.collection("users").doc(playerB), {
-    activeMatchId: matchRef.id,
-    lastSeen: FieldValue.serverTimestamp(),
-  }, { merge: true });
-  await batch.commit();
-  return matchRef.id;
+    transaction.set(matchRef, match);
+    transaction.delete(queueARef);
+    transaction.delete(queueBRef);
+    transaction.set(userARef, {
+      activeMatchId: matchRef.id,
+      lastSeen: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    transaction.set(userBRef, {
+      activeMatchId: matchRef.id,
+      lastSeen: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return matchRef.id;
+  });
 }
 
 async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Promise<string | null> {
@@ -323,7 +349,8 @@ async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Prom
       continue;
     }
 
-    return createMatch(uid, otherId, sharedMode);
+    const matchId = await createMatch(uid, otherId, sharedMode);
+    if (matchId) return matchId;
   }
   return null;
 }
@@ -338,21 +365,22 @@ async function releaseStaleActiveMatchBeforeQueue(
     resolution: "abandoned",
     lastActivityAt: FieldValue.serverTimestamp(),
   });
-  batch.update(db.collection("users").doc(match.player1), {
+  batch.set(db.collection("users").doc(match.player1), {
     activeMatchId: FieldValue.delete(),
     lastSeen: FieldValue.serverTimestamp(),
-  });
-  batch.update(db.collection("users").doc(match.player2), {
+  }, { merge: true });
+  batch.set(db.collection("users").doc(match.player2), {
     activeMatchId: FieldValue.delete(),
     lastSeen: FieldValue.serverTimestamp(),
-  });
+  }, { merge: true });
   await batch.commit();
 }
 
 async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string): Promise<void> {
   const active = await db.collection("matches").doc(activeMatchId).get();
+  const userRef = db.collection("users").doc(uid);
   if (!active.exists) {
-    await db.collection("users").doc(uid).update({ activeMatchId: FieldValue.delete() });
+    await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
     return;
   }
   const status = active.get("status");
@@ -360,7 +388,7 @@ async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string)
   const player2 = active.get("player2");
   const isParticipant = player1 === uid || player2 === uid;
   if (status !== "active" || !isParticipant) {
-    await db.collection("users").doc(uid).update({ activeMatchId: FieldValue.delete() });
+    await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
   }
 }
 
@@ -379,6 +407,7 @@ async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Pr
       if (player1 === uid || player2 === uid) {
         // Queuing means the player wants a new opponent, not to stay in the old match.
         await releaseStaleActiveMatchBeforeQueue(active);
+        await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
       } else {
         await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
       }

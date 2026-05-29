@@ -280,6 +280,25 @@ class MatchRepository(
         firestore.collection("queue").document(userId).deleteBestEffort()
     }
 
+    /**
+     * Drops any leftover queue doc from a previous session. Call on app launch and after sign-in.
+     */
+    suspend fun clearStaleSessionQueue(userId: String) {
+        MatchSessionMonitor.setMatchmakingInProgress(false)
+        MatchSessionMonitor.clearQueueState()
+        runCatching {
+            awaitFirestoreAuth(forceRefresh = true)
+            leaveQueueForUser(userId)
+        }
+        runCatching { firestore.awaitPendingWritesSynced(8_000) }
+    }
+
+    fun clearStaleSessionQueueBestEffort(userId: String) {
+        MatchSessionMonitor.setMatchmakingInProgress(false)
+        MatchSessionMonitor.clearQueueState()
+        leaveQueueBestEffort(userId)
+    }
+
     fun observeQueue(): Flow<Long?> {
         MatchSessionMonitor.ensureStarted()
         return MatchSessionMonitor.queueJoinedAtMs

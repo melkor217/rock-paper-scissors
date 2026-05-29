@@ -7,9 +7,13 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -19,6 +23,8 @@ import kotlinx.coroutines.tasks.await
 object MatchSessionMonitor {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val firestore: FirebaseFirestore = appFirestore()
+    private val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val matchRepository = MatchRepository()
 
     private val _activeMatch = MutableStateFlow<Match?>(null)
     val activeMatch: StateFlow<Match?> = _activeMatch.asStateFlow()
@@ -57,8 +63,8 @@ object MatchSessionMonitor {
     }
 
     /**
-     * Reconnects snapshot listeners and pulls queue/match from the server.
-     * Call when the app returns to the foreground.
+     * Reconnects snapshot listeners and pulls match from the server.
+     * Stale queue entries are cleared unless matchmaking is actively in progress.
      */
     suspend fun refreshOnResume() {
         ensureStarted()
@@ -90,22 +96,36 @@ object MatchSessionMonitor {
 
     private fun attachForUser(uid: String?) {
         if (uid == null) {
+            val leaving = attachedUid
             attachedUid = null
             clearFirestoreListeners()
-            _activeMatch.value = null
-            _queueJoinedAtMs.value = null
-            _hasQueueEntry.value = false
-            _matchmakingInProgress.value = false
-            _pendingGameNavigationMatchId.value = null
+            resetSessionUiState()
+            if (leaving != null) {
+                matchRepository.clearStaleSessionQueueBestEffort(leaving)
+            }
             return
         }
         if (uid == attachedUid) return
+
+        val previous = attachedUid
         attachedUid = uid
         clearFirestoreListeners()
+        resetSessionUiState()
+        if (previous != null && previous != uid) {
+            matchRepository.clearStaleSessionQueueBestEffort(previous)
+        }
+        sessionScope.launch {
+            matchRepository.clearStaleSessionQueue(uid)
+        }
+        attachListeners(uid)
+    }
+
+    private fun resetSessionUiState() {
         _activeMatch.value = null
         _queueJoinedAtMs.value = null
         _hasQueueEntry.value = false
-        attachListeners(uid)
+        _matchmakingInProgress.value = false
+        _pendingGameNavigationMatchId.value = null
     }
 
     private fun reattachListeners(uid: String) {
@@ -119,15 +139,19 @@ object MatchSessionMonitor {
             firestore.collection("users").document(uid).get(Source.SERVER).await()
         }.getOrNull() ?: return
 
-        val queueSnap = runCatching {
-            firestore.collection("queue").document(uid).get(Source.SERVER).await()
-        }.getOrNull()
-        val queueExists = queueSnap != null && queueSnap.exists()
-        _hasQueueEntry.value = queueExists
-        _queueJoinedAtMs.value = if (queueExists) {
-            resolveQueueJoinedAtMs(queueSnap)
+        if (_matchmakingInProgress.value) {
+            val queueSnap = runCatching {
+                firestore.collection("queue").document(uid).get(Source.SERVER).await()
+            }.getOrNull()
+            val queueExists = queueSnap != null && queueSnap.exists()
+            _hasQueueEntry.value = queueExists
+            _queueJoinedAtMs.value = if (queueExists) {
+                resolveQueueJoinedAtMs(queueSnap!!)
+            } else {
+                null
+            }
         } else {
-            null
+            runCatching { matchRepository.clearStaleSessionQueue(uid) }
         }
 
         val matchId = userSnap.getString("activeMatchId")
@@ -172,6 +196,15 @@ object MatchSessionMonitor {
 
     private fun applyQueueSnapshot(snapshot: DocumentSnapshot?, error: Exception?) {
         if (error != null || snapshot == null || !snapshot.exists()) {
+            _hasQueueEntry.value = false
+            _queueJoinedAtMs.value = null
+            return
+        }
+        if (!_matchmakingInProgress.value) {
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                matchRepository.clearStaleSessionQueueBestEffort(uid)
+            }
             _hasQueueEntry.value = false
             _queueJoinedAtMs.value = null
             return
