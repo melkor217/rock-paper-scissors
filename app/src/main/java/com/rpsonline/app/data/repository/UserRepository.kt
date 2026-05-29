@@ -134,23 +134,3 @@ class UserRepository(
             throwsScissors = getIntField("throwsScissors") ?: 0,
         )
 }
-
-private fun DocumentSnapshot.toUserProfile(uid: String): UserProfile =
-    UserProfile(
-        uid = uid,
-        displayName = DisplayNames.resolve(getString("displayName"), uid),
-        photoUrl = getString("photoUrl"),
-        elo = getIntField("elo") ?: 1000,
-        wins = getIntField("wins") ?: 0,
-        losses = getIntField("losses") ?: 0,
-        draws = getIntField("draws") ?: 0,
-        roundsWon = getIntField("roundsWon") ?: 0,
-        roundsLost = getIntField("roundsLost") ?: 0,
-        roundsDraw = getIntField("roundsDraw") ?: 0,
-        moveTimeMs = getLong("moveTimeMs") ?: 0L,
-        moveCount = getIntField("moveCount") ?: 0,
-        throwsRock = getIntField("throwsRock") ?: 0,
-        throwsPaper = getIntField("throwsPaper") ?: 0,
-        throwsScissors = getIntField("throwsScissors") ?: 0,
-        activeMatchId = getString("activeMatchId"),
-    )

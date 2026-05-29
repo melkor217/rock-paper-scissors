@@ -58,6 +58,7 @@ import com.rpsonline.app.viewmodel.SignInViewModel
 @Composable
 fun SignInScreen(
     onChangelog: () -> Unit = {},
+    onSignedIn: () -> Unit = {},
     viewModel: SignInViewModel = viewModel(),
     updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
@@ -68,6 +69,14 @@ fun SignInScreen(
 
     LaunchedEffect(Unit) {
         updateViewModel.onScreenVisible(context)
+    }
+
+    var signedInNavigationDone by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.profile, uiState.isLoading) {
+        if (!signedInNavigationDone && uiState.profile != null && !uiState.isLoading) {
+            signedInNavigationDone = true
+            onSignedIn()
+        }
     }
 
     LifecycleResumeEffect(Unit) {

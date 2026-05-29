@@ -16,7 +16,9 @@ import com.rpsonline.app.domain.MatchMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +65,6 @@ class HomeViewModel(
     companion object {
         private const val MATCH_ASSIGNMENT_GRACE_MS = 30_000L
         private const val MATCHMAKING_WATCHDOG_MS = 45_000L
-        private const val PROFILE_READY_TIMEOUT_MS = 20_000L
     }
 
     val navigateToGameMatchId: StateFlow<String?> = MatchSessionMonitor.pendingGameNavigationMatchId
@@ -130,6 +131,7 @@ class HomeViewModel(
             return
         }
         val generation = ++matchmakingGeneration
+        refreshJob?.cancel()
         MatchSessionMonitor.setMatchmakingInProgress(true)
         MatchModePreferences(context).set(matchModes)
         awaitingMatchFromQueue = true
@@ -154,51 +156,63 @@ class HomeViewModel(
                 )
             }
             try {
-                if (!isFirebaseAvailableForQueueAction("join the queue", generation)) return@launch
-                awaitUserProfileReady()
-                if (generation != matchmakingGeneration) return@launch
+                withContext(Dispatchers.IO) {
+                    if (!isFirebaseAvailableForQueueAction("join the queue", generation)) return@withContext
+                    val profile = awaitUserProfileReady()
+                    if (generation != matchmakingGeneration) return@withContext
 
-                val alreadyQueuedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
+                    val alreadyQueuedAtMs = runCatching { matchRepository.getQueueJoinedAtMs() }.getOrNull()
+                    if (generation != matchmakingGeneration) return@withContext
+                    if (alreadyQueuedAtMs != null) {
+                        enterConfirmedQueue(alreadyQueuedAtMs)
+                        return@withContext
+                    }
+                    val joinResult = matchRepository.joinQueue(matchModes, profile)
+                    if (generation != matchmakingGeneration) {
+                        if (joinResult.immediateMatchId == null) {
+                            authRepository.currentUserId?.let { matchRepository.leaveQueueBestEffort(it) }
+                        }
+                        return@withContext
+                    }
+                    if (joinResult.immediateMatchId != null) {
+                        awaitingMatchFromQueue = false
+                        awaitingMatchStartedAtMs = null
+                        stopQueueTimer()
+                        _uiState.update {
+                            it.copy(
+                                isJoiningQueue = false,
+                                isInQueue = false,
+                                queueElapsedSeconds = 0,
+                                matchmakingError = null,
+                            )
+                        }
+                        MatchSessionMonitor.requestGameNavigation(joinResult.immediateMatchId)
+                        return@withContext
+                    }
+                    val joinedAtMs = joinResult.clientJoinedAtMs ?: System.currentTimeMillis()
+                    enterConfirmedQueue(joinedAtMs)
+                }
+                if (generation == matchmakingGeneration && _uiState.value.isInQueue) {
+                    viewModelScope.launch {
+                        val serverJoinedAtMs = matchRepository.awaitQueueJoinedAtFromServer(timeoutMs = 30_000)
+                        if (generation != matchmakingGeneration) return@launch
+                        if (serverJoinedAtMs != null && _uiState.value.isInQueue) {
+                            enterConfirmedQueue(serverJoinedAtMs)
+                        }
+                    }
+                }
+            } catch (e: TimeoutCancellationException) {
                 if (generation != matchmakingGeneration) return@launch
-                if (alreadyQueuedAtMs != null) {
-                    enterConfirmedQueue(alreadyQueuedAtMs)
-                    return@launch
-                }
-                val joinResult = matchRepository.joinQueue(matchModes)
-                if (generation != matchmakingGeneration) {
-                    if (joinResult.immediateMatchId == null) {
-                        authRepository.currentUserId?.let { matchRepository.leaveQueueBestEffort(it) }
-                    }
-                    return@launch
-                }
-                if (joinResult.immediateMatchId != null) {
-                    awaitingMatchFromQueue = false
-                    awaitingMatchStartedAtMs = null
-                    stopQueueTimer()
-                    _uiState.update {
-                        it.copy(
-                            isJoiningQueue = false,
-                            isInQueue = false,
-                            queueElapsedSeconds = 0,
-                            matchmakingError = null,
-                        )
-                    }
-                    MatchSessionMonitor.requestGameNavigation(joinResult.immediateMatchId)
-                    return@launch
-                }
-                // Queue write succeeded — show "In queue" immediately; refine timer when server joinedAt lands.
-                val joinedAtMs = joinResult.clientJoinedAtMs ?: System.currentTimeMillis()
-                enterConfirmedQueue(joinedAtMs)
-                launch {
-                    val serverJoinedAtMs = matchRepository.awaitQueueJoinedAtFromServer(timeoutMs = 30_000)
-                    if (generation != matchmakingGeneration) return@launch
-                    if (serverJoinedAtMs != null && _uiState.value.isInQueue) {
-                        enterConfirmedQueue(serverJoinedAtMs)
-                    }
-                }
+                failMatchmaking(
+                    generation = generation,
+                    message = "Matchmaking timed out. Check your connection and try again.",
+                )
             } catch (e: Exception) {
                 if (generation != matchmakingGeneration) return@launch
-                failMatchmaking(generation, e.message ?: "Matchmaking failed")
+                val message = e.message?.takeIf { it.isNotBlank() }
+                    ?.takeUnless { it.contains("Timed out", ignoreCase = true) }
+                    ?: "Matchmaking failed. Check your connection and try again."
+                failMatchmaking(generation, message)
             } finally {
                 watchdog.cancel()
             }
@@ -221,15 +235,11 @@ class HomeViewModel(
         }
     }
 
-    /** Waits for Firestore user doc after auth (Google sign-in can navigate before profile sync). */
-    private suspend fun awaitUserProfileReady() {
+    /** Ensures the Firestore user doc exists before queue writes (required by security rules). */
+    private suspend fun awaitUserProfileReady(): UserProfile {
         val user = authRepository.currentUser ?: error("Not signed in")
-        val deadline = System.currentTimeMillis() + PROFILE_READY_TIMEOUT_MS
-        while (System.currentTimeMillis() < deadline) {
-            userRepository.getUserProfile(user.uid)?.let { return }
-            delay(200)
-        }
-        authRepository.ensureUserProfile(
+        authRepository.queueReadyProfile(user.uid)?.let { return it }
+        return authRepository.ensureUserProfile(
             uid = user.uid,
             displayName = user.displayName,
             photoUrl = user.photoUrl?.toString(),
@@ -439,11 +449,17 @@ class HomeViewModel(
         }
         try {
             withTimeout(10_000) {
-                authRepository.ensureUserProfile(
-                    uid = user.uid,
-                    displayName = user.displayName,
-                    photoUrl = user.photoUrl?.toString(),
-                )
+                if (MatchSessionMonitor.isMatchmakingInProgress()) {
+                    authRepository.waitUntilQueueReadyProfile(user.uid, timeoutMs = 8_000)
+                } else if (
+                    !authRepository.waitUntilQueueReadyProfile(user.uid, timeoutMs = 4_000)
+                ) {
+                    authRepository.ensureUserProfile(
+                        uid = user.uid,
+                        displayName = user.displayName,
+                        photoUrl = user.photoUrl?.toString(),
+                    )
+                }
             }
             _uiState.update { it.copy(isLoading = false, error = null) }
         } catch (e: TimeoutCancellationException) {

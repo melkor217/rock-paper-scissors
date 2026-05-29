@@ -19,6 +19,7 @@ import com.rpsonline.app.data.auth.toAuthMessage
 import com.rpsonline.app.data.auth.toGoogleSignInMessage
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
+import com.rpsonline.app.data.repository.UserProfileSync
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -142,6 +143,7 @@ class SignInViewModel(
 
                 val idToken = requestGoogleIdToken(context, webClientId)
                 val profile = authRepository.signInWithGoogle(idToken)
+                UserProfileSync.rememberQueueReady(profile.uid, profile)
                 clearAuthError()
                 _uiState.update {
                     it.copy(isLoading = false, profile = profile, error = null)

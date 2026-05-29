@@ -4,10 +4,13 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
-internal suspend fun awaitFirestoreAuth(auth: FirebaseAuth = FirebaseAuth.getInstance()) {
+internal suspend fun awaitFirestoreAuth(
+    auth: FirebaseAuth = FirebaseAuth.getInstance(),
+    forceRefresh: Boolean = false,
+) {
     val user = auth.currentUser ?: return
-    // Use cached token so Firestore works offline; forcing refresh hangs in airplane mode.
+    // After OAuth sign-in Firestore may still see the previous session until the token refreshes.
     withTimeoutOrNull(5_000) {
-        user.getIdToken(false).await()
+        user.getIdToken(forceRefresh).await()
     }
 }

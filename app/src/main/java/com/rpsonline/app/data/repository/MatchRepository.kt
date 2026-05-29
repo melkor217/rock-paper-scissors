@@ -21,6 +21,7 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.data.model.RoundResult
+import com.rpsonline.app.data.model.UserProfile
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -50,7 +51,7 @@ class MatchRepository(
 
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
-        private const val JOIN_QUEUE_TIMEOUT_MS = 20_000L
+        private const val QUEUE_WRITE_TIMEOUT_MS = 20_000L
         private const val QUEUE_READ_TIMEOUT_MS = 8_000L
         private const val USER_PROFILE_POLL_MS = 200L
 
@@ -190,51 +191,42 @@ class MatchRepository(
     /**
      * Join matchmaking via Firestore (not Callable). Writes queue/{uid}; Cloud Function pairs players.
      */
-    suspend fun joinQueue(matchModes: Set<MatchMode>): JoinQueueResult {
+    suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueResult {
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
-        awaitFirestoreAuth()
         val userId = uid
-        val userSnap = withTimeout(JOIN_QUEUE_TIMEOUT_MS) {
-            waitForUserDocument(userId)
-        }
+        require(profile.uid == userId) { "Profile uid mismatch" }
+        awaitFirestoreAuth(forceRefresh = true)
+        runCatching { firestore.enableNetwork().await() }
 
-        val activeMatchId = userSnap.getString("activeMatchId")
+        val authRepository = AuthRepository()
+        val serverProfile = authRepository.fetchServerProfile(userId) ?: profile
+        UserProfileSync.rememberQueueReady(userId, serverProfile)
+
+        val activeMatchId = serverProfile.activeMatchId
         if (!activeMatchId.isNullOrBlank()) {
-            val match = getMatch(activeMatchId)
+            val match = withTimeoutOrNull(5_000) { getMatch(activeMatchId) }
             if (match?.status == MatchStatus.ACTIVE) {
                 return JoinQueueResult(immediateMatchId = activeMatchId, clientJoinedAtMs = null)
             }
         }
 
-        val elo = userSnap.getLong("elo")?.toInt() ?: 1000
-        val displayName = DisplayNames.resolve(userSnap.getString("displayName"), userId)
         val clientJoinedAtMs = System.currentTimeMillis()
-
-        withTimeout(JOIN_QUEUE_TIMEOUT_MS) {
+        val joinedAt = Timestamp.now()
+        withTimeout(QUEUE_WRITE_TIMEOUT_MS) {
             firestore.collection("queue").document(userId).set(
                 mapOf(
-                    "joinedAt" to FieldValue.serverTimestamp(),
-                    "lastHeartbeatAt" to FieldValue.serverTimestamp(),
+                    "joinedAt" to joinedAt,
+                    "lastHeartbeatAt" to joinedAt,
                     "clientJoinedAt" to clientJoinedAtMs,
-                    "elo" to elo,
-                    "displayName" to displayName,
+                    "elo" to serverProfile.elo,
+                    "displayName" to serverProfile.displayName,
                     "matchModes" to matchModes.map { it.name },
                 ),
             ).await()
         }
+        MatchSessionMonitor.confirmQueueJoinedAt(clientJoinedAtMs)
 
         return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = clientJoinedAtMs)
-    }
-
-    private suspend fun waitForUserDocument(userId: String): DocumentSnapshot {
-        val deadline = System.currentTimeMillis() + JOIN_QUEUE_TIMEOUT_MS
-        while (System.currentTimeMillis() < deadline) {
-            awaitFirestoreAuth()
-            val snap = firestore.collection("users").document(userId).get().await()
-            if (snap.exists()) return snap
-            delay(USER_PROFILE_POLL_MS)
-        }
-        throw IllegalStateException("User profile missing. Sign out and sign in again.")
     }
 
     /**
@@ -245,8 +237,9 @@ class MatchRepository(
         val userId = auth.currentUser?.uid ?: return false
         return runCatching {
             awaitFirestoreAuth()
+            val now = Timestamp.now()
             firestore.collection("queue").document(userId)
-                .update(mapOf("lastHeartbeatAt" to FieldValue.serverTimestamp()))
+                .update(mapOf("lastHeartbeatAt" to now))
                 .await()
         }.isSuccess
     }

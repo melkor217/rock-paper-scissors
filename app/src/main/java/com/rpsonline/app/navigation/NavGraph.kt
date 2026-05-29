@@ -89,14 +89,7 @@ fun RpsNavGraph() {
     LaunchedEffect(navController) {
         authRepository.authStateFlow().collect { user ->
             isSignedIn = user != null
-            if (user != null) {
-                val currentRoute = navController.currentBackStackEntry?.destination?.route
-                if (currentRoute == Routes.SIGN_IN) {
-                    navController.navigate(Routes.home()) {
-                        popUpTo(Routes.SIGN_IN) { inclusive = true }
-                    }
-                }
-            } else {
+            if (user == null) {
                 val onSignIn = navController.currentBackStackEntry?.destination?.route == Routes.SIGN_IN
                 if (!onSignIn) {
                     navController.navigate(Routes.SIGN_IN) {
@@ -117,6 +110,11 @@ fun RpsNavGraph() {
         composable(Routes.SIGN_IN) {
             SignInScreen(
                 onChangelog = { navController.navigate(Routes.CHANGELOG) },
+                onSignedIn = {
+                    navController.navigate(Routes.home()) {
+                        popUpTo(Routes.SIGN_IN) { inclusive = true }
+                    }
+                },
             )
         }
 

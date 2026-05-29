@@ -16,6 +16,13 @@ private fun Throwable.isAppCheckError(): Boolean {
         message.contains("Firebase App Check API", ignoreCase = true)
 }
 
+private fun Throwable.isFirestoreCacheMiss(): Boolean {
+    val message = message.orEmpty()
+    return message.contains("document from cache", ignoreCase = true) ||
+        message.contains("from cache", ignoreCase = true) &&
+        message.contains("may exist on the server", ignoreCase = true)
+}
+
 private fun Throwable.isNetworkError(): Boolean {
     if (this is FirebaseAuthException && errorCode == "ERROR_NETWORK_REQUEST_FAILED") return true
     val message = message.orEmpty()
@@ -30,6 +37,8 @@ fun Throwable.toAuthMessage(): String = when {
     isAppCheckError() ->
         "App Check verification failed. Debug/emulator: filter Logcat for DebugAppCheckProvider, " +
             "register the token in Firebase Console → App Check → Manage debug tokens, then retry."
+    isFirestoreCacheMiss() ->
+        "Still syncing your profile. Try Google sign-in again."
     isNetworkError() ->
         "Could not reach sign-in servers. If you are on an emulator, register the App Check debug token " +
             "(Logcat: DebugAppCheckProvider) and enable Anonymous sign-in in Firebase Authentication."

@@ -304,18 +304,34 @@ async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Prom
   return null;
 }
 
-async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Promise<void> {
-  await db.collection("users").doc(uid).update({
-    lastSeen: FieldValue.serverTimestamp(),
-  });
+async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string): Promise<void> {
+  const active = await db.collection("matches").doc(activeMatchId).get();
+  if (!active.exists || active.get("status") !== "active") {
+    await db.collection("users").doc(uid).update({
+      activeMatchId: FieldValue.delete(),
+    });
+  }
+}
 
-  const profile = await getUserProfile(uid);
+async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Promise<void> {
+  const userRef = db.collection("users").doc(uid);
+  // update() fails when the profile doc is missing (common right after Google sign-in).
+  await userRef.set({ lastSeen: FieldValue.serverTimestamp() }, { merge: true });
+
+  let profile: Awaited<ReturnType<typeof getUserProfile>>;
+  try {
+    profile = await getUserProfile(uid);
+  } catch {
+    return;
+  }
+
   if (profile.activeMatchId) {
     const active = await db.collection("matches").doc(profile.activeMatchId).get();
     if (active.exists && active.get("status") === "active") {
       await db.collection("queue").doc(uid).delete();
       return;
     }
+    await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
   }
 
   if (!isQueueEntryActive(data)) return;
