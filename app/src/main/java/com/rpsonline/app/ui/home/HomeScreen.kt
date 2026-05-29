@@ -86,8 +86,8 @@ fun HomeScreen(
     }
 
     var autoMatchmakingStarted by remember(autoStartMatchModes) { mutableStateOf(false) }
-    LaunchedEffect(autoStartMatchModes) {
-        if (autoStartMatchModes != null && !autoMatchmakingStarted) {
+    LaunchedEffect(autoStartMatchModes, uiState.profile) {
+        if (autoStartMatchModes != null && !autoMatchmakingStarted && uiState.profile != null) {
             autoMatchmakingStarted = true
             viewModel.startMatchmaking(context, autoStartMatchModes)
         }

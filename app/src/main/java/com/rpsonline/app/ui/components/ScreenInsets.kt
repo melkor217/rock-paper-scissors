@@ -22,7 +22,6 @@ fun Modifier.rpsTopBarLayout(): Modifier =
         .windowInsetsPadding(
             WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
         )
-        .padding(top = 2.dp, bottom = 4.dp)
 
 /** Screen content below the global top bar; respects side cutouts and gesture nav. */
 @Composable
