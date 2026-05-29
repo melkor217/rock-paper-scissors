@@ -130,6 +130,13 @@ data class Match(
     fun isParticipant(userId: String): Boolean =
         userId == player1 || userId == player2
 
+    /** True when the user should resume this match instead of joining a new queue. */
+    fun isLiveForReconnect(nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (status != MatchStatus.ACTIVE) return false
+        val last = lastActivityAt
+        return last > 0 && nowMs - last <= 90_000L
+    }
+
     fun opponentName(userId: String): String =
         if (userId == player1) player2Name else player1Name
 

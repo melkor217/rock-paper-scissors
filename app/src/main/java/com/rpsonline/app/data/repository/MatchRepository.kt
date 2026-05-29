@@ -52,6 +52,8 @@ class MatchRepository(
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
         private const val QUEUE_WRITE_TIMEOUT_MS = 20_000L
+        /** Align with [functions/src/queue.ts] [QUEUE_STALE_MS] and server matchmaking. */
+        private const val ACTIVE_MATCH_RECONNECT_MAX_AGE_MS = 90_000L
         private const val QUEUE_READ_TIMEOUT_MS = 8_000L
         private const val USER_PROFILE_POLL_MS = 200L
 
@@ -195,17 +197,23 @@ class MatchRepository(
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
         val userId = uid
         require(profile.uid == userId) { "Profile uid mismatch" }
-        awaitFirestoreAuth(forceRefresh = true)
+        awaitFirestoreAuth()
         runCatching { firestore.enableNetwork().await() }
 
         val authRepository = AuthRepository()
-        val serverProfile = authRepository.fetchServerProfile(userId) ?: profile
+        val serverProfile = UserProfileSync.queueReadyProfile(userId)
+            ?: authRepository.fetchServerProfile(userId)
+            ?: profile
         UserProfileSync.rememberQueueReady(userId, serverProfile)
 
         val activeMatchId = serverProfile.activeMatchId
         if (!activeMatchId.isNullOrBlank()) {
-            val match = withTimeoutOrNull(5_000) { getMatchFromServer(activeMatchId) }
-            if (match?.status == MatchStatus.ACTIVE && match.isParticipant(userId)) {
+            val match = withTimeoutOrNull(3_000) { getMatchFromServer(activeMatchId) }
+            if (
+                match?.status == MatchStatus.ACTIVE &&
+                match.isParticipant(userId) &&
+                match.isLiveForReconnect()
+            ) {
                 return JoinQueueResult(immediateMatchId = activeMatchId, clientJoinedAtMs = null)
             }
         }
@@ -222,7 +230,7 @@ class MatchRepository(
                     "displayName" to serverProfile.displayName,
                     "matchModes" to matchModes.map { it.name },
                 ),
-            ).await()
+            ).awaitTask()
         }
         MatchSessionMonitor.confirmQueueJoinedAt(clientJoinedAtMs)
 
