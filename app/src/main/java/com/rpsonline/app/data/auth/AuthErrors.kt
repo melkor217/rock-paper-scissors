@@ -6,18 +6,33 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import kotlinx.coroutines.TimeoutCancellationException
+
+private fun Throwable.isAppCheckError(): Boolean {
+    val message = message.orEmpty()
+    return message.contains("app check", ignoreCase = true) ||
+        message.contains("App Check", ignoreCase = true) ||
+        message.contains("attestation", ignoreCase = true) ||
+        message.contains("Firebase App Check API", ignoreCase = true)
+}
 
 private fun Throwable.isNetworkError(): Boolean {
     if (this is FirebaseAuthException && errorCode == "ERROR_NETWORK_REQUEST_FAILED") return true
     val message = message.orEmpty()
-  return message.contains("network", ignoreCase = true) ||
-      message.contains("unreachable", ignoreCase = true) ||
-      message.contains("timeout", ignoreCase = true) ||
-      message.contains("Unable to resolve host", ignoreCase = true)
+    return message.contains("Unable to resolve host", ignoreCase = true) ||
+        message.contains("A network error (such as timeout", ignoreCase = true) ||
+        message.contains("NetworkError", ignoreCase = true)
 }
 
 fun Throwable.toAuthMessage(): String = when {
-    isNetworkError() -> "No internet connection. Check your network and try again."
+    this is TimeoutCancellationException ->
+        "Sign-in timed out. Try again in a moment."
+    isAppCheckError() ->
+        "App Check verification failed. Debug/emulator: filter Logcat for DebugAppCheckProvider, " +
+            "register the token in Firebase Console → App Check → Manage debug tokens, then retry."
+    isNetworkError() ->
+        "Could not reach sign-in servers. If you are on an emulator, register the App Check debug token " +
+            "(Logcat: DebugAppCheckProvider) and enable Anonymous sign-in in Firebase Authentication."
     this is FirebaseAuthWeakPasswordException -> "Password must be at least 6 characters"
     this is FirebaseAuthInvalidCredentialsException -> "Incorrect email or password"
     this is FirebaseAuthInvalidUserException -> "No account found for this email"
@@ -27,28 +42,35 @@ fun Throwable.toAuthMessage(): String = when {
         "ERROR_USER_DISABLED" -> "This account has been disabled"
         "ERROR_TOO_MANY_REQUESTS" -> "Too many attempts. Try again later"
         "ERROR_OPERATION_NOT_ALLOWED" ->
-            "This sign-in method is not enabled in Firebase Console"
-        else -> message ?: "Authentication failed"
+            "Guest sign-in is disabled. In Firebase Console enable Authentication → Sign-in method → Anonymous."
+        "ERROR_INTERNAL_ERROR" -> message?.takeIf { it.isNotBlank() }
+            ?: "Authentication server error. Check App Check and sign-in methods in Firebase Console."
+        else -> message?.takeIf { it.isNotBlank() } ?: "Authentication failed ($errorCode)"
     }
-    else -> message ?: "Authentication failed"
+    else -> message?.takeIf { it.isNotBlank() } ?: "Authentication failed"
 }
 
-fun GetCredentialException.toGoogleSignInMessage(): String {
+fun GetCredentialException.toGoogleSignInMessage(isDebugBuild: Boolean = false): String {
     val detail = message.orEmpty()
     return when {
         detail.contains("network", ignoreCase = true) ||
             detail.contains("unreachable", ignoreCase = true) ||
             detail.contains("timeout", ignoreCase = true) ->
-            "No internet connection. Check your network and try again."
+            "Could not reach Google sign-in. Check connection or App Check debug token on emulator."
         detail.contains("No credentials", ignoreCase = true) ||
             detail.contains("NoCredential", ignoreCase = true) ->
-            "Google Sign-In is not configured for this app build. In Firebase Console, " +
-                "add your release keystore SHA-1 under Project settings → Your apps → " +
-                "Android → Add fingerprint, wait a few minutes, then try again."
+            if (isDebugBuild) {
+                "Google Sign-In could not start on this device. Use an emulator image with Play Store, " +
+                    "add a Google account (Settings → Passwords & accounts), rebuild after placing " +
+                    "google-services.json in app/, then retry."
+            } else {
+                "Google Sign-In is not configured for this build. Add your release keystore SHA-1 " +
+                    "in Firebase → Project settings → Android app → Fingerprints, download a new " +
+                    "google-services.json, rebuild, then retry."
+            }
         detail.contains("28433", ignoreCase = true) ||
             detail.contains("Cannot find a matching credential", ignoreCase = true) ->
-            "Google Sign-In could not access saved credentials on this device. " +
-                "Try again after setting a screen lock, or use email/guest sign-in."
-        else -> detail.ifBlank { "Sign-in cancelled" }
+            "Google Sign-In could not access credentials on this device. Add a Google account or use guest/email."
+        else -> detail.ifBlank { "Google sign-in cancelled" }
     }
 }

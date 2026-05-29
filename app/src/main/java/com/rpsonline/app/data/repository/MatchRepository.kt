@@ -22,6 +22,7 @@ import com.rpsonline.app.domain.GameRules
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.data.model.RoundResult
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
@@ -225,7 +226,12 @@ class MatchRepository(
     }
 
     suspend fun leaveQueue() {
-        firestore.collection("queue").document(uid).delete().await()
+        leaveQueueForUser(uid)
+    }
+
+    suspend fun leaveQueueForUser(userId: String) {
+        awaitFirestoreAuth()
+        firestore.collection("queue").document(userId).delete().await()
     }
 
     fun leaveQueueBestEffort(userId: String) {
@@ -237,11 +243,21 @@ class MatchRepository(
         return MatchSessionMonitor.queueJoinedAtMs
     }
 
-    suspend fun getQueueJoinedAtMs(): Long? {
-        val snap = firestore.collection("queue").document(uid).get().await()
+    suspend fun getQueueJoinedAtMs(): Long? = readQueueJoinedAtFromServer()
+
+    suspend fun awaitQueueJoinedAtFromServer(timeoutMs: Long = 15_000): Long? {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            readQueueJoinedAtFromServer()?.let { return it }
+            delay(250)
+        }
+        return null
+    }
+
+    private suspend fun readQueueJoinedAtFromServer(): Long? {
+        val snap = firestore.collection("queue").document(uid).get(Source.SERVER).await()
         if (!snap.exists()) return null
         return snap.getTimestamp("joinedAt")?.toDate()?.time
-            ?: snap.getLong("clientJoinedAt")
     }
 
     suspend fun requestRoundTimeout(matchId: String, roundNumber: Int) {

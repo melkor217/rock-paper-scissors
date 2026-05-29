@@ -1,10 +1,12 @@
 package com.rpsonline.app.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.Match
+import com.rpsonline.app.data.model.MatchStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +25,20 @@ object MatchSessionMonitor {
 
     private val _queueJoinedAtMs = MutableStateFlow<Long?>(null)
     val queueJoinedAtMs: StateFlow<Long?> = _queueJoinedAtMs.asStateFlow()
+
+    /** Queue doc exists locally; heartbeats run while this is true. */
+    private val _hasQueueEntry = MutableStateFlow(false)
+    val hasQueueEntry: StateFlow<Boolean> = _hasQueueEntry.asStateFlow()
+
+    fun isQueueEntryPending(): Boolean = _hasQueueEntry.value && _queueJoinedAtMs.value == null
+
+    /** Set while the user is joining or waiting in queue; drives auto-navigation to game. */
+    private val _matchmakingInProgress = MutableStateFlow(false)
+    val matchmakingInProgress: StateFlow<Boolean> = _matchmakingInProgress.asStateFlow()
+
+    /** Pending navigation to game; survives HomeViewModel / back-stack lifecycle. */
+    private val _pendingGameNavigationMatchId = MutableStateFlow<String?>(null)
+    val pendingGameNavigationMatchId: StateFlow<String?> = _pendingGameNavigationMatchId.asStateFlow()
 
     private var authListener: FirebaseAuth.AuthStateListener? = null
     private var userListener: ListenerRegistration? = null
@@ -52,12 +68,35 @@ object MatchSessionMonitor {
         syncFromServer(uid)
     }
 
+    fun setMatchmakingInProgress(active: Boolean) {
+        _matchmakingInProgress.value = active
+    }
+
+    fun isMatchmakingInProgress(): Boolean = _matchmakingInProgress.value
+
+    fun requestGameNavigation(matchId: String) {
+        _pendingGameNavigationMatchId.value = matchId
+    }
+
+    fun consumeGameNavigation() {
+        _pendingGameNavigationMatchId.value = null
+    }
+
+    /** Called after [MatchRepository.joinQueue] is confirmed with a server read. */
+    fun confirmQueueJoinedAt(joinedAtMs: Long) {
+        _hasQueueEntry.value = true
+        _queueJoinedAtMs.value = joinedAtMs
+    }
+
     private fun attachForUser(uid: String?) {
         if (uid == null) {
             attachedUid = null
             clearFirestoreListeners()
             _activeMatch.value = null
             _queueJoinedAtMs.value = null
+            _hasQueueEntry.value = false
+            _matchmakingInProgress.value = false
+            _pendingGameNavigationMatchId.value = null
             return
         }
         if (uid == attachedUid) return
@@ -65,6 +104,7 @@ object MatchSessionMonitor {
         clearFirestoreListeners()
         _activeMatch.value = null
         _queueJoinedAtMs.value = null
+        _hasQueueEntry.value = false
         attachListeners(uid)
     }
 
@@ -82,11 +122,12 @@ object MatchSessionMonitor {
         val queueSnap = runCatching {
             firestore.collection("queue").document(uid).get(Source.SERVER).await()
         }.getOrNull()
-        _queueJoinedAtMs.value = when {
-            queueSnap == null || !queueSnap.exists() -> null
-            else -> queueSnap.getTimestamp("joinedAt")?.toDate()?.time
-                ?: queueSnap.getLong("clientJoinedAt")
-                ?: System.currentTimeMillis()
+        val queueExists = queueSnap != null && queueSnap.exists()
+        _hasQueueEntry.value = queueExists
+        _queueJoinedAtMs.value = if (queueExists) {
+            queueSnap.getTimestamp("joinedAt")?.toDate()?.time
+        } else {
+            null
         }
 
         val matchId = userSnap.getString("activeMatchId")
@@ -99,20 +140,14 @@ object MatchSessionMonitor {
             firestore.collection("matches").document(matchId).get(Source.SERVER).await()
         }.getOrNull() ?: return
         if (matchSnap.exists()) {
-            _activeMatch.value = matchSnap.toMatch(matchId)
+            publishActiveMatch(matchSnap.toMatch(matchId))
         }
     }
 
     private fun attachListeners(uid: String) {
         queueListener = firestore.collection("queue").document(uid)
             .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null || !snapshot.exists()) {
-                    _queueJoinedAtMs.value = null
-                    return@addSnapshotListener
-                }
-                _queueJoinedAtMs.value = snapshot.getTimestamp("joinedAt")?.toDate()?.time
-                    ?: snapshot.getLong("clientJoinedAt")
-                    ?: System.currentTimeMillis()
+                applyQueueSnapshot(snapshot, error)
             }
 
         userListener = firestore.collection("users").document(uid)
@@ -135,6 +170,20 @@ object MatchSessionMonitor {
             }
     }
 
+    private fun applyQueueSnapshot(snapshot: DocumentSnapshot?, error: Exception?) {
+        if (error != null || snapshot == null || !snapshot.exists()) {
+            _hasQueueEntry.value = false
+            _queueJoinedAtMs.value = null
+            return
+        }
+        _hasQueueEntry.value = true
+        // Only start the queue timer once Firestore has applied the server timestamp.
+        if (snapshot.metadata.hasPendingWrites() || snapshot.metadata.isFromCache) {
+            return
+        }
+        _queueJoinedAtMs.value = snapshot.getTimestamp("joinedAt")?.toDate()?.time
+    }
+
     private fun attachMatchListener(matchId: String) {
         matchListener = firestore.collection("matches").document(matchId)
             .addSnapshotListener { matchSnapshot, matchError ->
@@ -142,8 +191,20 @@ object MatchSessionMonitor {
                     _activeMatch.value = null
                     return@addSnapshotListener
                 }
-                _activeMatch.value = matchSnapshot?.toMatch(matchId)
+                publishActiveMatch(matchSnapshot?.toMatch(matchId))
             }
+    }
+
+    private fun publishActiveMatch(match: Match?) {
+        _activeMatch.value = match
+        val uid = auth.currentUser?.uid ?: return
+        if (
+            match?.status == MatchStatus.ACTIVE &&
+            match.isParticipant(uid) &&
+            _matchmakingInProgress.value
+        ) {
+            requestGameNavigation(match.id)
+        }
     }
 
     private fun clearFirestoreListeners() {
@@ -157,6 +218,7 @@ object MatchSessionMonitor {
 
     /** Local fallback when queue heartbeat fails and snapshot lag leaves stale UI. */
     fun clearQueueState() {
+        _hasQueueEntry.value = false
         _queueJoinedAtMs.value = null
     }
 }

@@ -1,9 +1,11 @@
 package com.rpsonline.app.data.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import com.google.firebase.Timestamp
+import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
@@ -11,8 +13,12 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Source
+import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.awaitClose
@@ -24,6 +30,10 @@ class AuthRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = appFirestore(),
 ) {
+    private companion object {
+        private const val TAG = "AuthRepository"
+    }
+
     val currentUser: FirebaseUser?
         get() = auth.currentUser
 
@@ -46,12 +56,31 @@ class AuthRepository(
         return ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
     }
 
+    /** Firebase auth only — profile sync can finish after the UI navigates away. */
+    suspend fun beginAnonymousSignIn(): FirebaseUser = withContext(Dispatchers.IO) {
+        withTimeoutOrNull(2_000) { discardIncompleteGuestProfile() }
+        try {
+            val result = withTimeout(30_000) {
+                auth.signInAnonymously().awaitTask()
+            }
+            result.user ?: error("Guest sign-in failed")
+        } catch (e: TimeoutCancellationException) {
+            // Auth may have completed even though the coroutine timed out waiting.
+            auth.currentUser ?: throw e
+        }
+    }
+
     suspend fun signInAnonymously(): UserProfile {
-        discardIncompleteGuestProfile()
-        val result = auth.signInAnonymously().await()
-        val user = result.user ?: error("Guest sign-in failed")
-        val guestName = DisplayNames.guestName(user.uid)
-        return ensureUserProfile(user.uid, guestName, photoUrl = null)
+        val user = beginAnonymousSignIn()
+        return ensureUserProfile(
+            uid = user.uid,
+            displayName = DisplayNames.guestName(user.uid),
+            photoUrl = null,
+        )
+    }
+
+    fun signOutBestEffort() {
+        runCatching { auth.signOut() }
     }
 
     suspend fun signInWithEmail(email: String, password: String): UserProfile {
@@ -86,10 +115,15 @@ class AuthRepository(
         val snapshot = loadUserSnapshot(docRef)
         if (snapshot != null && snapshot.exists()) {
             if (!snapshot.isCompleteUserProfile()) {
-                auth.signOut()
-                error("Guest profile was incomplete. Tap Continue as guest again.")
+                withTimeoutOrNull(8_000) { docRef.delete().await() }
+            } else {
+                return normalizeStoredProfile(
+                    docRef,
+                    uid,
+                    snapshot.getString("displayName"),
+                    snapshot.toUserProfile(uid),
+                )
             }
-            return normalizeStoredProfile(docRef, uid, snapshot.getString("displayName"), snapshot.toUserProfile(uid))
         }
 
         val defaultName = when {
@@ -102,26 +136,28 @@ class AuthRepository(
             photoUrl = photoUrl,
         )
         val now = Timestamp.now()
-        docRef.set(
-            buildMap {
-                put("displayName", profile.displayName)
-                profile.photoUrl?.let { put("photoUrl", it) }
-                put("elo", profile.elo)
-                put("wins", profile.wins)
-                put("losses", profile.losses)
-                put("draws", profile.draws)
-                put("roundsWon", profile.roundsWon)
-                put("roundsLost", profile.roundsLost)
-                put("roundsDraw", profile.roundsDraw)
-                put("moveTimeMs", profile.moveTimeMs)
-                put("moveCount", profile.moveCount)
-                put("throwsRock", profile.throwsRock)
-                put("throwsPaper", profile.throwsPaper)
-                put("throwsScissors", profile.throwsScissors)
-                put("createdAt", now)
-                put("lastSeen", now)
-            },
-        ).await()
+        withTimeout(15_000) {
+            docRef.set(
+                buildMap {
+                    put("displayName", profile.displayName)
+                    profile.photoUrl?.let { put("photoUrl", it) }
+                    put("elo", profile.elo)
+                    put("wins", profile.wins)
+                    put("losses", profile.losses)
+                    put("draws", profile.draws)
+                    put("roundsWon", profile.roundsWon)
+                    put("roundsLost", profile.roundsLost)
+                    put("roundsDraw", profile.roundsDraw)
+                    put("moveTimeMs", profile.moveTimeMs)
+                    put("moveCount", profile.moveCount)
+                    put("throwsRock", profile.throwsRock)
+                    put("throwsPaper", profile.throwsPaper)
+                    put("throwsScissors", profile.throwsScissors)
+                    put("createdAt", now)
+                    put("lastSeen", now)
+                },
+            ).await()
+        }
         return profile
     }
 
@@ -142,38 +178,128 @@ class AuthRepository(
     }
 
     suspend fun isFirebaseAvailable(): Boolean {
-        return try {
-            withTimeout(6_000) {
-                awaitFirestoreAuth()
-                firestore.collection("users").limit(1).get(Source.SERVER).await()
+        runCatching { appFirestore().enableNetwork().await() }
+        return probeFirestoreReachability() || probeFirestoreReachabilityFromCache()
+    }
+
+    /**
+     * App Check is required for Auth when enforcement is enabled, but it must not gate the launch
+     * connectivity probe (emulators often lack a registered debug token until first Logcat run).
+     */
+    suspend fun isAppCheckTokenAvailable(): Boolean = probeAppCheckToken()
+
+    /** When non-null, App Check is blocking Firebase Auth/Firestore. */
+    suspend fun appCheckErrorMessageOrNull(): String? = withContext(Dispatchers.IO) {
+        try {
+            withTimeout(10_000) {
+                FirebaseAppCheck.getInstance().getAppCheckToken(false).await()
             }
-            true
-        } catch (e: FirebaseFirestoreException) {
-            // Permission/rules failures still prove Firebase is reachable.
-            e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED ||
-                e.code == FirebaseFirestoreException.Code.UNAUTHENTICATED
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "App Check token unavailable", e)
+            buildAppCheckErrorMessage(e)
+        }
+    }
+
+    private fun buildAppCheckErrorMessage(cause: Exception): String {
+        val detail = cause.message?.takeIf { it.isNotBlank() } ?: cause.javaClass.simpleName
+        return if (BuildConfig.DEBUG) {
+            "App Check failed ($detail). On debug builds (emulator or phone): open Logcat, filter " +
+                "DebugAppCheckProvider, copy the debug secret, add it in Firebase Console → App Check → " +
+                "your Android app → Manage debug tokens, then cold-restart the app."
+        } else {
+            "App Check failed ($detail). Release builds need Play Integrity in Firebase Console → " +
+                "App Check → register the Play Integrity provider for this app (and the app listed in " +
+                "Google Play with the same package name). For local testing, install a debug build instead."
+        }
+    }
+
+    private suspend fun probeAppCheckToken(): Boolean {
+        return try {
+            withTimeoutOrNull(8_000) {
+                FirebaseAppCheck.getInstance().getAppCheckToken(false).await()
+                true
+            } == true
         } catch (_: Exception) {
             false
         }
     }
 
+    /**
+     * Unauthenticated clients cannot read [users], but a rules rejection still proves Firestore
+     * is reachable. Avoid [Source.SERVER] here — it blocks for a long time when offline.
+     */
+    private suspend fun probeFirestoreReachability(): Boolean {
+        return try {
+            withTimeoutOrNull(10_000) {
+                firestore.collection("users").limit(1).get().await()
+                true
+            } ?: false
+        } catch (e: FirebaseFirestoreException) {
+            interpretUsersProbeError(e)
+        } catch (_: TimeoutCancellationException) {
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun probeFirestoreReachabilityFromCache(): Boolean {
+        return try {
+            withTimeoutOrNull(2_000) {
+                firestore.collection("users").limit(1).get(Source.CACHE).await()
+                true
+            } ?: false
+        } catch (e: FirebaseFirestoreException) {
+            interpretUsersProbeError(e)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun interpretUsersProbeError(error: FirebaseFirestoreException): Boolean =
+        when (error.code) {
+            FirebaseFirestoreException.Code.PERMISSION_DENIED,
+            FirebaseFirestoreException.Code.UNAUTHENTICATED,
+            -> true
+            FirebaseFirestoreException.Code.UNAVAILABLE,
+            FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+            -> false
+            else -> true
+        }
+
     private suspend fun loadUserSnapshot(
         docRef: com.google.firebase.firestore.DocumentReference,
     ): com.google.firebase.firestore.DocumentSnapshot? {
-        val cached = runCatching { docRef.get(Source.CACHE).await() }.getOrNull()
+        val cached = withTimeoutOrNull(4_000) {
+            docRef.get(Source.CACHE).await()
+        }
         if (cached?.exists() == true) return cached
-        return runCatching { docRef.get().await() }.getOrNull() ?: cached
+        val remote = withTimeoutOrNull(8_000) {
+            docRef.get().await()
+        }
+        return remote ?: cached
     }
 
+    /** Drops a broken guest Firestore doc without signing out (sign-out resets navigation). */
     private suspend fun discardIncompleteGuestProfile() {
         val uid = currentUserId ?: return
         if (auth.currentUser?.isAnonymous != true) return
-        runCatching {
-            awaitFirestoreAuth()
-            val snapshot = loadUserSnapshot(firestore.collection("users").document(uid))
-                ?: return@runCatching
-            if (snapshot.exists() && !snapshot.isCompleteUserProfile()) {
-                auth.signOut()
+        withTimeoutOrNull(3_000) {
+            runCatching {
+                awaitFirestoreAuth()
+                val docRef = firestore.collection("users").document(uid)
+                val cached = withTimeoutOrNull(1_000) {
+                    docRef.get(Source.CACHE).await()
+                }
+                if (cached?.exists() == true && !cached.isCompleteUserProfile()) {
+                    docRef.delete().await()
+                    return@runCatching
+                }
+                val remote = withTimeoutOrNull(2_000) { docRef.get().await() }
+                if (remote?.exists() == true && !remote.isCompleteUserProfile()) {
+                    docRef.delete().await()
+                }
             }
         }
     }

@@ -6,19 +6,24 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseUser
+import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.R
 import com.rpsonline.app.data.auth.toAuthMessage
 import com.rpsonline.app.data.auth.toGoogleSignInMessage
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.data.repository.AuthRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,16 +51,29 @@ data class SignInUiState(
 )
 
 class SignInViewModel(
-    private val authRepository: AuthRepository = AuthRepository(),
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
+    private val authRepository = AuthRepository()
     private val _uiState = MutableStateFlow(SignInUiState())
     val uiState: StateFlow<SignInUiState> = _uiState.asStateFlow()
     private var latestAuthUser: FirebaseUser? = null
     private var restoreJob: Job? = null
+    private var guestSignInJob: Job? = null
+    /** Blocks [maybeStartSessionRestore] while email auth + save-password UI is in flight. */
+    private var blockSessionRestore = false
+
+    private companion object {
+        private const val GUEST_SIGN_IN_WATCHDOG_MS = 32_000L
+        private const val KEY_AUTH_ERROR = "auth_error"
+    }
 
     init {
+        savedStateHandle.get<String>(KEY_AUTH_ERROR)?.let { message ->
+            _uiState.update { it.copy(error = message) }
+        }
         viewModelScope.launch {
+            runFirebaseAvailabilityCheck()
             monitorFirebaseAvailability()
         }
         viewModelScope.launch {
@@ -66,12 +84,15 @@ class SignInViewModel(
                 } else {
                     restoreJob?.cancel()
                     restoreJob = null
+                    // Guest sign-in may sign out a stale session first; don't reset UI mid-flow.
+                    if (blockSessionRestore || _uiState.value.isLoading) {
+                        return@collect
+                    }
                     _uiState.update {
                         it.copy(
                             profile = null,
                             isLoading = false,
                             isRestoringSession = false,
-                            error = null,
                         )
                     }
                 }
@@ -104,11 +125,15 @@ class SignInViewModel(
 
     fun signInWithGoogle(context: Context) {
         if (!_uiState.value.isFirebaseAvailable) {
-            _uiState.update { it.copy(error = "Firebase is unavailable. Check your connection and try again.") }
+            setAuthError("Firebase is unavailable. Check your connection and try again.")
             return
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
+            authRepository.appCheckErrorMessageOrNull()?.let { message ->
+                setAuthError(message)
+                return@launch
+            }
+            beginExplicitSignIn()
             try {
                 val webClientId = context.getString(R.string.default_web_client_id)
                 require(!webClientId.startsWith("REPLACE")) {
@@ -117,34 +142,123 @@ class SignInViewModel(
 
                 val idToken = requestGoogleIdToken(context, webClientId)
                 val profile = authRepository.signInWithGoogle(idToken)
-                _uiState.update { it.copy(isLoading = false, profile = profile) }
+                clearAuthError()
+                _uiState.update {
+                    it.copy(isLoading = false, profile = profile, error = null)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: GetCredentialException) {
-                _uiState.update { it.copy(isLoading = false, error = e.toGoogleSignInMessage()) }
+                setAuthError(e.toGoogleSignInMessage(BuildConfig.DEBUG))
+                _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.toAuthMessage()) }
+                setAuthError(e.toAuthMessage())
+                _uiState.update { it.copy(isLoading = false) }
+            } finally {
+                endExplicitSignIn()
             }
         }
     }
 
     fun signInAnonymously() {
         if (!_uiState.value.isFirebaseAvailable) {
-            _uiState.update { it.copy(error = "Firebase is unavailable. Check your connection and try again.") }
+            setAuthError("Firebase is unavailable. Check your connection and try again.")
             return
         }
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
+        if (guestSignInJob?.isActive == true) return
+        guestSignInJob = viewModelScope.launch {
+            authRepository.appCheckErrorMessageOrNull()?.let { message ->
+                setAuthError(message)
+                return@launch
+            }
+            beginExplicitSignIn()
+            val watchdog = launch {
+                delay(GUEST_SIGN_IN_WATCHDOG_MS)
+                if (_uiState.value.isLoading && _uiState.value.profile == null) {
+                    endExplicitSignIn()
+                    val user = authRepository.currentUser
+                    if (user != null) {
+                        clearAuthError()
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                profile = authRepository.fallbackProfile(user),
+                            )
+                        }
+                    } else {
+                        setAuthError("Sign-in timed out. Try again in a moment.")
+                        _uiState.update { it.copy(isLoading = false) }
+                    }
+                }
+            }
             try {
-                val profile = authRepository.signInAnonymously()
-                _uiState.update { it.copy(isLoading = false, profile = profile) }
+                val (user, profile) = withContext(Dispatchers.IO) {
+                    val signedIn = authRepository.beginAnonymousSignIn()
+                    signedIn to authRepository.fallbackProfile(signedIn)
+                }
+                clearAuthError()
+                _uiState.update {
+                    it.copy(isLoading = false, profile = profile, error = null)
+                }
+                viewModelScope.launch(Dispatchers.IO) {
+                    runCatching {
+                        authRepository.ensureUserProfile(
+                            uid = user.uid,
+                            displayName = profile.displayName,
+                            photoUrl = user.photoUrl?.toString(),
+                        )
+                    }.onSuccess { synced ->
+                        if (_uiState.value.profile?.uid == synced.uid) {
+                            _uiState.update { it.copy(profile = synced) }
+                        }
+                    }
+                }
+            } catch (e: TimeoutCancellationException) {
+                val user = authRepository.currentUser
+                if (user != null) {
+                    clearAuthError()
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            profile = authRepository.fallbackProfile(user),
+                        )
+                    }
+                } else {
+                    setAuthError("Sign-in timed out. Try again in a moment.")
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+            } catch (e: CancellationException) {
+                if (_uiState.value.profile == null) {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+                throw e
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.toAuthMessage()) }
+                val user = authRepository.currentUser
+                if (user != null) {
+                    clearAuthError()
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            profile = authRepository.fallbackProfile(user),
+                        )
+                    }
+                } else {
+                    setAuthError(e.toAuthMessage())
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+            } finally {
+                watchdog.cancel()
+                endExplicitSignIn()
+                if (_uiState.value.isLoading && _uiState.value.profile == null) {
+                    _uiState.update { it.copy(isLoading = false) }
+                }
             }
         }
     }
 
     fun submitEmailAuth(context: Context) {
         if (!_uiState.value.isFirebaseAvailable) {
-            _uiState.update { it.copy(error = "Firebase is unavailable. Check your connection and try again.") }
+            setAuthError("Firebase is unavailable. Check your connection and try again.")
             return
         }
         val state = _uiState.value
@@ -152,16 +266,16 @@ class SignInViewModel(
         val password = state.password
 
         if (email.isBlank()) {
-            _uiState.update { it.copy(error = "Enter your email") }
+            setAuthError("Enter your email")
             return
         }
         if (password.length < 6) {
-            _uiState.update { it.copy(error = "Password must be at least 6 characters") }
+            setAuthError("Password must be at least 6 characters")
             return
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isRestoringSession = false, error = null) }
+            beginExplicitSignIn()
             try {
                 val profile = when (state.emailMode) {
                     EmailAuthMode.SIGN_IN -> authRepository.signInWithEmail(email, password)
@@ -171,42 +285,108 @@ class SignInViewModel(
                         displayName = state.displayName,
                     )
                 }
-                offerSavePassword(
-                    context = context,
-                    email = email,
-                    password = password,
-                )
-                _uiState.update { it.copy(isLoading = false, profile = profile) }
+                runCatching {
+                    offerSavePassword(
+                        context = context,
+                        email = email,
+                        password = password,
+                    )
+                }
+                clearAuthError()
+                _uiState.update {
+                    it.copy(isLoading = false, profile = profile, error = null)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.toAuthMessage()) }
+                setAuthError(e.toAuthMessage())
+                _uiState.update { it.copy(isLoading = false) }
+            } finally {
+                endExplicitSignIn()
             }
         }
     }
 
+    private fun beginExplicitSignIn() {
+        blockSessionRestore = true
+        restoreJob?.cancel()
+        restoreJob = null
+        clearAuthError()
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                isRestoringSession = false,
+                error = null,
+            )
+        }
+    }
+
+    private fun endExplicitSignIn() {
+        blockSessionRestore = false
+    }
+
+    private fun setAuthError(message: String) {
+        savedStateHandle[KEY_AUTH_ERROR] = message
+        _uiState.update { it.copy(error = message) }
+    }
+
+    private fun clearAuthError() {
+        if (savedStateHandle.contains(KEY_AUTH_ERROR)) {
+            savedStateHandle.remove<String>(KEY_AUTH_ERROR)
+        }
+    }
+
     /**
-     * Button sign-in uses [GetSignInWithGoogleOption] (account picker). Falls back to
-     * [GetGoogleIdOption] if the picker flow is unavailable on the device.
+     * Debug builds try [GetGoogleIdOption] first (works better on emulators). Release tries
+     * [GetSignInWithGoogleOption] first, then falls back to the other option.
      */
     private suspend fun requestGoogleIdToken(context: Context, webClientId: String): String {
         val credentialManager = CredentialManager.create(context)
+        return if (BuildConfig.DEBUG) {
+            try {
+                requestGoogleIdTokenViaIdOption(credentialManager, context, webClientId)
+            } catch (first: GetCredentialException) {
+                try {
+                    requestGoogleIdTokenViaSignInWithGoogle(credentialManager, context, webClientId)
+                } catch (_: GetCredentialException) {
+                    throw first
+                }
+            }
+        } else {
+            try {
+                requestGoogleIdTokenViaSignInWithGoogle(credentialManager, context, webClientId)
+            } catch (_: GetCredentialException) {
+                requestGoogleIdTokenViaIdOption(credentialManager, context, webClientId)
+            }
+        }
+    }
+
+    private suspend fun requestGoogleIdTokenViaSignInWithGoogle(
+        credentialManager: CredentialManager,
+        context: Context,
+        webClientId: String,
+    ): String {
         val signInWithGoogle = GetSignInWithGoogleOption.Builder(webClientId).build()
         val signInRequest = GetCredentialRequest.Builder()
             .addCredentialOption(signInWithGoogle)
             .build()
+        return extractGoogleIdToken(credentialManager.getCredential(context, signInRequest).credential)
+    }
 
-        return try {
-            extractGoogleIdToken(credentialManager.getCredential(context, signInRequest).credential)
-        } catch (_: GetCredentialException) {
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(webClientId)
-                .setAutoSelectEnabled(false)
-                .build()
-            val googleIdRequest = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
-            extractGoogleIdToken(credentialManager.getCredential(context, googleIdRequest).credential)
-        }
+    private suspend fun requestGoogleIdTokenViaIdOption(
+        credentialManager: CredentialManager,
+        context: Context,
+        webClientId: String,
+    ): String {
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(webClientId)
+            .setAutoSelectEnabled(false)
+            .build()
+        val googleIdRequest = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+        return extractGoogleIdToken(credentialManager.getCredential(context, googleIdRequest).credential)
     }
 
     private fun extractGoogleIdToken(credential: androidx.credentials.Credential): String {
@@ -245,15 +425,19 @@ class SignInViewModel(
             }
             if (available) {
                 maybeStartSessionRestore()
-                delay(10_000)
+                delay(60_000)
             } else {
-                delay(3_000)
+                delay(5_000)
             }
         }
     }
 
     private fun maybeStartSessionRestore() {
         val user = latestAuthUser ?: return
+        if (blockSessionRestore) return
+        val state = _uiState.value
+        if (state.isLoading && !state.isRestoringSession) return
+        if (user.isAnonymous && state.profile != null) return
         if (!_uiState.value.isFirebaseAvailable) return
         if (restoreJob?.isActive == true) return
         if (_uiState.value.profile?.uid == user.uid) return
@@ -278,17 +462,41 @@ class SignInViewModel(
                     )
                 }
             } catch (e: TimeoutCancellationException) {
+                val fallback = authRepository.fallbackProfile(user)
                 _uiState.update {
                     it.copy(
+                        profile = fallback,
                         isLoading = false,
                         isRestoringSession = false,
-                        error = "Unable to restore your profile right now. Check your connection and try again.",
+                        error = null,
                     )
                 }
+                viewModelScope.launch {
+                    runCatching {
+                        authRepository.ensureUserProfile(
+                            uid = user.uid,
+                            displayName = fallback.displayName,
+                            photoUrl = user.photoUrl?.toString(),
+                        )
+                    }.onSuccess { synced ->
+                        if (_uiState.value.profile?.uid == synced.uid) {
+                            _uiState.update { it.copy(profile = synced) }
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                if (!blockSessionRestore) {
+                    _uiState.update {
+                        it.copy(isLoading = false, isRestoringSession = false)
+                    }
+                }
             } catch (e: Exception) {
+                if (e.message.orEmpty().contains("cancel", ignoreCase = true)) return@launch
+                val fallback = authRepository.fallbackProfile(user)
+                setAuthError(e.toAuthMessage())
                 _uiState.update {
                     it.copy(
-                        error = e.toAuthMessage(),
+                        profile = fallback,
                         isLoading = false,
                         isRestoringSession = false,
                     )

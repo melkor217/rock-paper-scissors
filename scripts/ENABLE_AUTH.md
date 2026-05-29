@@ -44,6 +44,23 @@ Release builds need [**Digital Asset Links**](https://developer.android.com/iden
 - Email users need a password of at least 6 characters (Firebase default).
 - Firestore rules only require `request.auth != null`, so all providers work with matchmaking and gameplay.
 
-## App Check (debug builds)
+## App Check (required when enforcement is on)
 
-Debug builds install the **App Check debug provider**. On first run, filter Logcat for `DebugAppCheckProvider`, copy the debug token, and register it in Firebase Console → **App Check** → your Android app → **Manage debug tokens**. Release builds should use Play Integrity or your production App Check provider when you enable enforcement.
+If sign-in shows **App attestation failed** or **403 App Check**, Firebase is rejecting the app — not SHA-1 or Wi‑Fi.
+
+### Debug build (Android Studio Run, emulator **or** physical phone)
+
+1. Run the app once.
+2. Logcat → filter **`DebugAppCheckProvider`** → copy the **debug secret** (one token per debug keystore; same token works on emulator and USB device).
+3. [Firebase Console](https://console.firebase.google.com) → **App Check** → Android app `com.rpsonline.app` → **Manage debug tokens** → **Add** → paste → Save.
+4. Force-stop the app and open it again.
+
+### Release / sideloaded APK (physical device)
+
+Release builds use **Play Integrity**, not the debug token. In Firebase → **App Check** → register **Play Integrity** for `com.rpsonline.app`. Play Integrity usually requires the app to exist in Google Play (internal testing is enough) with the same package name and signing key.
+
+For day-to-day dev, use a **debug** build on a real phone and register the debug token as above.
+
+### Temporary workaround (development only)
+
+Firebase → **App Check** → **APIs** (Authentication, Cloud Firestore) → set enforcement to **Unenforced** (metrics only) until debug tokens or Play Integrity are configured. Turn enforcement back on before production.

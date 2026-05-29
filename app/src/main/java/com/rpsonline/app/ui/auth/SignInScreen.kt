@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import com.rpsonline.app.BuildConfig
@@ -56,7 +57,6 @@ import com.rpsonline.app.viewmodel.SignInViewModel
 
 @Composable
 fun SignInScreen(
-    onSignedIn: () -> Unit,
     onChangelog: () -> Unit = {},
     viewModel: SignInViewModel = viewModel(),
     updateViewModel: AppUpdateViewModel = viewModel(),
@@ -70,10 +70,9 @@ fun SignInScreen(
         updateViewModel.onScreenVisible(context)
     }
 
-    LaunchedEffect(uiState.profile) {
-        if (uiState.profile != null) {
-            onSignedIn()
-        }
+    LifecycleResumeEffect(Unit) {
+        viewModel.retryFirebaseAvailabilityCheck()
+        onPauseOrDispose { }
     }
 
     AppUpdateDialogs(
@@ -81,10 +80,6 @@ fun SignInScreen(
         activity = activity,
         viewModel = updateViewModel,
     )
-
-    if (uiState.profile != null) {
-        return
-    }
 
     Column(
         modifier = Modifier
@@ -113,6 +108,8 @@ fun SignInScreen(
         )
         Spacer(modifier = Modifier.height(24.dp))
 
+        val isDeviceOnline = rememberDeviceOnline(context)
+
         if (uiState.isLoading) {
             SignInLoadingState(isRestoringSession = uiState.isRestoringSession)
         } else {
@@ -120,18 +117,26 @@ fun SignInScreen(
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Checking Firebase availability...",
+                    text = stringResource(R.string.checking_firebase),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             } else if (!uiState.isFirebaseAvailable) {
                 Text(
-                    text = "Waiting for Firebase connection...",
+                    text = if (isDeviceOnline) {
+                        stringResource(R.string.waiting_for_firebase)
+                    } else {
+                        stringResource(R.string.no_internet_try_again)
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(onClick = { viewModel.retryFirebaseAvailabilityCheck() }) {
+                    Text(stringResource(R.string.retry))
+                }
                 Spacer(modifier = Modifier.height(12.dp))
             }
             AuthButtons(
@@ -139,6 +144,9 @@ fun SignInScreen(
                 onGuest = viewModel::signInAnonymously,
                 enabled = uiState.isFirebaseAvailable && !uiState.isCheckingFirebase,
             )
+            uiState.error?.let { message ->
+                SignInAuthError(message = message)
+            }
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider(modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(24.dp))
@@ -153,15 +161,6 @@ fun SignInScreen(
                 onModeChange = viewModel::setEmailMode,
                 onSubmit = { viewModel.submitEmailAuth(context) },
                 enabled = uiState.isFirebaseAvailable && !uiState.isCheckingFirebase,
-            )
-        }
-
-        uiState.error?.let { error ->
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
-                textAlign = TextAlign.Center,
             )
         }
         }
@@ -182,6 +181,18 @@ fun SignInScreen(
             onVersionClick = onChangelog,
         )
     }
+}
+
+@Composable
+private fun rememberDeviceOnline(context: android.content.Context): Boolean {
+    var isOnline by remember { mutableStateOf(NetworkUtils.isOnline(context)) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            isOnline = NetworkUtils.isOnline(context)
+            delay(2_000)
+        }
+    }
+    return isOnline
 }
 
 @Composable
@@ -212,6 +223,18 @@ private fun SignInLoadingState(isRestoringSession: Boolean) {
             )
         }
     }
+}
+
+@Composable
+private fun SignInAuthError(message: String) {
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(
+        text = message,
+        color = MaterialTheme.colorScheme.error,
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable

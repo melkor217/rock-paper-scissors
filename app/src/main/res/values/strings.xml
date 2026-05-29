@@ -40,6 +40,8 @@
     <string name="restoring_session">Restoring session…</string>
     <string name="signing_in">Signing in…</string>
     <string name="no_internet_try_again">No internet connection. Connect to Wi-Fi or mobile data and try again.</string>
+    <string name="checking_firebase">Checking connection…</string>
+    <string name="waiting_for_firebase">Waiting for server connection…</string>
     <string name="sign_in_with_google">Sign in with Google</string>
     <string name="continue_as_guest">Continue as guest</string>
     <string name="email">Email</string>
