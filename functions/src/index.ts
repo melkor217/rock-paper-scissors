@@ -304,6 +304,34 @@ async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Prom
   return null;
 }
 
+function isActiveMatchLive(matchSnap: FirebaseFirestore.DocumentSnapshot): boolean {
+  if (!matchSnap.exists || matchSnap.get("status") !== "active") return false;
+  const lastActivity = matchSnap.get("lastActivityAt") as Timestamp | undefined;
+  const lastMs = lastActivity?.toMillis() ?? 0;
+  return Date.now() - lastMs <= QUEUE_STALE_MS;
+}
+
+async function releaseStaleActiveMatchBeforeQueue(
+  matchSnap: FirebaseFirestore.DocumentSnapshot,
+): Promise<void> {
+  const match = matchSnap.data() as MatchDoc;
+  const batch = db.batch();
+  batch.update(matchSnap.ref, {
+    status: "abandoned",
+    resolution: "abandoned",
+    lastActivityAt: FieldValue.serverTimestamp(),
+  });
+  batch.update(db.collection("users").doc(match.player1), {
+    activeMatchId: FieldValue.delete(),
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+  batch.update(db.collection("users").doc(match.player2), {
+    activeMatchId: FieldValue.delete(),
+    lastSeen: FieldValue.serverTimestamp(),
+  });
+  await batch.commit();
+}
+
 async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string): Promise<void> {
   const active = await db.collection("matches").doc(activeMatchId).get();
   if (!active.exists) {
@@ -337,11 +365,17 @@ async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Pr
       const player1 = active.get("player1");
       const player2 = active.get("player2");
       if (player1 === uid || player2 === uid) {
-        await db.collection("queue").doc(uid).delete();
-        return;
+        if (isActiveMatchLive(active)) {
+          await db.collection("queue").doc(uid).delete();
+          return;
+        }
+        await releaseStaleActiveMatchBeforeQueue(active);
+      } else {
+        await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
       }
+    } else {
+      await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
     }
-    await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
   }
 
   if (!isQueueEntryActive(data)) return;

@@ -205,13 +205,17 @@ class HomeViewModel(
                 if (generation != matchmakingGeneration) return@launch
                 failMatchmaking(
                     generation = generation,
-                    message = "Matchmaking timed out. Check your connection and try again.",
+                    message = "Could not reach the matchmaking server. Check your connection and try again.",
                 )
             } catch (e: Exception) {
                 if (generation != matchmakingGeneration) return@launch
-                val message = e.message?.takeIf { it.isNotBlank() }
-                    ?.takeUnless { it.contains("Timed out", ignoreCase = true) }
-                    ?: "Matchmaking failed. Check your connection and try again."
+                val message = when {
+                    e.message?.contains("profile", ignoreCase = true) == true -> e.message!!
+                    e.message?.contains("Timed out", ignoreCase = true) == true ->
+                        "Could not reach the matchmaking server. Check your connection and try again."
+                    !e.message.isNullOrBlank() -> e.message!!
+                    else -> "Matchmaking failed. Check your connection and try again."
+                }
                 failMatchmaking(generation, message)
             } finally {
                 watchdog.cancel()

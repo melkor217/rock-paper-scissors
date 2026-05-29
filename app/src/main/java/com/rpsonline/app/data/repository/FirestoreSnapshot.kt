@@ -23,7 +23,7 @@ internal suspend fun DocumentReference.getServerSnapshotOrNull(
     timeoutMs: Long = 8_000,
 ): DocumentSnapshot? =
     withTimeoutOrNull(timeoutMs) {
-        runCatching { get().await() }.getOrNull()
+        runCatching { get(Source.SERVER).await() }.getOrNull()
     }
 
 /** Full profile shape required for leaderboard/history features. */
