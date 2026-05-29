@@ -20,23 +20,26 @@ class PresenceRepository(
      * Uses [waitForPendingWrites] so the doc is visible to other devices (not just local cache).
      */
     suspend fun touchPresence(uid: String, forceAuthRefresh: Boolean = false) {
+        MatchSessionMonitor.awaitSessionBootstrap()
         val payload = mapOf("lastSeen" to Timestamp.now())
         val presenceRef = firestore.collection(COLLECTION).document(uid)
 
-        for (attempt in 0..1) {
-            val wrote = runCatching {
-                awaitFirestoreAuth(forceRefresh = forceAuthRefresh || attempt > 0)
-                presenceRef.setAndAwaitServerSync(
-                    data = payload,
-                    writeTimeoutMs = PRESENCE_WRITE_TIMEOUT_MS,
-                    syncTimeoutMs = PRESENCE_SYNC_TIMEOUT_MS,
-                )
-            }.isSuccess
-            if (wrote) {
-                firestore.collection("users").document(uid).updateBestEffort(payload)
-                return
+        FirestoreSessionGate.withWriteLock {
+            for (attempt in 0..2) {
+                val wrote = runCatching {
+                    awaitFirestoreAuth(forceRefresh = forceAuthRefresh || attempt > 0)
+                    presenceRef.setAndAwaitServerSync(
+                        data = payload,
+                        writeTimeoutMs = PRESENCE_WRITE_TIMEOUT_MS,
+                        syncTimeoutMs = PRESENCE_SYNC_TIMEOUT_MS,
+                    )
+                }.isSuccess
+                if (wrote) {
+                    firestore.collection("users").document(uid).updateBestEffort(payload)
+                    return@withWriteLock
+                }
+                delay(400)
             }
-            delay(400)
         }
     }
 
@@ -92,8 +95,8 @@ class PresenceRepository(
         const val COLLECTION = "presence"
         const val ONLINE_WINDOW_MS = 2 * 60 * 1000L
         const val HEARTBEAT_INTERVAL_MS = 30_000L
-        private const val PRESENCE_WRITE_TIMEOUT_MS = 10_000L
-        private const val PRESENCE_SYNC_TIMEOUT_MS = 12_000L
+        private const val PRESENCE_WRITE_TIMEOUT_MS = 15_000L
+        private const val PRESENCE_SYNC_TIMEOUT_MS = 18_000L
         private const val SERVER_POLL_INTERVAL_MS = 12_000L
 
         fun countOnlineDocuments(

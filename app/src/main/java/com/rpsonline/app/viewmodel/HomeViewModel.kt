@@ -165,6 +165,8 @@ class HomeViewModel(
             try {
                 withContext(Dispatchers.IO) {
                     if (!isFirebaseAvailableForQueueAction("join the queue", generation)) return@withContext
+                    MatchSessionMonitor.awaitSessionBootstrap()
+                    if (generation != matchmakingGeneration) return@withContext
                     val profile = awaitUserProfileReady()
                     if (generation != matchmakingGeneration) return@withContext
 
@@ -219,7 +221,9 @@ class HomeViewModel(
                 val message = when {
                     e.message?.contains("profile", ignoreCase = true) == true -> e.message!!
                     e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true ->
-                        "Could not write to the matchmaking queue. Check Firebase App Check (Monitoring, not Enforced) and try again."
+                        "Could not write to Firestore (permission denied). In Firebase Console set App Check to Monitoring for Firestore and Auth, then try again."
+                    e.cause?.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true ->
+                        "Could not write to Firestore (permission denied). In Firebase Console set App Check to Monitoring for Firestore and Auth, then try again."
                     e.message?.contains("Timed out", ignoreCase = true) == true ||
                         e.message?.contains("server", ignoreCase = true) == true ->
                         "Could not join the matchmaking queue in time. Check your connection and try again."

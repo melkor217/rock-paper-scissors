@@ -5,7 +5,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.withTimeout
 
 /** Waits until queued Firestore writes are committed or rejected by the server. */
-internal suspend fun FirebaseFirestore.awaitPendingWritesSynced(timeoutMs: Long = 12_000) {
+internal suspend fun FirebaseFirestore.awaitPendingWritesSynced(timeoutMs: Long = 18_000) {
     withTimeout(timeoutMs) {
         waitForPendingWrites().awaitTask()
     }

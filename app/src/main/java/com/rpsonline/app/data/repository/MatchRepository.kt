@@ -52,8 +52,8 @@ class MatchRepository(
 
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
-        private const val QUEUE_WRITE_TIMEOUT_MS = 15_000L
-        private const val QUEUE_SERVER_ACK_TIMEOUT_MS = 12_000L
+        private const val QUEUE_WRITE_TIMEOUT_MS = 20_000L
+        private const val QUEUE_SERVER_ACK_TIMEOUT_MS = 18_000L
         private const val ENABLE_NETWORK_TIMEOUT_MS = 2_000L
         /** Align with [functions/src/queue.ts] [QUEUE_STALE_MS] and server matchmaking. */
         private const val ACTIVE_MATCH_RECONNECT_MAX_AGE_MS = 90_000L
@@ -198,6 +198,13 @@ class MatchRepository(
      */
     suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueResult {
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
+        MatchSessionMonitor.awaitSessionBootstrap()
+        return FirestoreSessionGate.withWriteLock {
+            joinQueueLocked(matchModes, profile)
+        }
+    }
+
+    private suspend fun joinQueueLocked(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueResult {
         val userId = uid
         require(profile.uid == userId) { "Profile uid mismatch" }
         awaitFirestoreAuth(forceRefresh = true)
@@ -284,13 +291,15 @@ class MatchRepository(
      * Drops any leftover queue doc from a previous session. Call on app launch and after sign-in.
      */
     suspend fun clearStaleSessionQueue(userId: String) {
-        MatchSessionMonitor.setMatchmakingInProgress(false)
-        MatchSessionMonitor.clearQueueState()
-        runCatching {
-            awaitFirestoreAuth(forceRefresh = true)
-            leaveQueueForUser(userId)
+        if (MatchSessionMonitor.isMatchmakingInProgress()) return
+        FirestoreSessionGate.withWriteLock {
+            MatchSessionMonitor.clearQueueState()
+            runCatching {
+                awaitFirestoreAuth(forceRefresh = true)
+                leaveQueueForUser(userId)
+            }
+            runCatching { firestore.awaitPendingWritesSynced(8_000) }
         }
-        runCatching { firestore.awaitPendingWritesSynced(8_000) }
     }
 
     fun clearStaleSessionQueueBestEffort(userId: String) {

@@ -10,7 +10,7 @@ internal suspend fun awaitFirestoreAuth(
 ) {
     val user = auth.currentUser ?: return
     // After OAuth sign-in Firestore may still see the previous session until the token refreshes.
-    withTimeoutOrNull(5_000) {
+    withTimeoutOrNull(10_000) {
         user.getIdToken(forceRefresh).await()
     }
 }

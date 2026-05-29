@@ -114,10 +114,20 @@ object MatchSessionMonitor {
         if (previous != null && previous != uid) {
             matchRepository.clearStaleSessionQueueBestEffort(previous)
         }
+        val bootstrap = FirestoreSessionGate.startBootstrap()
         sessionScope.launch {
-            matchRepository.clearStaleSessionQueue(uid)
+            try {
+                matchRepository.clearStaleSessionQueue(uid)
+            } finally {
+                FirestoreSessionGate.finishBootstrap(bootstrap)
+            }
         }
         attachListeners(uid)
+    }
+
+    /** Waits for post-auth queue cleanup so join/presence writes are not raced. */
+    suspend fun awaitSessionBootstrap() {
+        FirestoreSessionGate.awaitBootstrap()
     }
 
     private fun resetSessionUiState() {
@@ -201,10 +211,6 @@ object MatchSessionMonitor {
             return
         }
         if (!_matchmakingInProgress.value) {
-            val uid = auth.currentUser?.uid
-            if (uid != null) {
-                matchRepository.clearStaleSessionQueueBestEffort(uid)
-            }
             _hasQueueEntry.value = false
             _queueJoinedAtMs.value = null
             return

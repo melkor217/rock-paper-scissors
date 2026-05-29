@@ -56,7 +56,10 @@ class AuthRepository(
         val user = result.user ?: error("Google sign-in failed")
         awaitFirestoreAuth(forceRefresh = true)
         val profile = ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
-        runCatching { firestore.awaitPendingWritesSynced() }
+        runCatching { firestore.awaitPendingWritesSynced(18_000) }
+        runCatching {
+            PresenceRepository().touchPresence(user.uid, forceAuthRefresh = true)
+        }
         return profile
     }
 
