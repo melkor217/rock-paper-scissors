@@ -211,16 +211,20 @@ class MatchRepository(
         val clientJoinedAtMs = try {
             MatchmakingFunctions.joinQueue(matchModes, queueProfile)
         } catch (callableError: Exception) {
+            if (!MatchmakingFunctions.isRecoverableViaFirestore(callableError)) {
+                MatchmakingFunctions.toJoinErrorMessage(callableError)?.let {
+                    throw IllegalStateException(it, callableError)
+                }
+            }
             runCatching {
                 MatchSessionMonitor.awaitSessionBootstrap()
                 QueueWriteGate.withLock {
                     writeQueueEntryDirect(matchModes, queueProfile)
                 }
             }.getOrElse { directError ->
-                MatchmakingFunctions.toJoinErrorMessage(callableError)?.let {
-                    throw IllegalStateException(it, callableError)
-                }
-                throw directError
+                val message = MatchmakingFunctions.toJoinErrorMessage(callableError)
+                    ?: MatchmakingFunctions.toJoinErrorMessage(directError)
+                throw IllegalStateException(message ?: directError.message, directError)
             }
         }
         MatchSessionMonitor.confirmQueueJoinedAt(clientJoinedAtMs)
@@ -386,6 +390,11 @@ class MatchRepository(
         try {
             GameFunctions.submitMove(matchId, roundNumber, move)
         } catch (callableError: Exception) {
+            if (!GameFunctions.isRecoverableViaFirestore(callableError)) {
+                GameFunctions.toSubmitErrorMessage(callableError)?.let {
+                    throw IllegalStateException(it, callableError)
+                }
+            }
             submitMoveDirect(matchId, move, roundNumber, callableError)
         }
         if (!awaitMyChoiceInMatch(matchId, roundNumber, timeoutMs = 8_000)) {
@@ -415,10 +424,11 @@ class MatchRepository(
                 choiceRef.set(payload).awaitTask()
             }
         } catch (directError: Exception) {
-            GameFunctions.toSubmitErrorMessage(callableError)?.let {
-                throw IllegalStateException(it, callableError)
-            }
-            throw directError
+            GameFunctions.toSubmitErrorMessage(callableError)
+                ?: GameFunctions.toSubmitErrorMessage(directError)?.let {
+                    throw IllegalStateException(it, directError)
+                }
+                ?: throw directError
         }
         // Choice docs are deleted after the Cloud Function runs — only wait on the match doc.
     }
