@@ -37,11 +37,13 @@ import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.matchResultOutcomeDetail
 import com.rpsonline.app.domain.opponentEloAtMatch
 import com.rpsonline.app.domain.MatchMode
+import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchEloChangeLabel
 import com.rpsonline.app.ui.components.MatchRecapCard
 import com.rpsonline.app.ui.components.MatchResolutionOutcomeHeader
 import com.rpsonline.app.ui.components.ProfileSummaryCard
+import com.rpsonline.app.ui.components.ownProfileDisplayName
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.formatMatchScore
@@ -118,6 +120,10 @@ fun ResultScreen(
         val resolution = userId?.let { currentMatch.viewerResolution(it) }
         val eloDelta = userId?.let { currentMatch.myEloDelta(it) }
         val opponentName = userId?.let { currentMatch.opponentName(it) } ?: stringResource(R.string.opponent)
+        val myDisplayName = userId?.let { uid ->
+            myProfile?.displayName?.takeIf { it.isNotBlank() }
+                ?: currentMatch.myName(uid).takeIf { it.isNotBlank() }
+        } ?: DisplayNames.DEFAULT
         val opponentId = userId?.let { currentMatch.opponentId(it) }
         val opponentElo = userId?.let { uid ->
             myCurrentElo?.let { currentMatch.opponentEloAtMatch(uid, it) }
@@ -159,7 +165,7 @@ fun ResultScreen(
         if (userId != null) {
             Spacer(modifier = Modifier.height(12.dp))
             ProfileSummaryCard(
-                displayName = stringResource(R.string.you),
+                displayName = ownProfileDisplayName(myDisplayName),
                 profile = myProfile,
                 eloOverride = myCurrentElo,
                 onClick = { onOpponentProfile(userId) },

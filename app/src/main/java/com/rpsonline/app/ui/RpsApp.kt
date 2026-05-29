@@ -2,7 +2,6 @@ package com.rpsonline.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -172,49 +171,43 @@ fun RpsApp() {
                     tonalElevation = 2.dp,
                     shadowElevation = 2.dp,
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(topPanelGradient)
-                            .rpsTopBarLayout(),
-                        contentAlignment = Alignment.Center,
+                            .rpsTopBarLayout()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                        NetworkConnectionIndicator(status = connectionStatus)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        QueueOrMatchStatusLabel(
+                            activeMatch = activeMatch,
+                            queueJoinedAtMs = queueJoinedAtMs,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        CompositionLocalProvider(
+                            LocalMinimumInteractiveComponentSize provides 32.dp,
                         ) {
-                            NetworkConnectionIndicator(status = connectionStatus)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            QueueOrMatchStatusLabel(
-                                activeMatch = activeMatch,
-                                queueJoinedAtMs = queueJoinedAtMs,
-                            )
-                            Spacer(modifier = Modifier.weight(1f))
-                            CompositionLocalProvider(
-                                LocalMinimumInteractiveComponentSize provides 36.dp,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(0.dp),
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(0.dp),
-                                ) {
-                                    ClockSoundMuteButton(
-                                        muted = clockSoundMuted,
-                                        onMutedChange = { muted ->
-                                            clockSoundMuted = muted
-                                            soundPreferences.setClockMuted(muted)
-                                        },
-                                    )
-                                    AppearanceMenuButton(
-                                        currentStyle = themeStyle,
-                                        onStyleSelected = { style ->
-                                            themeStyle = style
-                                            themePreferences.set(style)
-                                        },
-                                    )
-                                }
+                                ClockSoundMuteButton(
+                                    muted = clockSoundMuted,
+                                    onMutedChange = { muted ->
+                                        clockSoundMuted = muted
+                                        soundPreferences.setClockMuted(muted)
+                                    },
+                                )
+                                AppearanceMenuButton(
+                                    currentStyle = themeStyle,
+                                    onStyleSelected = { style ->
+                                        themeStyle = style
+                                        themePreferences.set(style)
+                                    },
+                                )
                             }
                         }
                     }
