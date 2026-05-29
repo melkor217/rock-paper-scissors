@@ -143,13 +143,14 @@ class GameViewModel(
         }
 
         _uiState.update {
-            val clearPending = hasSubmittedMove && !it.isSubmitting
             it.copy(
                 match = match,
                 userId = userId,
                 hasSubmittedMove = hasSubmittedMove,
                 lockedMove = lockedMove,
-                pendingMove = if (clearPending) null else it.pendingMove,
+                // Server confirmed our choice — do not keep "Communicating to server" until write() returns.
+                isSubmitting = if (alreadySubmitted) false else it.isSubmitting,
+                pendingMove = if (hasSubmittedMove) null else it.pendingMove,
                 isResolvingTimeout = if (clearResolving) false else it.isResolvingTimeout,
             )
         }
@@ -398,51 +399,64 @@ class GameViewModel(
         val generation = ++submitGeneration
 
         viewModelScope.launch {
+            locallySubmittedRound = roundNumber
+            lockedMoveRound = roundNumber
             _uiState.update {
-                it.copy(isSubmitting = true, pendingMove = move, error = null)
+                it.copy(
+                    hasSubmittedMove = true,
+                    lockedMove = move,
+                    isSubmitting = false,
+                    pendingMove = null,
+                    error = null,
+                )
             }
             try {
                 withTimeout(SUBMIT_MOVE_TIMEOUT_MS) {
                     matchRepository.submitMove(matchId, move, roundNumber)
                 }
-                if (generation != submitGeneration) return@launch
-                locallySubmittedRound = roundNumber
-                lockedMoveRound = roundNumber
-                _uiState.update {
-                    it.copy(
-                        hasSubmittedMove = true,
-                        lockedMove = move,
-                        isSubmitting = false,
-                        pendingMove = null,
-                    )
-                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: TimeoutCancellationException) {
                 if (generation != submitGeneration) return@launch
-                locallySubmittedRound = null
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        pendingMove = null,
-                        error = "Connection timed out. Check your network and tap a move to try again.",
-                    )
+                revertMoveIfServerMissing(generation, roundNumber) {
+                    "Connection timed out. Check your network and tap a move to try again."
                 }
             } catch (e: Exception) {
                 if (generation != submitGeneration) return@launch
-                if (isIgnorableFirestoreRace(e)) {
-                    _uiState.update { it.copy(isSubmitting = false, pendingMove = null, error = null) }
-                    return@launch
-                }
-                locallySubmittedRound = null
-                _uiState.update {
-                    it.copy(
-                        isSubmitting = false,
-                        pendingMove = null,
-                        error = userFacingGameError(e, "Failed to submit move"),
-                    )
+                if (isIgnorableFirestoreRace(e)) return@launch
+                revertMoveIfServerMissing(generation, roundNumber) {
+                    userFacingGameError(e, "Failed to submit move")
                 }
             }
+        }
+    }
+
+    private fun revertMoveIfServerMissing(
+        generation: Int,
+        roundNumber: Int,
+        errorMessage: () -> String,
+    ) {
+        if (generation != submitGeneration) return
+        val userId = authRepository.currentUserId
+        val match = _uiState.value.match
+        val open = match?.openRound()
+        val serverHasChoice = userId != null && match != null &&
+            open?.roundNumber == roundNumber &&
+            when (userId) {
+                match.player1 -> open.player1Choice != null
+                else -> open.player2Choice != null
+            }
+        if (serverHasChoice) return
+        locallySubmittedRound = null
+        lockedMoveRound = null
+        _uiState.update {
+            it.copy(
+                hasSubmittedMove = false,
+                lockedMove = null,
+                isSubmitting = false,
+                pendingMove = null,
+                error = errorMessage(),
+            )
         }
     }
 
@@ -455,7 +469,7 @@ class GameViewModel(
     }
 
     companion object {
-        private const val SUBMIT_MOVE_TIMEOUT_MS = 20_000L
+        private const val SUBMIT_MOVE_TIMEOUT_MS = 12_000L
 
         fun factory(matchId: String): androidx.lifecycle.ViewModelProvider.Factory =
             object : androidx.lifecycle.ViewModelProvider.Factory {

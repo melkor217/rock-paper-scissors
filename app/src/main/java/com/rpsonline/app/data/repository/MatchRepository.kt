@@ -383,6 +383,7 @@ class MatchRepository(
     }
 
     suspend fun submitMove(matchId: String, move: Move, roundNumber: Int) {
+        awaitFirestoreAuth()
         firestore.collection("matches")
             .document(matchId)
             .collection("rounds")
@@ -395,7 +396,7 @@ class MatchRepository(
                     "submittedAt" to FieldValue.serverTimestamp(),
                 ),
             )
-            .await()
+            .awaitTask()
     }
 
     fun observeMatch(matchId: String): Flow<Match?> = callbackFlow {
