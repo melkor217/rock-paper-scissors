@@ -55,11 +55,22 @@ If sign-in shows **App attestation failed** or **403 App Check**, Firebase is re
 3. [Firebase Console](https://console.firebase.google.com) → **App Check** → Android app `com.rpsonline.app` → **Manage debug tokens** → **Add** → paste → Save.
 4. Force-stop the app and open it again.
 
-### Release / sideloaded APK (physical device)
+### GitHub release APK (v0.6.x from Releases)
 
-Release builds use **Play Integrity**, not the debug token. In Firebase → **App Check** → register **Play Integrity** for `com.rpsonline.app`. Play Integrity usually requires the app to exist in Google Play (internal testing is enough) with the same package name and signing key.
+CI **release** APKs are **sideloaded**, not installed from Play Store. They use the **debug App Check provider** (not Play Integrity), same as a debug build:
 
-For day-to-day dev, use a **debug** build on a real phone and register the debug token as above.
+1. Install `rps-online-vX.apk` from [GitHub Releases](https://github.com/melkor217/rock-paper-scissors/releases).
+2. Open the app once, then Logcat → filter **`DebugAppCheckProvider`** → copy the debug secret.
+3. Firebase → **App Check** → `com.rpsonline.app` → **Manage debug tokens** → **Add** → paste → Save.
+4. Force-stop the app and open again.
+
+The upload-keystore release uses a **different** debug secret than your local `~/.android/debug.keystore` — register both if you test debug and GitHub APKs.
+
+### Play Store release (future)
+
+When you ship through Google Play with `USE_DEBUG_APP_CHECK=false`, register **Play Integrity** in Firebase → **App Check** for `com.rpsonline.app` (app must be in Play Console with the same package name and signing key).
+
+For day-to-day dev, use a **debug** build from Android Studio and register that debug token as above.
 
 ### Temporary workaround (development only)
 

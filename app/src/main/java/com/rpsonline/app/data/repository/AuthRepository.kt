@@ -203,14 +203,21 @@ class AuthRepository(
 
     private fun buildAppCheckErrorMessage(cause: Exception): String {
         val detail = cause.message?.takeIf { it.isNotBlank() } ?: cause.javaClass.simpleName
-        return if (BuildConfig.DEBUG) {
-            "App Check failed ($detail). On debug builds (emulator or phone): open Logcat, filter " +
-                "DebugAppCheckProvider, copy the debug secret, add it in Firebase Console → App Check → " +
-                "your Android app → Manage debug tokens, then cold-restart the app."
+        val usesDebugAppCheck = BuildConfig.DEBUG || BuildConfig.USE_DEBUG_APP_CHECK
+        return if (usesDebugAppCheck) {
+            val buildLabel = if (BuildConfig.DEBUG) {
+                "On debug builds (emulator or phone)"
+            } else {
+                "On this GitHub release APK"
+            }
+            "App Check failed ($detail). $buildLabel: open Logcat, filter DebugAppCheckProvider, " +
+                "copy the debug secret, add it in Firebase Console → App Check → " +
+                "com.rpsonline.app → Manage debug tokens, then cold-restart the app."
         } else {
-            "App Check failed ($detail). Release builds need Play Integrity in Firebase Console → " +
-                "App Check → register the Play Integrity provider for this app (and the app listed in " +
-                "Google Play with the same package name). For local testing, install a debug build instead."
+            "App Check failed ($detail). Play Store releases need Play Integrity in Firebase Console → " +
+                "App Check → register Play Integrity for com.rpsonline.app (same package and signing key " +
+                "as Google Play). GitHub APKs use a debug token — install a release from GitHub Releases " +
+                "or a debug build from Android Studio."
         }
     }
 
