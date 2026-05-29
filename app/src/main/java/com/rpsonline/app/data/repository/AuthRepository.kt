@@ -223,8 +223,8 @@ class AuthRepository(
 
     /** Loads users/{uid} from the server (required before queue writes — Cloud Functions read server data). */
     suspend fun fetchServerProfile(uid: String): UserProfile? {
-        awaitFirestoreAuth(forceRefresh = true)
-        val snap = firestore.collection("users").document(uid).getServerSnapshotOrNull(8_000)
+        awaitFirestoreAuth()
+        val snap = firestore.collection("users").document(uid).getServerSnapshotOrNull(4_000)
         if (snap == null || !snap.isQueueReadyProfile()) return null
         return snap.toUserProfile(uid)
     }

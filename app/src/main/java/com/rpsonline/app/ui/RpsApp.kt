@@ -257,7 +257,11 @@ private fun QueueOrMatchStatusLabel(
     var queueElapsedSeconds by remember(queueJoinedAtMs) { mutableStateOf(0L) }
 
     LaunchedEffect(queueJoinedAtMs) {
-        val joinedAt = queueJoinedAtMs ?: return@LaunchedEffect
+        val joinedAt = queueJoinedAtMs
+        if (joinedAt == null) {
+            queueElapsedSeconds = 0L
+            return@LaunchedEffect
+        }
         while (true) {
             queueElapsedSeconds = ((System.currentTimeMillis() - joinedAt) / 1_000).coerceAtLeast(0L)
             delay(1_000)

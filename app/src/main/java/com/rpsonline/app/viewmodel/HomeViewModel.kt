@@ -205,14 +205,14 @@ class HomeViewModel(
                 if (generation != matchmakingGeneration) return@launch
                 failMatchmaking(
                     generation = generation,
-                    message = "Could not reach the matchmaking server. Check your connection and try again.",
+                    message = "Could not join the matchmaking queue in time. Check your connection and try again.",
                 )
             } catch (e: Exception) {
                 if (generation != matchmakingGeneration) return@launch
                 val message = when {
                     e.message?.contains("profile", ignoreCase = true) == true -> e.message!!
                     e.message?.contains("Timed out", ignoreCase = true) == true ->
-                        "Could not reach the matchmaking server. Check your connection and try again."
+                        "Could not join the matchmaking queue in time. Check your connection and try again."
                     !e.message.isNullOrBlank() -> e.message!!
                     else -> "Matchmaking failed. Check your connection and try again."
                 }
@@ -225,10 +225,7 @@ class HomeViewModel(
 
     private fun failMatchmaking(generation: Int, message: String) {
         if (generation != matchmakingGeneration) return
-        MatchSessionMonitor.setMatchmakingInProgress(false)
-        awaitingMatchFromQueue = false
-        awaitingMatchStartedAtMs = null
-        stopQueueTimer()
+        cleanupMatchmakingSession()
         _uiState.update {
             it.copy(
                 isJoiningQueue = false,
@@ -236,6 +233,17 @@ class HomeViewModel(
                 queueElapsedSeconds = 0,
                 matchmakingError = message,
             )
+        }
+    }
+
+    private fun cleanupMatchmakingSession() {
+        MatchSessionMonitor.setMatchmakingInProgress(false)
+        awaitingMatchFromQueue = false
+        awaitingMatchStartedAtMs = null
+        stopQueueTimer()
+        MatchSessionMonitor.clearQueueState()
+        authRepository.currentUserId?.let { uid ->
+            matchRepository.leaveQueueBestEffort(uid)
         }
     }
 
@@ -295,7 +303,6 @@ class HomeViewModel(
                             isJoiningQueue = false,
                             isInQueue = false,
                             queueElapsedSeconds = 0,
-                            matchmakingError = null,
                         )
                     }
                 } else {
@@ -535,11 +542,7 @@ class HomeViewModel(
 
     private fun resetMatchmakingLocalState() {
         matchmakingGeneration++
-        awaitingMatchFromQueue = false
-        awaitingMatchStartedAtMs = null
-        stopQueueTimer()
-        MatchSessionMonitor.setMatchmakingInProgress(false)
-        MatchSessionMonitor.clearQueueState()
+        cleanupMatchmakingSession()
     }
 
     override fun onCleared() {
