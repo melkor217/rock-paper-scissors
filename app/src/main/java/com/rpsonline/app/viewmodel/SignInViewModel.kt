@@ -48,7 +48,6 @@ data class SignInUiState(
     val email: String = "",
     val password: String = "",
     val displayName: String = "",
-    val emailMode: EmailAuthMode = EmailAuthMode.SIGN_IN,
 )
 
 class SignInViewModel(
@@ -118,10 +117,6 @@ class SignInViewModel(
             runFirebaseAvailabilityCheck()
             maybeStartSessionRestore()
         }
-    }
-
-    fun setEmailMode(mode: EmailAuthMode) {
-        _uiState.update { it.copy(emailMode = mode, error = null) }
     }
 
     fun signInWithGoogle(context: Context) {
@@ -250,7 +245,7 @@ class SignInViewModel(
         }
     }
 
-    fun submitEmailAuth(context: Context) {
+    fun submitEmailAuth(context: Context, mode: EmailAuthMode) {
         if (!_uiState.value.isFirebaseAvailable) {
             setAuthError("Firebase is unavailable. Check your connection and try again.")
             return
@@ -271,7 +266,7 @@ class SignInViewModel(
         viewModelScope.launch {
             beginExplicitSignIn()
             try {
-                val profile = when (state.emailMode) {
+                val profile = when (mode) {
                     EmailAuthMode.SIGN_IN -> authRepository.signInWithEmail(email, password)
                     EmailAuthMode.REGISTER -> authRepository.registerWithEmail(
                         email = email,
