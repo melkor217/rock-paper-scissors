@@ -5,9 +5,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.Source
 import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.domain.DisplayNames
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -27,23 +25,6 @@ internal suspend fun DocumentReference.getServerSnapshotOrNull(
     withTimeoutOrNull(timeoutMs) {
         runCatching { get(Source.SERVER).await() }.getOrNull()
     }
-
-/**
- * Polls until [Source.SERVER] returns a document matching [predicate].
- * Use after writes that may ack locally before App Check / network reaches Firestore.
- */
-internal suspend fun DocumentReference.awaitVisibleOnServer(
-    timeoutMs: Long = 10_000,
-    predicate: (DocumentSnapshot) -> Boolean = { it.exists() },
-) {
-    withTimeout(timeoutMs) {
-        while (true) {
-            val snap = withTimeout(4_000) { get(Source.SERVER).await() }
-            if (predicate(snap)) return@withTimeout
-            delay(250)
-        }
-    }
-}
 
 /** Full profile shape required for leaderboard/history features. */
 internal fun DocumentSnapshot.isCompleteUserProfile(): Boolean =

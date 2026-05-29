@@ -55,7 +55,9 @@ class AuthRepository(
         val result = auth.signInWithCredential(credential).await()
         val user = result.user ?: error("Google sign-in failed")
         awaitFirestoreAuth(forceRefresh = true)
-        return ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
+        val profile = ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
+        runCatching { firestore.awaitPendingWritesSynced() }
+        return profile
     }
 
     /** Firebase auth only — profile sync can finish after the UI navigates away. */

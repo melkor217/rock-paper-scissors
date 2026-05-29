@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.tasks.await
 
 class PresenceRepository(
@@ -18,30 +17,27 @@ class PresenceRepository(
 ) {
     /**
      * Writes [COLLECTION]/[uid] so other clients can count this player as online.
-     * Retries once with a fresh auth token — Google sign-in often needs that on the first heartbeat.
+     * Uses [waitForPendingWrites] so the doc is visible to other devices (not just local cache).
      */
     suspend fun touchPresence(uid: String, forceAuthRefresh: Boolean = false) {
-        val now = Timestamp.now()
-        val payload = mapOf("lastSeen" to now)
+        val payload = mapOf("lastSeen" to Timestamp.now())
         val presenceRef = firestore.collection(COLLECTION).document(uid)
 
         for (attempt in 0..1) {
-            awaitFirestoreAuth(forceRefresh = forceAuthRefresh || attempt > 0)
             val wrote = runCatching {
-                withTimeout(PRESENCE_WRITE_TIMEOUT_MS) {
-                    presenceRef.set(payload).awaitTask()
-                }
-                presenceRef.awaitVisibleOnServer(timeoutMs = PRESENCE_WRITE_TIMEOUT_MS) { snap ->
-                    snap.exists() && snap.contains("lastSeen")
-                }
+                awaitFirestoreAuth(forceRefresh = forceAuthRefresh || attempt > 0)
+                presenceRef.setAndAwaitServerSync(
+                    data = payload,
+                    writeTimeoutMs = PRESENCE_WRITE_TIMEOUT_MS,
+                    syncTimeoutMs = PRESENCE_SYNC_TIMEOUT_MS,
+                )
             }.isSuccess
-            if (wrote) return
-            delay(350)
+            if (wrote) {
+                firestore.collection("users").document(uid).updateBestEffort(payload)
+                return
+            }
+            delay(400)
         }
-
-        firestore.collection("users")
-            .document(uid)
-            .updateBestEffort(payload)
     }
 
     fun clearPresence(uid: String) {
@@ -58,59 +54,36 @@ class PresenceRepository(
         return countOnlineDocuments(snapshot.documents, onlineWindowMs)
     }
 
+    /** All clients use the same server-backed count so Google vs guest auth cannot diverge. */
     fun observeOnlineCount(
         onlineWindowMs: Long = ONLINE_WINDOW_MS,
     ): Flow<Int> = callbackFlow {
-        var latestDocs: List<DocumentSnapshot> = emptyList()
+        var lastEmitted: Int? = null
 
-        suspend fun loadFromServer() {
-            awaitFirestoreAuth()
-            latestDocs = firestore.collection(COLLECTION).get(Source.SERVER).await().documents
-        }
-
-        fun emitCount() {
-            val count = countOnlineDocuments(latestDocs, onlineWindowMs)
-            trySend(count)
-        }
-
-        fun recoverFromServer() {
-            launch {
-                runCatching { loadFromServer() }
-                emitCount()
+        suspend fun emitFromServer() {
+            val count = runCatching { fetchOnlineCountFromServer(onlineWindowMs) }.getOrNull()
+                ?: return
+            if (count != lastEmitted) {
+                lastEmitted = count
+                trySend(count)
             }
         }
 
-        emitCount()
+        emitFromServer()
 
-        val listener = firestore.collection(COLLECTION)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    recoverFromServer()
-                    return@addSnapshotListener
-                }
-                latestDocs = snapshot?.documents.orEmpty()
-                emitCount()
-            }
+        val listener = firestore.collection(COLLECTION).addSnapshotListener { _, _ ->
+            launch { emitFromServer() }
+        }
 
-        val recalcTicker = launch {
+        val ticker = launch {
             while (isActive) {
-                delay(COUNT_RECALC_INTERVAL_MS)
-                emitCount()
+                delay(SERVER_POLL_INTERVAL_MS)
+                emitFromServer()
             }
         }
-
-        val serverSyncTicker = launch {
-            while (isActive) {
-                delay(SERVER_SYNC_INTERVAL_MS)
-                recoverFromServer()
-            }
-        }
-
-        recoverFromServer()
 
         awaitClose {
-            recalcTicker.cancel()
-            serverSyncTicker.cancel()
+            ticker.cancel()
             listener.remove()
         }
     }
@@ -119,11 +92,9 @@ class PresenceRepository(
         const val COLLECTION = "presence"
         const val ONLINE_WINDOW_MS = 2 * 60 * 1000L
         const val HEARTBEAT_INTERVAL_MS = 30_000L
-        /** Re-count online players as lastSeen ages out without waiting for doc changes. */
-        private const val COUNT_RECALC_INTERVAL_MS = 10_000L
-        /** Refresh presence docs from server in case the snapshot listener went stale. */
-        private const val SERVER_SYNC_INTERVAL_MS = 45_000L
-        private const val PRESENCE_WRITE_TIMEOUT_MS = 8_000L
+        private const val PRESENCE_WRITE_TIMEOUT_MS = 10_000L
+        private const val PRESENCE_SYNC_TIMEOUT_MS = 12_000L
+        private const val SERVER_POLL_INTERVAL_MS = 12_000L
 
         fun countOnlineDocuments(
             documents: List<DocumentSnapshot>,
@@ -131,8 +102,7 @@ class PresenceRepository(
         ): Int {
             val cutoff = System.currentTimeMillis() - onlineWindowMs
             return documents.count { doc ->
-                !doc.metadata.hasPendingWrites() &&
-                    doc.getTimestamp("lastSeen")?.toDate()?.time?.let { it >= cutoff } == true
+                doc.getTimestamp("lastSeen")?.toDate()?.time?.let { it >= cutoff } == true
             }
         }
     }

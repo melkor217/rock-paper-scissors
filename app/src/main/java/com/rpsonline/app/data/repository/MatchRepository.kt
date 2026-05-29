@@ -200,12 +200,20 @@ class MatchRepository(
         require(matchModes.isNotEmpty()) { "At least one match mode must be selected" }
         val userId = uid
         require(profile.uid == userId) { "Profile uid mismatch" }
-        awaitFirestoreAuth()
+        awaitFirestoreAuth(forceRefresh = true)
         withTimeoutOrNull(ENABLE_NETWORK_TIMEOUT_MS) {
             runCatching { firestore.enableNetwork().await() }
         }
 
-        val queueProfile = UserProfileSync.queueReadyProfile(userId) ?: profile
+        val authRepository = AuthRepository()
+        var queueProfile = UserProfileSync.queueReadyProfile(userId) ?: profile
+        if (authRepository.fetchServerProfile(userId) == null) {
+            queueProfile = authRepository.ensureUserProfile(
+                uid = userId,
+                displayName = profile.displayName,
+                photoUrl = profile.photoUrl,
+            )
+        }
         UserProfileSync.rememberQueueReady(userId, queueProfile)
 
         val activeMatchId = queueProfile.activeMatchId
@@ -241,19 +249,16 @@ class MatchRepository(
         var lastError: Exception? = null
         repeat(2) { attempt ->
             try {
-                withTimeout(QUEUE_WRITE_TIMEOUT_MS) {
-                    queueRef.set(payload).awaitTask()
-                }
-                queueRef.awaitVisibleOnServer(timeoutMs = QUEUE_SERVER_ACK_TIMEOUT_MS) { snap ->
-                    snap.exists() && snap.contains("joinedAt") && snap.contains("lastHeartbeatAt")
-                }
+                awaitFirestoreAuth(forceRefresh = attempt > 0)
+                queueRef.setAndAwaitServerSync(
+                    data = payload,
+                    writeTimeoutMs = QUEUE_WRITE_TIMEOUT_MS,
+                    syncTimeoutMs = QUEUE_SERVER_ACK_TIMEOUT_MS,
+                )
                 return
             } catch (e: Exception) {
                 lastError = e
-                if (attempt == 0) {
-                    awaitFirestoreAuth(forceRefresh = true)
-                    delay(400)
-                }
+                delay(400)
             }
         }
         throw lastError ?: IllegalStateException("Could not join matchmaking queue")
