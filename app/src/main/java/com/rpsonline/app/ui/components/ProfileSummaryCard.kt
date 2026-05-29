@@ -19,15 +19,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.R
 import com.rpsonline.app.data.model.UserProfile
+import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.leaderboard.ThrowDistributionRadialChart
 
 private val SummaryRowHorizontalPadding = 10.dp
 private val SummaryRowVerticalPadding = 6.dp
 private val SummaryStatsLinesGap = 1.dp
+
+/** Profile summary title for the signed-in user, e.g. "Playername (you)". */
+@Composable
+fun ownProfileDisplayName(displayName: String?): String {
+    val base = displayName?.takeIf { it.isNotBlank() } ?: DisplayNames.DEFAULT
+    return stringResource(R.string.profile_title_own, base)
+}
 
 @Composable
 fun ProfileSummaryCard(

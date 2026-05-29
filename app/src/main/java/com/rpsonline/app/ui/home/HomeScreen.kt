@@ -44,11 +44,11 @@ import android.widget.Toast
 import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.R
 import com.rpsonline.app.data.update.ReleaseChangelog
-import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
 import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.ProfileSummaryCard
+import com.rpsonline.app.ui.components.ownProfileDisplayName
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.rpsScreenPadding
@@ -158,7 +158,7 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         ProfileSummaryCard(
-            displayName = profile?.displayName ?: DisplayNames.DEFAULT,
+            displayName = ownProfileDisplayName(profile?.displayName),
             profile = profile,
             onClick = onProfile,
         )
