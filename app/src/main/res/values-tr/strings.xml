@@ -6,6 +6,8 @@
     <string name="sign_out">Cikis yap</string>
     <string name="leaderboard">Liderlik tablosu</string>
     <string name="find_match">Mac bul</string>
+    <string name="communicating_to_server">Sunucuyla iletişim kuruluyor…</string>
+
     <string name="in_queue">Kuyrukta</string>
     <string name="in_match">Macta</string>
     <string name="waiting_for_opponent">Rakip bekleniyor…</string>

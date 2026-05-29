@@ -6,6 +6,8 @@
     <string name="sign_out">Kirjaudu ulos</string>
     <string name="leaderboard">Tulostaulu</string>
     <string name="find_match">Etsi ottelu</string>
+    <string name="communicating_to_server">Yhdistetään palvelimeen…</string>
+
     <string name="in_queue">Jonossa</string>
     <string name="in_match">Ottelussa</string>
     <string name="waiting_for_opponent">Odotetaan vastustajaa…</string>

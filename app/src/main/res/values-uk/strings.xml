@@ -6,6 +6,8 @@
     <string name="sign_out">Vyity</string>
     <string name="leaderboard">Reitynh</string>
     <string name="find_match">Znayty match</string>
+    <string name="communicating_to_server">Зв\'язок із сервером…</string>
+
     <string name="in_queue">U cherzi</string>
     <string name="in_match">U matchi</string>
     <string name="waiting_for_opponent">Ochikuvannya suprotyvnyka…</string>

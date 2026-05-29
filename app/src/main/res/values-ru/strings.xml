@@ -6,6 +6,8 @@
     <string name="sign_out">Выйти</string>
     <string name="leaderboard">Таблица лидеров</string>
     <string name="find_match">Найти матч</string>
+    <string name="communicating_to_server">Связь с сервером…</string>
+
     <string name="in_queue">В очереди</string>
     <string name="in_match">В матче</string>
     <string name="waiting_for_opponent">Ожидание соперника…</string>

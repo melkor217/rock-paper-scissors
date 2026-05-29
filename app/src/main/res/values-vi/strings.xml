@@ -6,6 +6,8 @@
     <string name="sign_out">Dang xuat</string>
     <string name="leaderboard">Bang xep hang</string>
     <string name="find_match">Tim tran</string>
+    <string name="communicating_to_server">Đang kết nối máy chủ…</string>
+
     <string name="in_queue">Dang cho</string>
     <string name="in_match">Dang dau</string>
     <string name="waiting_for_opponent">Dang cho doi thu…</string>

@@ -6,6 +6,8 @@
     <string name="sign_out">로그아웃</string>
     <string name="leaderboard">리더보드</string>
     <string name="find_match">매치 찾기</string>
+    <string name="communicating_to_server">서버와 통신 중…</string>
+
     <string name="in_queue">대기열</string>
     <string name="in_match">경기 중</string>
     <string name="waiting_for_opponent">상대를 기다리는 중…</string>

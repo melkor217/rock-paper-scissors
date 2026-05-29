@@ -9,6 +9,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import com.rpsonline.app.BuildConfig
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchEndReason
@@ -295,6 +296,16 @@ class MatchRepository(
 
     suspend fun getMatch(matchId: String): Match? {
         val snapshot = firestore.collection("matches").document(matchId).get().await()
+        return if (snapshot.exists()) snapshot.toMatch(matchId) else null
+    }
+
+    /** Fresh match state after resume; bypasses stale local cache. */
+    suspend fun getMatchFromServer(matchId: String): Match? {
+        awaitFirestoreAuth()
+        val snapshot = firestore.collection("matches")
+            .document(matchId)
+            .get(Source.SERVER)
+            .await()
         return if (snapshot.exists()) snapshot.toMatch(matchId) else null
     }
 

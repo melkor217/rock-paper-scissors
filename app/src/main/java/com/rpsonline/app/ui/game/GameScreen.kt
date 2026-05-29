@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
@@ -54,6 +54,11 @@ fun GameScreen(
     val uiState by viewModel.uiState.collectAsState()
     val match = uiState.match
     val userId = uiState.userId
+
+    LifecycleResumeEffect(matchId) {
+        viewModel.refreshOnResume()
+        onPauseOrDispose { }
+    }
 
     LaunchedEffect(match?.status, match?.id) {
         when (match?.status) {
@@ -240,8 +245,11 @@ fun GameScreen(
                 }
 
                 uiState.isSubmitting -> {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    CircularProgressIndicator()
+                    val pendingMove = uiState.pendingMove
+                    if (pendingMove != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SubmittingMoveCard(move = pendingMove)
+                    }
                 }
 
                 showMovePicker -> {

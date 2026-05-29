@@ -6,6 +6,8 @@
     <string name="sign_out">Log ud</string>
     <string name="leaderboard">Rangliste</string>
     <string name="find_match">Find kamp</string>
+    <string name="communicating_to_server">Kommunikerer med server…</string>
+
     <string name="in_queue">I ko</string>
     <string name="in_match">I kamp</string>
     <string name="waiting_for_opponent">Venter pa modstander…</string>

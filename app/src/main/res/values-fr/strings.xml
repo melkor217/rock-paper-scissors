@@ -6,6 +6,8 @@
     <string name="sign_out">Se deconnecter</string>
     <string name="leaderboard">Classement</string>
     <string name="find_match">Trouver un match</string>
+    <string name="communicating_to_server">Communication avec le serveur…</string>
+
     <string name="in_queue">En file</string>
     <string name="in_match">En match</string>
     <string name="waiting_for_opponent">En attente adversaire…</string>

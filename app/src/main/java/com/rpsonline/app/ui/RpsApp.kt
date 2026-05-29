@@ -92,6 +92,17 @@ fun RpsApp() {
     val authRepository = remember { AuthRepository() }
     val matchRepository = remember { MatchRepository() }
     val user by authRepository.authStateFlow().collectAsStateWithLifecycle(initialValue = authRepository.currentUser)
+
+    LifecycleResumeEffect(user?.uid) {
+        val uid = user?.uid
+        if (uid != null) {
+            scope.launch {
+                runCatching { MatchSessionMonitor.refreshOnResume() }
+                runCatching { PresenceRepository().touchPresence(uid) }
+            }
+        }
+        onPauseOrDispose { }
+    }
     val activeMatch by MatchSessionMonitor.activeMatch.collectAsStateWithLifecycle()
     val queueJoinedAtMs by MatchSessionMonitor.queueJoinedAtMs.collectAsStateWithLifecycle()
 

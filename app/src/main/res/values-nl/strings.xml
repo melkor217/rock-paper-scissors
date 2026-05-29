@@ -6,6 +6,8 @@
     <string name="sign_out">Uitloggen</string>
     <string name="leaderboard">Ranglijst</string>
     <string name="find_match">Match zoeken</string>
+    <string name="communicating_to_server">Verbinden met server…</string>
+
     <string name="in_queue">In wachtrij</string>
     <string name="in_match">In wedstrijd</string>
     <string name="waiting_for_opponent">Wachten op tegenstander…</string>

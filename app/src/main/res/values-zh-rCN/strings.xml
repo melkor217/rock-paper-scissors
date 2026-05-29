@@ -6,6 +6,8 @@
     <string name="sign_out">退出登录</string>
     <string name="leaderboard">排行榜</string>
     <string name="find_match">寻找对局</string>
+    <string name="communicating_to_server">正在连接服务器…</string>
+
     <string name="in_queue">排队中</string>
     <string name="in_match">对局中</string>
     <string name="waiting_for_opponent">正在等待对手…</string>

@@ -6,6 +6,8 @@
     <string name="sign_out">Keluar</string>
     <string name="leaderboard">Papan peringkat</string>
     <string name="find_match">Cari pertandingan</string>
+    <string name="communicating_to_server">Menghubungi server…</string>
+
     <string name="in_queue">Dalam antrean</string>
     <string name="in_match">Dalam pertandingan</string>
     <string name="waiting_for_opponent">Menunggu lawan…</string>
