@@ -10,6 +10,7 @@ import com.rpsonline.app.data.preferences.MatchModePreferences
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.MatchSessionMonitor
+import com.rpsonline.app.data.repository.MatchmakingFunctions
 import com.rpsonline.app.data.repository.PresenceRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.MatchMode
@@ -233,6 +234,8 @@ class HomeViewModel(
             } catch (e: Exception) {
                 if (generation != matchmakingGeneration) return@launch
                 val message = when {
+                    MatchmakingFunctions.toJoinErrorMessage(e) != null ->
+                        MatchmakingFunctions.toJoinErrorMessage(e)!!
                     e.message?.contains("profile", ignoreCase = true) == true -> e.message!!
                     e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true ->
                         "Could not write to Firestore (permission denied). In Firebase Console set App Check to Monitoring for Firestore and Auth, then try again."

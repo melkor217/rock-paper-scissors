@@ -1056,6 +1056,54 @@ export const resolveTimedOutRounds = onSchedule(
   },
 );
 
+/** Server-side queue join (admin write) for clients that cannot confirm Firestore queue writes. */
+export const joinMatchmakingQueue = onCall({ region: "europe-west1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+
+  const rawModes = request.data?.matchModes;
+  if (!Array.isArray(rawModes) || rawModes.length === 0) {
+    throw new HttpsError("invalid-argument", "Select at least one match mode.");
+  }
+  const matchModes = parseMatchModes(rawModes);
+  if (matchModes.length === 0) {
+    throw new HttpsError("invalid-argument", "Invalid match modes.");
+  }
+
+  const userSnap = await db.collection("users").doc(uid).get();
+  const displayName =
+    (typeof request.data?.displayName === "string" && request.data.displayName.trim())
+      ? request.data.displayName.trim()
+      : (userSnap.get("displayName") as string | undefined)
+        ?? "Player";
+  const elo =
+    typeof request.data?.elo === "number"
+      ? request.data.elo
+      : (userSnap.get("elo") as number | undefined)
+        ?? 1000;
+
+  const now = Timestamp.now();
+  const clientJoinedAtMs = Date.now();
+  const queueData = {
+    joinedAt: now,
+    lastHeartbeatAt: now,
+    clientJoinedAt: clientJoinedAtMs,
+    elo,
+    displayName,
+    matchModes,
+  };
+
+  await db.collection("queue").doc(uid).set(queueData);
+  await attemptQueueMatch(uid, queueData as Record<string, unknown>);
+
+  return {
+    clientJoinedAtMs,
+    joinedAtMs: now.toMillis(),
+  };
+});
+
 /** Lightweight RTT probe for in-app connection meter (requires auth). */
 export const ping = onCall(async (request) => {
   if (!request.auth) {

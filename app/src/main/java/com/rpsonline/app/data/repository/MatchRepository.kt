@@ -7,6 +7,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -224,18 +225,28 @@ class MatchRepository(
             UserProfileSync.rememberQueueReady(userId, queueProfile)
         }
 
-        val clientJoinedAtMs = System.currentTimeMillis()
-        val joinedAt = Timestamp.now()
-        val queuePayload = mapOf(
-            "joinedAt" to joinedAt,
-            "lastHeartbeatAt" to joinedAt,
-            "clientJoinedAt" to clientJoinedAtMs,
-            "elo" to queueProfile.elo,
-            "displayName" to queueProfile.displayName,
-            "matchModes" to matchModes.map { it.name },
-        )
-        val queueRef = firestore.collection("queue").document(userId)
-        writeQueueEntry(queueRef, queuePayload)
+        val clientJoinedAtMs = try {
+            MatchmakingFunctions.joinQueue(matchModes, queueProfile)
+        } catch (callableError: Exception) {
+            val joinedAt = Timestamp.now()
+            val clientJoinedAt = System.currentTimeMillis()
+            val queuePayload = mapOf(
+                "joinedAt" to joinedAt,
+                "lastHeartbeatAt" to joinedAt,
+                "clientJoinedAt" to clientJoinedAt,
+                "elo" to queueProfile.elo,
+                "displayName" to queueProfile.displayName,
+                "matchModes" to matchModes.map { it.name },
+            )
+            val queueRef = firestore.collection("queue").document(userId)
+            try {
+                writeQueueEntry(queueRef, queuePayload)
+                clientJoinedAt
+            } catch (directError: Exception) {
+                MatchmakingFunctions.toJoinErrorMessage(callableError)?.let { throw IllegalStateException(it, callableError) }
+                throw directError
+            }
+        }
         MatchSessionMonitor.confirmQueueJoinedAt(clientJoinedAtMs)
 
         return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = clientJoinedAtMs)
@@ -252,6 +263,16 @@ class MatchRepository(
                     confirmTimeoutMs = QUEUE_SERVER_CONFIRM_TIMEOUT_MS,
                 )
                 return
+            } catch (e: FirebaseFirestoreException) {
+                lastError = e
+                if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    throw IllegalStateException(
+                        "Could not write to the matchmaking queue (permission denied). " +
+                            "Check Firebase App Check is Monitoring for Firestore.",
+                        e,
+                    )
+                }
+                delay(400)
             } catch (e: Exception) {
                 lastError = e
                 delay(400)
