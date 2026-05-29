@@ -80,6 +80,8 @@ service cloud.firestore {
         ])
         && (!('lastSeen' in request.resource.data.diff(resource.data).changedKeys())
             || request.resource.data.lastSeen is timestamp);
+      /** Lets clients drop broken legacy profiles before recreating with required fields. */
+      allow delete: if isOwner(userId);
     }
 
     match /presence/{userId} {

@@ -177,11 +177,11 @@ object MatchSessionMonitor {
             return
         }
         _hasQueueEntry.value = true
-        if (snapshot.metadata.hasPendingWrites()) {
-            return
-        }
         resolveQueueJoinedAtMs(snapshot)?.let { joinedAtMs ->
             _queueJoinedAtMs.value = joinedAtMs
+        }
+        if (snapshot.metadata.hasPendingWrites()) {
+            return
         }
     }
 

@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
@@ -32,6 +33,8 @@ class AuthRepository(
 ) {
     private companion object {
         private const val TAG = "AuthRepository"
+        private const val QUEUE_PROFILE_WAIT_MS = 12_000L
+        private const val QUEUE_PROFILE_POLL_MS = 250L
     }
 
     val currentUser: FirebaseUser?
@@ -53,6 +56,7 @@ class AuthRepository(
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         val result = auth.signInWithCredential(credential).await()
         val user = result.user ?: error("Google sign-in failed")
+        awaitFirestoreAuth(forceRefresh = true)
         return ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
     }
 
@@ -105,7 +109,39 @@ class AuthRepository(
         return ensureUserProfile(user.uid, name, photoUrl = null)
     }
 
+    /**
+     * Returns once [users/{uid}] has the fields required for matchmaking, or false on timeout.
+     */
+    suspend fun waitUntilQueueReadyProfile(
+        uid: String,
+        timeoutMs: Long = QUEUE_PROFILE_WAIT_MS,
+    ): Boolean {
+        val docRef = firestore.collection("users").document(uid)
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            awaitFirestoreAuth()
+            val snap = docRef.getServerSnapshotOrNull(timeoutMs = 3_000)
+                ?: docRef.getCacheSnapshotOrNull(timeoutMs = 500)
+            if (snap != null && snap.isQueueReadyProfile()) return true
+            delay(QUEUE_PROFILE_POLL_MS)
+        }
+        return false
+    }
+
     suspend fun ensureUserProfile(
+        uid: String,
+        displayName: String?,
+        photoUrl: String?,
+    ): UserProfile = UserProfileSync.withProfileLock {
+        queueReadyProfile(uid)?.let { return@withProfileLock it }
+        val profile = ensureUserProfileLocked(uid, displayName, photoUrl)
+        verifyAndRememberQueueReady(uid, profile)
+    }
+
+    /** Profile known good for queue writes (from a recent [ensureUserProfile]). */
+    fun queueReadyProfile(uid: String): UserProfile? = UserProfileSync.queueReadyProfile(uid)
+
+    private suspend fun ensureUserProfileLocked(
         uid: String,
         displayName: String?,
         photoUrl: String?,
@@ -115,14 +151,40 @@ class AuthRepository(
         val snapshot = loadUserSnapshot(docRef)
         if (snapshot != null && snapshot.exists()) {
             if (!snapshot.isCompleteUserProfile()) {
-                withTimeoutOrNull(8_000) { docRef.delete().await() }
+                if (snapshot.hasMinimumQueueProfile()) {
+                    val deleted = runCatching {
+                        withTimeout(5_000) { docRef.delete().await() }
+                    }.isSuccess
+                    if (!deleted) {
+                        val legacy = normalizeStoredProfile(
+                            docRef,
+                            uid,
+                            snapshot.getString("displayName"),
+                            snapshot.toUserProfile(uid),
+                        )
+                        return verifyAndRememberQueueReady(uid, legacy)
+                    }
+                } else {
+                    val deleted = runCatching {
+                        withTimeout(5_000) { docRef.delete().await() }
+                    }.isSuccess
+                    if (!deleted) {
+                        val stillThere = loadUserSnapshot(docRef)?.exists() == true
+                        if (stillThere) {
+                            error(
+                                "Your saved profile could not be updated. Sign out, try again, or contact support.",
+                            )
+                        }
+                    }
+                }
             } else {
-                return normalizeStoredProfile(
+                val existing = normalizeStoredProfile(
                     docRef,
                     uid,
                     snapshot.getString("displayName"),
                     snapshot.toUserProfile(uid),
                 )
+                return verifyAndRememberQueueReady(uid, existing)
             }
         }
 
@@ -158,7 +220,32 @@ class AuthRepository(
                 },
             ).await()
         }
-        return profile
+        return verifyAndRememberQueueReady(uid, profile)
+    }
+
+    /** Loads users/{uid} from the server (required before queue writes — Cloud Functions read server data). */
+    suspend fun fetchServerProfile(uid: String): UserProfile? {
+        awaitFirestoreAuth(forceRefresh = true)
+        val snap = firestore.collection("users").document(uid).getServerSnapshotOrNull(8_000)
+        if (snap == null || !snap.isQueueReadyProfile()) return null
+        return snap.toUserProfile(uid)
+    }
+
+    private suspend fun verifyAndRememberQueueReady(uid: String, profile: UserProfile): UserProfile {
+        val docRef = firestore.collection("users").document(uid)
+        val deadline = System.currentTimeMillis() + 12_000
+        while (System.currentTimeMillis() < deadline) {
+            val snap = docRef.getServerSnapshotOrNull(4_000)
+            if (snap != null && snap.isQueueReadyProfile()) {
+                val synced = snap.toUserProfile(uid)
+                UserProfileSync.rememberQueueReady(uid, synced)
+                return synced
+            }
+            delay(300)
+        }
+        error(
+            "Could not save your profile to the server. Check App Check / connection and try again.",
+        )
     }
 
     suspend fun loadCurrentUserProfile(): UserProfile? = runCatching {
@@ -285,14 +372,9 @@ class AuthRepository(
     private suspend fun loadUserSnapshot(
         docRef: com.google.firebase.firestore.DocumentReference,
     ): com.google.firebase.firestore.DocumentSnapshot? {
-        val cached = withTimeoutOrNull(4_000) {
-            docRef.get(Source.CACHE).await()
-        }
+        val cached = docRef.getCacheSnapshotOrNull()
         if (cached?.exists() == true) return cached
-        val remote = withTimeoutOrNull(8_000) {
-            docRef.get().await()
-        }
-        return remote ?: cached
+        return docRef.getServerSnapshotOrNull() ?: cached
     }
 
     /** Drops a broken guest Firestore doc without signing out (sign-out resets navigation). */
@@ -303,14 +385,12 @@ class AuthRepository(
             runCatching {
                 awaitFirestoreAuth()
                 val docRef = firestore.collection("users").document(uid)
-                val cached = withTimeoutOrNull(1_000) {
-                    docRef.get(Source.CACHE).await()
-                }
+                val cached = docRef.getCacheSnapshotOrNull(timeoutMs = 1_000)
                 if (cached?.exists() == true && !cached.isCompleteUserProfile()) {
                     docRef.delete().await()
                     return@runCatching
                 }
-                val remote = withTimeoutOrNull(2_000) { docRef.get().await() }
+                val remote = docRef.getServerSnapshotOrNull(timeoutMs = 2_000)
                 if (remote?.exists() == true && !remote.isCompleteUserProfile()) {
                     docRef.delete().await()
                 }
@@ -333,6 +413,7 @@ class AuthRepository(
     }
 
     suspend fun signOut(context: Context) {
+        UserProfileSync.clear()
         auth.signOut()
         withTimeoutOrNull(2_000) {
             try {
@@ -344,33 +425,4 @@ class AuthRepository(
             }
         }
     }
-}
-
-private fun com.google.firebase.firestore.DocumentSnapshot.isCompleteUserProfile(): Boolean =
-    contains("displayName") &&
-        contains("elo") &&
-        contains("createdAt") &&
-        contains("throwsRock") &&
-        contains("throwsPaper") &&
-        contains("throwsScissors")
-
-private fun com.google.firebase.firestore.DocumentSnapshot.toUserProfile(uid: String): UserProfile {
-    return UserProfile(
-        uid = uid,
-        displayName = DisplayNames.resolve(getString("displayName"), uid),
-        photoUrl = getString("photoUrl"),
-        elo = getIntField("elo") ?: 1000,
-        wins = getIntField("wins") ?: 0,
-        losses = getIntField("losses") ?: 0,
-        draws = getIntField("draws") ?: 0,
-        roundsWon = getIntField("roundsWon") ?: 0,
-        roundsLost = getIntField("roundsLost") ?: 0,
-        roundsDraw = getIntField("roundsDraw") ?: 0,
-        moveTimeMs = getLong("moveTimeMs") ?: 0L,
-        moveCount = getIntField("moveCount") ?: 0,
-        throwsRock = getIntField("throwsRock") ?: 0,
-        throwsPaper = getIntField("throwsPaper") ?: 0,
-        throwsScissors = getIntField("throwsScissors") ?: 0,
-        activeMatchId = getString("activeMatchId"),
-    )
 }
