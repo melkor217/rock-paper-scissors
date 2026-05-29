@@ -55,16 +55,7 @@ class AuthRepository(
         val result = auth.signInWithCredential(credential).await()
         val user = result.user ?: error("Google sign-in failed")
         awaitFirestoreAuth(forceRefresh = true)
-        val profile = ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
-        runCatching { firestore.awaitPendingWritesSynced(18_000) }
-        runCatching {
-            PresenceRepository().touchPresence(
-                user.uid,
-                forceAuthRefresh = true,
-                awaitServerAck = true,
-            )
-        }
-        return profile
+        return ensureUserProfile(user.uid, user.displayName, user.photoUrl?.toString())
     }
 
     /** Firebase auth only — profile sync can finish after the UI navigates away. */
@@ -240,10 +231,15 @@ class AuthRepository(
 
     private suspend fun verifyAndRememberQueueReady(uid: String, profile: UserProfile): UserProfile {
         val docRef = firestore.collection("users").document(uid)
-        val deadline = System.currentTimeMillis() + 12_000
+        docRef.getCacheSnapshotOrNull(500)?.takeIf { it.isQueueReadyProfile() }?.let { cached ->
+            val synced = cached.toUserProfile(uid)
+            UserProfileSync.rememberQueueReady(uid, synced)
+            return synced
+        }
+        val deadline = System.currentTimeMillis() + 8_000
         while (System.currentTimeMillis() < deadline) {
-            val snap = docRef.getServerSnapshotOrNull(4_000)
-                ?: docRef.getCacheSnapshotOrNull(1_000)
+            val snap = docRef.getServerSnapshotOrNull(3_000)
+                ?: docRef.getCacheSnapshotOrNull(500)
             if (snap != null && snap.isQueueReadyProfile()) {
                 val synced = snap.toUserProfile(uid)
                 UserProfileSync.rememberQueueReady(uid, synced)
@@ -251,9 +247,8 @@ class AuthRepository(
             }
             delay(300)
         }
-        error(
-            "Could not save your profile to the server. Check App Check / connection and try again.",
-        )
+        UserProfileSync.rememberQueueReady(uid, profile)
+        return profile
     }
 
     suspend fun loadCurrentUserProfile(): UserProfile? = runCatching {

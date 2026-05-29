@@ -67,6 +67,8 @@ class SignInViewModel(
 
     private companion object {
         private const val GUEST_SIGN_IN_WATCHDOG_MS = 32_000L
+        private const val GOOGLE_SIGN_IN_WATCHDOG_MS = 28_000L
+        private const val GOOGLE_SIGN_IN_TIMEOUT_MS = 22_000L
         private const val KEY_AUTH_ERROR = "auth_error"
     }
 
@@ -128,6 +130,21 @@ class SignInViewModel(
         }
         viewModelScope.launch {
             beginExplicitSignIn()
+            val watchdog = launch {
+                delay(GOOGLE_SIGN_IN_WATCHDOG_MS)
+                if (_uiState.value.isLoading && _uiState.value.profile == null) {
+                    val user = authRepository.currentUser
+                    if (user != null) {
+                        endExplicitSignIn()
+                        val fallback = authRepository.fallbackProfile(user)
+                        UserProfileSync.rememberQueueReady(fallback.uid, fallback)
+                        clearAuthError()
+                        _uiState.update {
+                            it.copy(isLoading = false, profile = fallback, error = null)
+                        }
+                    }
+                }
+            }
             try {
                 val webClientId = context.getString(R.string.default_web_client_id)
                 require(!webClientId.startsWith("REPLACE")) {
@@ -136,7 +153,9 @@ class SignInViewModel(
 
                 val signInContext = context.findActivity() ?: context
                 val idToken = requestGoogleIdToken(signInContext, webClientId)
-                val profile = authRepository.signInWithGoogle(idToken)
+                val profile = withTimeout(GOOGLE_SIGN_IN_TIMEOUT_MS) {
+                    authRepository.signInWithGoogle(idToken)
+                }
                 UserProfileSync.rememberQueueReady(profile.uid, profile)
                 clearAuthError()
                 _uiState.update {
@@ -144,6 +163,32 @@ class SignInViewModel(
                 }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: TimeoutCancellationException) {
+                val user = authRepository.currentUser
+                if (user != null) {
+                    val fallback = authRepository.fallbackProfile(user)
+                    UserProfileSync.rememberQueueReady(fallback.uid, fallback)
+                    clearAuthError()
+                    _uiState.update {
+                        it.copy(isLoading = false, profile = fallback, error = null)
+                    }
+                    viewModelScope.launch {
+                        runCatching {
+                            authRepository.ensureUserProfile(
+                                uid = user.uid,
+                                displayName = user.displayName,
+                                photoUrl = user.photoUrl?.toString(),
+                            )
+                        }.onSuccess { synced ->
+                            if (_uiState.value.profile?.uid == synced.uid) {
+                                _uiState.update { it.copy(profile = synced) }
+                            }
+                        }
+                    }
+                } else {
+                    setAuthError("Sign-in timed out. Check your connection and try again.")
+                    _uiState.update { it.copy(isLoading = false) }
+                }
             } catch (e: GetCredentialException) {
                 setAuthError(e.toGoogleSignInMessage(BuildConfig.DEBUG))
                 _uiState.update { it.copy(isLoading = false) }
@@ -151,6 +196,7 @@ class SignInViewModel(
                 setAuthError(e.toAuthMessage())
                 _uiState.update { it.copy(isLoading = false) }
             } finally {
+                watchdog.cancel()
                 endExplicitSignIn()
             }
         }

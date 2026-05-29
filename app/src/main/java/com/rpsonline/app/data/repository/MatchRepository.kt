@@ -298,7 +298,7 @@ class MatchRepository(
                 awaitFirestoreAuth(forceRefresh = true)
                 leaveQueueForUser(userId)
             }
-            runCatching { firestore.awaitPendingWritesSynced(8_000) }
+            runCatching { firestore.awaitPendingWritesSynced(3_000) }
         }
     }
 
