@@ -64,7 +64,9 @@
     <string name="opponent">Opponent</string>
     <string name="opponent_short">Opp.</string>
     <string name="in_match">In match</string>
+    <string name="in_match_with_time">In match: %1$s</string>
     <string name="in_queue_with_time">In queue: %1$s</string>
+    <string name="queue_timer_idle">Queue timer</string>
     <string name="play_again">Play Again</string>
     <string name="final_score">Final score: %1$s</string>
     <string name="your_move">Your move</string>
@@ -73,6 +75,7 @@
     <string name="waiting_for_opponent">Waiting for opponent…</string>
     <string name="round_label">Round</string>
     <string name="players_online_count">%1$d players online</string>
+    <string name="players_online_loading">Players online</string>
     <string name="this_week">This week</string>
     <string name="matches_you_played_against">Your name vs opponent name</string>
     <string name="matches">Matches</string>

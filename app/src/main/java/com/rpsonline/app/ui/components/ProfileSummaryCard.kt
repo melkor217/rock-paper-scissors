@@ -1,18 +1,19 @@
 package com.rpsonline.app.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,8 +32,9 @@ import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.leaderboard.ThrowDistributionRadialChart
 
 private val SummaryRowHorizontalPadding = 10.dp
-private val SummaryRowVerticalPadding = 6.dp
+private val SummaryRowVerticalPadding = 8.dp
 private val SummaryStatsLinesGap = 1.dp
+private val ProfileCardAccentWidth = 8.dp
 
 /** Profile summary title for the signed-in user, e.g. "Playername (you)". */
 @Composable
@@ -45,29 +49,107 @@ fun ProfileSummaryCard(
     profile: UserProfile?,
     modifier: Modifier = Modifier,
     eloOverride: Int? = null,
+    nameColor: Color? = null,
     onClick: (() -> Unit)? = null,
+    emphasized: Boolean = false,
+    accentStripeTop: Color? = null,
+    accentStripeBottom: Color? = null,
 ) {
-    val content: @Composable () -> Unit = {
-        PlayerSummaryContent(
-            nameLine = displayName,
-            nameColor = MaterialTheme.colorScheme.primary,
-            wins = profile?.wins ?: 0,
-            losses = profile?.losses ?: 0,
-            draws = profile?.draws ?: 0,
-            roundsWon = profile?.roundsWon ?: 0,
-            roundsLost = profile?.roundsLost ?: 0,
-            roundsDraw = profile?.roundsDraw ?: 0,
-            throwsRock = profile?.throwsRock ?: 0,
-            throwsPaper = profile?.throwsPaper ?: 0,
-            throwsScissors = profile?.throwsScissors ?: 0,
-            elo = eloOverride ?: profile?.elo ?: 1000,
-            showChevron = onClick != null,
-        )
+    val scheme = MaterialTheme.colorScheme
+    val youColor = scheme.primary
+    val otherStripeColor = scheme.outlineVariant
+    val containerColor = scheme.surfaceContainerHigh.copy(alpha = 0.92f)
+    val borderColor = when {
+        emphasized -> youColor.copy(alpha = 0.82f)
+        onClick != null -> scheme.outline.copy(alpha = 0.55f)
+        else -> scheme.outline.copy(alpha = 0.55f)
     }
-    if (onClick != null) {
-        RpsCard(modifier = modifier.fillMaxWidth(), onClick = onClick, content = { content() })
+    val borderWidth = if (onClick != null || emphasized) 2.dp else 1.dp
+    val stripeTop = accentStripeTop ?: if (emphasized) youColor else if (onClick != null) otherStripeColor else null
+    val stripeBottom = accentStripeBottom ?: accentStripeTop ?: if (emphasized) {
+        youColor
+    } else if (onClick != null) {
+        otherStripeColor
     } else {
-        RpsCard(modifier = modifier.fillMaxWidth(), content = { content() })
+        null
+    }
+    val resolvedNameColor = nameColor ?: if (emphasized) youColor else scheme.onSurface
+    val contentDescription = if (onClick != null) {
+        "$displayName. ${stringResource(R.string.profile)}"
+    } else {
+        displayName
+    }
+
+    RpsCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { this.contentDescription = contentDescription },
+        onClick = onClick,
+        containerColor = containerColor,
+        borderColor = borderColor,
+        borderWidth = borderWidth,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (stripeTop != null && stripeBottom != null) {
+                ProfileSummaryAccentStripe(
+                    topColor = stripeTop,
+                    bottomColor = stripeBottom,
+                )
+            }
+            PlayerSummaryContent(
+                nameLine = displayName,
+                nameColor = resolvedNameColor,
+                wins = profile?.wins ?: 0,
+                losses = profile?.losses ?: 0,
+                draws = profile?.draws ?: 0,
+                roundsWon = profile?.roundsWon ?: 0,
+                roundsLost = profile?.roundsLost ?: 0,
+                roundsDraw = profile?.roundsDraw ?: 0,
+                throwsRock = profile?.throwsRock ?: 0,
+                throwsPaper = profile?.throwsPaper ?: 0,
+                throwsScissors = profile?.throwsScissors ?: 0,
+                elo = eloOverride ?: profile?.elo ?: 1000,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileSummaryAccentStripe(
+    topColor: Color,
+    bottomColor: Color,
+) {
+    if (topColor == bottomColor) {
+        Box(
+            modifier = Modifier
+                .width(ProfileCardAccentWidth)
+                .fillMaxHeight()
+                .background(topColor),
+        )
+        return
+    }
+    Column(
+        modifier = Modifier
+            .width(ProfileCardAccentWidth)
+            .fillMaxHeight(),
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .background(topColor),
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .background(bottomColor),
+        )
     }
 }
 
@@ -86,7 +168,6 @@ fun PlayerSummaryContent(
     throwsScissors: Int,
     elo: Int,
     modifier: Modifier = Modifier,
-    showChevron: Boolean = false,
     nameTextStyle: TextStyle = MaterialTheme.typography.titleMedium,
     statTextStyle: TextStyle = MaterialTheme.typography.bodySmall,
 ) {
@@ -106,29 +187,14 @@ fun PlayerSummaryContent(
                 .padding(end = 8.dp),
             verticalArrangement = Arrangement.Top,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = nameLine,
-                    style = nameTextStyle,
-                    color = nameColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (showChevron) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Open profile",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(0.dp))
+            Text(
+                text = nameLine,
+                style = nameTextStyle,
+                color = nameColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
             WinLossStatLine(
                 wins = wins,
                 losses = losses,

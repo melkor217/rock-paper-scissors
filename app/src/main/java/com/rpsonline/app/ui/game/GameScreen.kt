@@ -65,7 +65,9 @@ fun GameScreen(
     LifecycleResumeEffect(matchId, userId) {
         userId?.let { uid ->
             scope.launch {
-                runCatching { presenceRepository.touchPresence(uid, forceAuthRefresh = true) }
+                runCatching {
+                    presenceRepository.touchPresence(uid, forceAuthRefresh = true, awaitServerAck = true)
+                }
             }
         }
         viewModel.refreshOnResume()
@@ -74,7 +76,7 @@ fun GameScreen(
 
     LaunchedEffect(userId) {
         val uid = userId ?: return@LaunchedEffect
-        presenceRepository.touchPresence(uid, forceAuthRefresh = true)
+        presenceRepository.touchPresence(uid, forceAuthRefresh = true, awaitServerAck = true)
     }
 
     LaunchedEffect(match?.status, match?.id) {

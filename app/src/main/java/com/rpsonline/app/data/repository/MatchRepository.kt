@@ -54,7 +54,6 @@ class MatchRepository(
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
         private const val QUEUE_WRITE_TIMEOUT_MS = 12_000L
-        private const val QUEUE_SERVER_CONFIRM_TIMEOUT_MS = 12_000L
         private const val ENABLE_NETWORK_TIMEOUT_MS = 2_000L
         /** Align with [functions/src/queue.ts] [QUEUE_STALE_MS] and server matchmaking. */
         private const val ACTIVE_MATCH_RECONNECT_MAX_AGE_MS = 90_000L
@@ -216,6 +215,7 @@ class MatchRepository(
                     throw IllegalStateException(it, callableError)
                 }
             }
+            prepareQueueForJoin(userId)
             runCatching {
                 MatchSessionMonitor.awaitSessionBootstrap()
                 QueueWriteGate.withLock {
@@ -263,16 +263,27 @@ class MatchRepository(
         return clientJoinedAt
     }
 
+    /** Clears any prior queue doc so leave → find again does not race an in-flight join. */
+    private suspend fun prepareQueueForJoin(userId: String) {
+        QueueWriteGate.withLock {
+            MatchSessionMonitor.clearQueueState()
+            withTimeoutOrNull(3_000) {
+                runCatching {
+                    awaitFirestoreAuth(forceRefresh = true)
+                    firestore.collection("queue").document(userId).delete().await()
+                }
+            }
+        }
+    }
+
     private suspend fun writeQueueEntry(queueRef: DocumentReference, payload: Map<String, Any>) {
         var lastError: Exception? = null
         repeat(2) { attempt ->
             try {
                 awaitFirestoreAuth(forceRefresh = attempt > 0)
-                queueRef.setAndConfirmOnServer(
-                    data = payload,
-                    writeTimeoutMs = QUEUE_WRITE_TIMEOUT_MS,
-                    confirmTimeoutMs = QUEUE_SERVER_CONFIRM_TIMEOUT_MS,
-                )
+                withTimeout(QUEUE_WRITE_TIMEOUT_MS) {
+                    queueRef.set(payload).awaitTask()
+                }
                 return
             } catch (e: FirebaseFirestoreException) {
                 lastError = e
@@ -386,6 +397,10 @@ class MatchRepository(
             .await()
     }
 
+    /**
+     * Sends the move to the server (callable preferred). Does not block on match listeners;
+     * [GameViewModel] confirms via snapshot sync.
+     */
     suspend fun submitMove(matchId: String, move: Move, roundNumber: Int) {
         try {
             GameFunctions.submitMove(matchId, roundNumber, move)
@@ -396,9 +411,6 @@ class MatchRepository(
                 }
             }
             submitMoveDirect(matchId, move, roundNumber, callableError)
-        }
-        if (!awaitMyChoiceInMatch(matchId, roundNumber, timeoutMs = 8_000)) {
-            error("Move was sent but the match did not update. Try again.")
         }
     }
 
@@ -431,35 +443,6 @@ class MatchRepository(
                 ?: throw directError
         }
         // Choice docs are deleted after the Cloud Function runs — only wait on the match doc.
-    }
-
-    /** Waits until the match read model includes this player's choice (Cloud Function applied it). */
-    private suspend fun awaitMyChoiceInMatch(
-        matchId: String,
-        roundNumber: Int,
-        timeoutMs: Long = 12_000,
-    ): Boolean {
-        val userId = uid
-        val deadline = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < deadline) {
-            val snap = withTimeoutOrNull(4_000) {
-                firestore.collection("matches").document(matchId).get(Source.SERVER).await()
-            }
-            if (snap != null && snap.exists()) {
-                val match = snap.toMatch(matchId)
-                val open = match.openRound()
-                if (open?.roundNumber == roundNumber) {
-                    val choice = if (userId == match.player1) {
-                        open.player1Choice
-                    } else {
-                        open.player2Choice
-                    }
-                    if (choice != null) return true
-                }
-            }
-            delay(300)
-        }
-        return false
     }
 
     fun observeMatch(matchId: String): Flow<Match?> = callbackFlow {

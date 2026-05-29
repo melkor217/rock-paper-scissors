@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -16,10 +17,11 @@ fun RpsCard(
     onClick: (() -> Unit)? = null,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
     borderColor: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
+    borderWidth: Dp = 1.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = MaterialTheme.shapes.medium
-    val border = BorderStroke(1.dp, borderColor)
+    val border = BorderStroke(borderWidth, borderColor)
     val colors = CardDefaults.cardColors(
         containerColor = containerColor,
         contentColor = MaterialTheme.colorScheme.onSurface,

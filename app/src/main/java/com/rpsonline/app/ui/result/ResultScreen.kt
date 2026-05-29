@@ -168,6 +168,7 @@ fun ResultScreen(
                 displayName = ownProfileDisplayName(myDisplayName),
                 profile = myProfile,
                 eloOverride = myCurrentElo,
+                emphasized = true,
                 onClick = { onOpponentProfile(userId) },
             )
         }

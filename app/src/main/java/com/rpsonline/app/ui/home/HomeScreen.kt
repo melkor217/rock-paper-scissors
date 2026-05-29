@@ -2,6 +2,7 @@ package com.rpsonline.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,14 +29,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -46,7 +52,6 @@ import com.rpsonline.app.R
 import com.rpsonline.app.data.update.ReleaseChangelog
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
-import com.rpsonline.app.ui.components.PlayersOnlineLabel
 import com.rpsonline.app.ui.components.ProfileSummaryCard
 import com.rpsonline.app.ui.components.ownProfileDisplayName
 import com.rpsonline.app.ui.components.RpsLoadingColumn
@@ -160,27 +165,24 @@ fun HomeScreen(
         ProfileSummaryCard(
             displayName = ownProfileDisplayName(profile?.displayName),
             profile = profile,
+            emphasized = true,
             onClick = onProfile,
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        uiState.onlinePlayerCount?.let { count ->
-            PlayersOnlineLabel(
-                count = count,
-                modifier = Modifier.fillMaxWidth(),
-                emphasized = true,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 40.dp) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 MatchMode.entries.forEach { mode ->
                     val selected = mode in selectedModes
+                    val contentColor = if (matchModesLocked) {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
                     Row(
                         modifier = Modifier
                             .weight(1f)
@@ -190,7 +192,7 @@ fun HomeScreen(
                                 role = Role.Checkbox,
                                 onValueChange = { viewModel.toggleMatchMode(context, mode) },
                             )
-                            .padding(vertical = 2.dp),
+                            .padding(vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
                     ) {
@@ -198,6 +200,10 @@ fun HomeScreen(
                             checked = selected,
                             onCheckedChange = null,
                             enabled = !matchModesLocked,
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = 1.2f
+                                scaleY = 1.2f
+                            },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = MaterialTheme.colorScheme.primary,
                                 uncheckedColor = MaterialTheme.colorScheme.outline,
@@ -206,15 +212,11 @@ fun HomeScreen(
                                 disabledCheckedColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
                             ),
                         )
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = mode.label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (matchModesLocked) {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = contentColor,
                         )
                     }
                 }
@@ -238,17 +240,12 @@ fun HomeScreen(
             uiState.activeMatchId == null
         ) {
             HomeQueueStatusCard(
-                queueElapsedSeconds = if (uiState.isInQueue) uiState.queueElapsedSeconds else null,
-                title = when {
-                    openingMatchId != null -> stringResource(R.string.match_found)
-                    uiState.isJoiningQueue -> stringResource(R.string.communicating_to_server)
-                    else -> stringResource(R.string.in_queue)
+                phase = when {
+                    openingMatchId != null -> QueueStatusPhase.MatchFound
+                    uiState.isJoiningQueue -> QueueStatusPhase.Joining
+                    else -> QueueStatusPhase.Searching
                 },
-                subtitle = when {
-                    openingMatchId != null -> stringResource(R.string.opening_game)
-                    uiState.isJoiningQueue -> ""
-                    else -> stringResource(R.string.finding_opponent)
-                },
+                queueElapsedSeconds = uiState.queueElapsedSeconds,
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -354,13 +351,44 @@ fun HomeScreen(
     }
 }
 
+private enum class QueueStatusPhase {
+    Joining,
+    Searching,
+    MatchFound,
+}
+
+/**
+ * Single matchmaking status card: label / primary line / subtitle.
+ * "Communicating to server" and "In queue · 00:11 · Finding opponent" share the same layout.
+ */
 @Composable
 private fun HomeQueueStatusCard(
-    queueElapsedSeconds: Long?,
-    title: String = "",
-    subtitle: String = "",
+    phase: QueueStatusPhase,
+    queueElapsedSeconds: Long,
 ) {
-    RpsCard(modifier = Modifier.fillMaxWidth()) {
+    val label = stringResource(
+        when (phase) {
+            QueueStatusPhase.MatchFound -> R.string.match_found
+            else -> R.string.in_queue
+        },
+    )
+    val primary = when (phase) {
+        QueueStatusPhase.Joining -> stringResource(R.string.communicating_to_server)
+        QueueStatusPhase.Searching -> formatQueueTime(queueElapsedSeconds)
+        QueueStatusPhase.MatchFound -> stringResource(R.string.opening_game)
+    }
+    val subtitle = when (phase) {
+        QueueStatusPhase.MatchFound -> null
+        else -> stringResource(R.string.finding_opponent)
+    }
+    val subtitleReference = stringResource(R.string.finding_opponent)
+    val scheme = MaterialTheme.colorScheme
+
+    RpsCard(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = scheme.primaryContainer.copy(alpha = 0.94f),
+        borderColor = scheme.primary.copy(alpha = 0.55f),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -369,34 +397,118 @@ private fun HomeQueueStatusCard(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = title,
-                style = if (queueElapsedSeconds == null) {
-                    MaterialTheme.typography.titleMedium
-                } else {
-                    MaterialTheme.typography.labelMedium
-                },
-                fontWeight = if (queueElapsedSeconds == null) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (queueElapsedSeconds == null) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = scheme.onPrimaryContainer.copy(alpha = 0.85f),
             )
-            if (queueElapsedSeconds != null) {
-                Text(
-                    text = formatQueueTime(queueElapsedSeconds),
-                    style = MaterialTheme.typography.headlineMedium,
+            HomeQueueStatusPrimaryLine(
+                phase = phase,
+                text = primary,
+            )
+            HomeQueueStatusSubtitleSlot(
+                text = subtitle,
+                referenceText = subtitleReference,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeQueueStatusPrimaryLine(
+    phase: QueueStatusPhase,
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    val primaryColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val timerTypography = MaterialTheme.typography.headlineMedium
+    val timerStyle = timerTypography.copy(fontWeight = FontWeight.Bold)
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val timerReference = formatQueueTime(5_999)
+    val openingReference = stringResource(R.string.opening_game)
+
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        val maxWidthPx = constraints.maxWidth.coerceAtLeast(0)
+        val slotHeightPx = maxOf(
+            textMeasurer.measure(
+                text = timerReference,
+                style = timerStyle,
+                maxLines = 1,
+                constraints = Constraints(maxWidth = maxWidthPx),
+            ).size.height,
+            textMeasurer.measure(
+                text = openingReference,
+                style = timerStyle,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                constraints = Constraints(maxWidth = maxWidthPx),
+            ).size.height,
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(with(density) { slotHeightPx.toDp() }),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (phase) {
+                QueueStatusPhase.Joining -> Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = primaryColor,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                else -> Text(
+                    text = text,
+                    style = timerTypography,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = primaryColor,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (subtitle.isNotEmpty()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun HomeQueueStatusSubtitleSlot(
+    text: String?,
+    referenceText: String,
+    modifier: Modifier = Modifier,
+) {
+    val style = MaterialTheme.typography.bodySmall
+    val subtitleColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val slotHeightPx = textMeasurer.measure(
+        text = referenceText,
+        style = style,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    ).size.height
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(with(density) { slotHeightPx.toDp() }),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (text != null) {
+            Text(
+                text = text,
+                style = style,
+                color = subtitleColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

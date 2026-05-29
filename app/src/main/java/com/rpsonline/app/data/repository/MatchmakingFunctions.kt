@@ -57,6 +57,7 @@ internal object MatchmakingFunctions {
             FirebaseFunctionsException.Code.UNAUTHENTICATED,
             FirebaseFunctionsException.Code.UNAVAILABLE,
             FirebaseFunctionsException.Code.DEADLINE_EXCEEDED,
+            FirebaseFunctionsException.Code.NOT_FOUND,
             -> true
             else -> false
         }

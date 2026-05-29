@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 data class HomeUiState(
     val isLoading: Boolean = true,
     val profile: UserProfile? = null,
-    val onlinePlayerCount: Int? = null,
     val selectedMatchModes: Set<MatchMode> = MatchMode.DEFAULT_SELECTION,
     val activeMatchId: String? = null,
     val isJoiningQueue: Boolean = false,
@@ -54,12 +53,13 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private var onlineCountJob: Job? = null
     private var profileJob: Job? = null
     private var activeMatchJob: Job? = null
     private var queueObserveJob: Job? = null
     private var queueTimerJob: Job? = null
     private var refreshJob: Job? = null
+    private var matchmakingJob: Job? = null
+    private var leaveQueueJob: Job? = null
     private var awaitingMatchFromQueue = false
     private var awaitingMatchStartedAtMs: Long? = null
     private var matchmakingGeneration = 0
@@ -68,14 +68,13 @@ class HomeViewModel(
         private const val MATCH_ASSIGNMENT_GRACE_MS = 30_000L
         private const val MATCHMAKING_WATCHDOG_MS = 45_000L
         private const val JOIN_QUEUE_WATCHDOG_MS = 15_000L
-        private const val JOIN_QUEUE_TIMEOUT_MS = 18_000L
+        private const val JOIN_QUEUE_TIMEOUT_MS = 25_000L
         private const val PROFILE_READY_TIMEOUT_MS = 6_000L
     }
 
     val navigateToGameMatchId: StateFlow<String?> = MatchSessionMonitor.pendingGameNavigationMatchId
 
     init {
-        startOnlineCountObserver()
         viewModelScope.launch {
             authRepository.authStateFlow().collect { user ->
                 profileJob?.cancel()
@@ -83,7 +82,6 @@ class HomeViewModel(
                 if (user == null) {
                     refreshJob?.cancel()
                     refreshJob = null
-                    stopOnlineCountObserver()
                     activeMatchJob?.cancel()
                     activeMatchJob = null
                     queueObserveJob?.cancel()
@@ -96,7 +94,6 @@ class HomeViewModel(
                         it.copy(
                             isLoading = false,
                             profile = null,
-                            onlinePlayerCount = null,
                             activeMatchId = null,
                             isJoiningQueue = false,
                             isInQueue = false,
@@ -107,12 +104,14 @@ class HomeViewModel(
                         )
                     }
                 } else {
-                    startOnlineCountObserver()
                     viewModelScope.launch {
                         runCatching {
-                            presenceRepository.touchPresence(user.uid, forceAuthRefresh = true)
+                            presenceRepository.touchPresence(
+                                user.uid,
+                                forceAuthRefresh = true,
+                                awaitServerAck = true,
+                            )
                         }
-                        refreshOnlinePlayerCount()
                     }
                     if (_uiState.value.profile == null) {
                         _uiState.update {
@@ -142,9 +141,9 @@ class HomeViewModel(
         ) {
             return
         }
+        matchmakingJob?.cancel()
         val generation = ++matchmakingGeneration
         refreshJob?.cancel()
-        refreshOnlinePlayerCount()
         MatchSessionMonitor.setMatchmakingInProgress(true)
         MatchModePreferences(context).set(matchModes)
         awaitingMatchFromQueue = true
@@ -158,7 +157,10 @@ class HomeViewModel(
                 matchmakingError = null,
             )
         }
-        viewModelScope.launch {
+        matchmakingJob = viewModelScope.launch {
+            leaveQueueJob?.let { priorLeave ->
+                withTimeoutOrNull(5_000) { priorLeave.join() }
+            }
             val watchdog = launch {
                 delay(MATCHMAKING_WATCHDOG_MS)
                 if (generation != matchmakingGeneration) return@launch
@@ -210,7 +212,7 @@ class HomeViewModel(
                     }
                 }
                 if (generation == matchmakingGeneration && _uiState.value.isInQueue) {
-                    viewModelScope.launch {
+                    launch {
                         val serverJoinedAtMs = matchRepository.awaitQueueJoinedAtFromServer(timeoutMs = 30_000)
                         if (generation != matchmakingGeneration) return@launch
                         if (serverJoinedAtMs != null && _uiState.value.isInQueue) {
@@ -244,6 +246,16 @@ class HomeViewModel(
             } finally {
                 watchdog.cancel()
                 joinWatchdog.cancel()
+                if (
+                    generation == matchmakingGeneration &&
+                    _uiState.value.isJoiningQueue &&
+                    !_uiState.value.isInQueue
+                ) {
+                    failMatchmaking(
+                        generation = generation,
+                        message = "Could not join the matchmaking queue. Check your connection and try again.",
+                    )
+                }
             }
         }
     }
@@ -300,10 +312,15 @@ class HomeViewModel(
                 matchmakingError = null,
             )
         }
-        userId?.let { uid ->
+        leaveQueueJob?.cancel()
+        leaveQueueJob = if (userId != null) {
             viewModelScope.launch {
-                runCatching { matchRepository.leaveQueueForUser(uid) }
+                withTimeoutOrNull(5_000) {
+                    runCatching { matchRepository.leaveQueueForUser(userId) }
+                }
             }
+        } else {
+            null
         }
     }
 
@@ -411,12 +428,10 @@ class HomeViewModel(
 
     fun onHomeVisible(context: Context) {
         loadMatchModePreferences(context)
-        startOnlineCountObserver()
-        refreshOnlinePlayerCount()
         viewModelScope.launch {
             runCatching { MatchSessionMonitor.refreshOnResume() }
             val uid = authRepository.currentUserId ?: return@launch
-            runCatching { presenceRepository.touchPresence(uid) }
+            runCatching { presenceRepository.touchPresence(uid, awaitServerAck = true) }
             userRepository.getUserProfile(uid)?.let { profile ->
                 _uiState.update { it.copy(profile = profile) }
             }
@@ -528,36 +543,12 @@ class HomeViewModel(
         }
     }
 
-    private fun startOnlineCountObserver() {
-        onlineCountJob?.cancel()
-        onlineCountJob = viewModelScope.launch {
-            presenceRepository.observeOnlineCount().collect { count ->
-                _uiState.update { it.copy(onlinePlayerCount = count) }
-            }
-        }
-    }
-
-    private fun stopOnlineCountObserver() {
-        onlineCountJob?.cancel()
-        onlineCountJob = null
-    }
-
-    private fun refreshOnlinePlayerCount() {
-        viewModelScope.launch {
-            runCatching { presenceRepository.fetchOnlineCountFromServer() }
-                .onSuccess { count ->
-                    _uiState.update { it.copy(onlinePlayerCount = count) }
-                }
-        }
-    }
-
     fun signOut(context: Context) {
         val uid = authRepository.currentUserId
         refreshJob?.cancel()
         resetMatchmakingLocalState()
         MatchSessionMonitor.consumeGameNavigation()
         MatchSessionMonitor.setMatchmakingInProgress(false)
-        stopOnlineCountObserver()
         _uiState.update {
             it.copy(isSigningOut = true, error = null, matchmakingError = null)
         }
@@ -573,6 +564,8 @@ class HomeViewModel(
     }
 
     private fun resetMatchmakingLocalState() {
+        matchmakingJob?.cancel()
+        matchmakingJob = null
         matchmakingGeneration++
         cleanupMatchmakingSession()
     }
@@ -580,10 +573,11 @@ class HomeViewModel(
     override fun onCleared() {
         profileJob?.cancel()
         refreshJob?.cancel()
+        matchmakingJob?.cancel()
+        leaveQueueJob?.cancel()
         activeMatchJob?.cancel()
         queueObserveJob?.cancel()
         stopQueueTimer()
-        stopOnlineCountObserver()
         super.onCleared()
     }
 

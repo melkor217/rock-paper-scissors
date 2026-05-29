@@ -18,8 +18,10 @@ import com.rpsonline.app.ui.game.roundElapsedAtSyncMs
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,7 +101,12 @@ class GameViewModel(
         val openRoundNumber = openRound?.roundNumber
         if (openRoundNumber != lastObservedOpenRound) {
             if (lastObservedOpenRound != null) {
-                submitGeneration++
+                if (_uiState.value.isSubmitting) {
+                    submitGeneration++
+                    _uiState.update {
+                        it.copy(isSubmitting = false, pendingMove = null)
+                    }
+                }
                 locallySubmittedRound = null
             }
             lastObservedOpenRound = openRoundNumber
@@ -401,12 +408,15 @@ class GameViewModel(
 
         val roundNumber = state.match?.currentRound ?: return
         val generation = ++submitGeneration
+        locallySubmittedRound = roundNumber
+        lockedMoveRound = roundNumber
 
         viewModelScope.launch {
             submitWatchdogJob?.cancel()
             _uiState.update {
                 it.copy(
                     isSubmitting = true,
+                    hasSubmittedMove = true,
                     pendingMove = move,
                     lockedMove = move,
                     error = null,
@@ -415,63 +425,67 @@ class GameViewModel(
             val serverSyncJob = launch {
                 while (generation == submitGeneration) {
                     delay(400)
-                    if (!_uiState.value.isSubmitting) break
                     runCatching { syncMatchFromServer() }
+                    if (!_uiState.value.isSubmitting && _uiState.value.hasSubmittedMove) break
                 }
             }
             submitWatchdogJob = launch {
                 delay(SUBMIT_STUCK_WATCHDOG_MS)
                 if (generation != submitGeneration) return@launch
-                if (!_uiState.value.isSubmitting) return@launch
                 revertMoveIfServerMissing(
                     generation,
                     roundNumber,
                 ) { "Move is taking too long to reach the server. Tap a move to try again." }
             }
+            var submitError: String? = null
             try {
                 withTimeout(SUBMIT_MOVE_TIMEOUT_MS) {
                     matchRepository.submitMove(matchId, move, roundNumber)
                 }
-                submitWatchdogJob?.cancel()
-                serverSyncJob.cancel()
-                if (generation != submitGeneration) return@launch
-                syncMatchFromServer()
-                locallySubmittedRound = roundNumber
-                lockedMoveRound = roundNumber
-                _uiState.update {
-                    it.copy(
-                        hasSubmittedMove = true,
-                        lockedMove = move,
-                        isSubmitting = false,
-                        pendingMove = null,
-                    )
-                }
-            } catch (e: CancellationException) {
-                serverSyncJob.cancel()
-                submitWatchdogJob?.cancel()
-                throw e
             } catch (e: TimeoutCancellationException) {
-                submitWatchdogJob?.cancel()
-                serverSyncJob.cancel()
-                if (generation != submitGeneration) return@launch
-                revertMoveIfServerMissing(
-                    generation,
-                    roundNumber,
-                ) { "Connection timed out. Check your network and tap a move to try again." }
-            } catch (e: Exception) {
-                submitWatchdogJob?.cancel()
-                serverSyncJob.cancel()
-                if (generation != submitGeneration) return@launch
-                if (isIgnorableFirestoreRace(e)) {
-                    _uiState.update { it.copy(isSubmitting = false, pendingMove = null, error = null) }
-                    return@launch
+                submitError = "Connection timed out. Check your network and tap a move to try again."
+            } catch (e: CancellationException) {
+                if (generation == submitGeneration) {
+                    submitError = "Move was interrupted. Tap a move to try again."
                 }
-                revertMoveIfServerMissing(
-                    generation,
-                    roundNumber,
-                ) {
-                    GameFunctions.toSubmitErrorMessage(e)
+            } catch (e: Exception) {
+                if (!isIgnorableFirestoreRace(e)) {
+                    submitError = GameFunctions.toSubmitErrorMessage(e)
                         ?: userFacingGameError(e, "Failed to submit move")
+                }
+            } finally {
+                withContext(NonCancellable) {
+                    submitWatchdogJob?.cancel()
+                    serverSyncJob.cancel()
+                    runCatching { syncMatchFromServer() }
+                    if (generation != submitGeneration) return@withContext
+                    val userId = authRepository.currentUserId
+                    val match = _uiState.value.match
+                    val onServer = userId != null && match != null &&
+                        match.choiceForPlayerInRound(userId, roundNumber) != null
+                    when {
+                        onServer -> {
+                            locallySubmittedRound = roundNumber
+                            lockedMoveRound = roundNumber
+                            _uiState.update {
+                                it.copy(
+                                    hasSubmittedMove = true,
+                                    lockedMove = move,
+                                    isSubmitting = false,
+                                    pendingMove = null,
+                                    error = null,
+                                )
+                            }
+                        }
+                        submitError != null -> revertMoveIfServerMissing(
+                            generation,
+                            roundNumber,
+                        ) { submitError }
+                        else -> revertMoveIfServerMissing(
+                            generation,
+                            roundNumber,
+                        ) { "Move did not reach the server. Tap a move to try again." }
+                    }
                 }
             }
         }
@@ -486,13 +500,8 @@ class GameViewModel(
         runCatching { syncMatchFromServer() }
         val userId = authRepository.currentUserId
         val match = _uiState.value.match ?: matchRepository.getMatchFromServer(matchId)
-        val open = match?.openRound()
         val serverHasChoice = userId != null && match != null &&
-            open?.roundNumber == roundNumber &&
-            when (userId) {
-                match.player1 -> open.player1Choice != null
-                else -> open.player2Choice != null
-            }
+            match.choiceForPlayerInRound(userId, roundNumber) != null
         if (serverHasChoice) {
             locallySubmittedRound = roundNumber
             lockedMoveRound = roundNumber
@@ -530,8 +539,8 @@ class GameViewModel(
     }
 
     companion object {
-        private const val SUBMIT_MOVE_TIMEOUT_MS = 12_000L
-        private const val SUBMIT_STUCK_WATCHDOG_MS = 14_000L
+        private const val SUBMIT_MOVE_TIMEOUT_MS = 15_000L
+        private const val SUBMIT_STUCK_WATCHDOG_MS = 18_000L
 
         fun factory(matchId: String): androidx.lifecycle.ViewModelProvider.Factory =
             object : androidx.lifecycle.ViewModelProvider.Factory {

@@ -202,6 +202,12 @@ data class Match(
     fun openRound(): RoundResult? =
         rounds.filter { it.resolvedAt == null }.lastOrNull()
 
+    /** Choice for [userId] in [roundNumber], including after the round has resolved. */
+    fun choiceForPlayerInRound(userId: String, roundNumber: Int): String? =
+        rounds.find { it.roundNumber == roundNumber }?.let { round ->
+            if (userId == player1) round.player1Choice else round.player2Choice
+        }
+
     /** Last round had a winner; next round is open — keep showing outcome until play resumes. */
     fun pendingRoundOutcome(): RoundResult? {
         val last = lastResolvedRound() ?: return null

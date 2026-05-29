@@ -19,7 +19,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -28,8 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rpsonline.app.R
 import com.rpsonline.app.data.model.LeaderboardEntry
+import com.rpsonline.app.data.model.UserProfile
 import com.rpsonline.app.ui.components.HomeOutlinedButton
-import com.rpsonline.app.ui.components.PlayerSummaryContent
+import com.rpsonline.app.ui.components.ProfileSummaryCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.rpsScreenPadding
 import com.rpsonline.app.viewmodel.LeaderboardViewModel
@@ -98,7 +98,7 @@ fun LeaderboardScreen(
             else -> {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     state = listState,
                 ) {
                     itemsIndexed(
@@ -142,51 +142,50 @@ private fun LeaderboardListItem(
     isCurrentUser: Boolean,
     onClick: () -> Unit,
 ) {
-    LeaderboardEntryCard(
-        rank = rank,
-        isCurrentUser = isCurrentUser,
-        onClick = onClick,
-    ) {
-        LeaderboardEntryContent(
-            rank = rank,
-            entry = entry,
-            isCurrentUser = isCurrentUser,
-        )
-    }
-}
-
-@Composable
-private fun LeaderboardEntryContent(
-    rank: Int,
-    entry: LeaderboardEntry,
-    isCurrentUser: Boolean,
-) {
     val nameLine = buildString {
         append("#$rank ${entry.displayName}")
         if (isCurrentUser) append(" · You")
     }
-    val rankLabelColor = when {
-        isCurrentUser -> Color.Unspecified
-        else -> leaderboardRankLabelColor(rank, isRpsDarkTheme())
-    }
-    PlayerSummaryContent(
-        nameLine = nameLine,
+    val darkTheme = isRpsDarkTheme()
+    val youColor = MaterialTheme.colorScheme.primary
+    val otherStripeColor = MaterialTheme.colorScheme.outlineVariant
+    val medalStripe = leaderboardPodiumStripeColor(rank, darkTheme)
+    ProfileSummaryCard(
+        displayName = nameLine,
+        profile = entry.toUserProfile(),
         nameColor = if (isCurrentUser) {
-            MaterialTheme.colorScheme.primary
-        } else if (rankLabelColor == Color.Unspecified) {
-            MaterialTheme.colorScheme.onSurface
+            null
         } else {
-            rankLabelColor
+            leaderboardPodiumRankLabelColor(rank, darkTheme)
         },
-        wins = entry.wins,
-        losses = entry.losses,
-        draws = entry.draws,
-        roundsWon = entry.roundsWon,
-        roundsLost = entry.roundsLost,
-        roundsDraw = entry.roundsDraw,
-        throwsRock = entry.throwsRock,
-        throwsPaper = entry.throwsPaper,
-        throwsScissors = entry.throwsScissors,
-        elo = entry.elo,
+        emphasized = isCurrentUser,
+        accentStripeTop = when {
+            isCurrentUser && medalStripe != null -> medalStripe
+            isCurrentUser -> youColor
+            medalStripe != null -> medalStripe
+            else -> otherStripeColor
+        },
+        accentStripeBottom = when {
+            isCurrentUser -> youColor
+            medalStripe != null -> medalStripe
+            else -> otherStripeColor
+        },
+        onClick = onClick,
     )
 }
+
+private fun LeaderboardEntry.toUserProfile(): UserProfile =
+    UserProfile(
+        uid = uid,
+        displayName = displayName,
+        elo = elo,
+        wins = wins,
+        losses = losses,
+        draws = draws,
+        roundsWon = roundsWon,
+        roundsLost = roundsLost,
+        roundsDraw = roundsDraw,
+        throwsRock = throwsRock,
+        throwsPaper = throwsPaper,
+        throwsScissors = throwsScissors,
+    )

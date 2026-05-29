@@ -1169,6 +1169,20 @@ export const ping = onCall(async (request) => {
   return { serverTimeMs: Date.now() };
 });
 
+/** Server-authoritative presence heartbeat (Admin SDK — reliable for Google sign-in). */
+export const touchPresence = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const now = FieldValue.serverTimestamp();
+  await Promise.all([
+    db.collection("presence").doc(uid).set({ lastSeen: now }),
+    db.collection("users").doc(uid).set({ lastSeen: now }, { merge: true }),
+  ]);
+  return { ok: true, serverTimeMs: Date.now() };
+});
+
 export const cleanupStale = onSchedule(
   { schedule: "every 5 minutes" },
   async () => {

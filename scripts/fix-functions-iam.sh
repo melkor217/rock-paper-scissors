@@ -1,21 +1,46 @@
 #!/bin/bash
-# Fix "UNAUTHENTICATED" on Callable Functions when Cloud Run requires IAM invoker.
-# Requires: gcloud CLI (brew install google-cloud-sdk)
+# Grant roles/run.invoker to allUsers on HTTPS callable Cloud Run services.
+# Fixes client "UNAUTHENTICATED" when Cloud Run IAM blocks unauthenticated invoke.
+#
+# Usage: ./scripts/fix-functions-iam.sh [PROJECT_ID] [REGION]
+# Requires: gcloud CLI, logged in (gcloud auth login)
 set -euo pipefail
 
 PROJECT="${1:-rps-online-9771e}"
 REGION="${2:-europe-west1}"
 
-echo "Granting public invoker on Cloud Run services for project $PROJECT ($REGION)..."
+# Firebase Functions v2 deploy names are lowercase on Cloud Run.
+CALLABLE_SERVICES=(
+  ping
+  touchpresence
+  joinmatchmakingqueue
+  submitmatchmove
+)
 
-for SERVICE in ping joinMatchmakingQueue submitmatchmove; do
+echo "Granting public invoker on Cloud Run callables for project $PROJECT ($REGION)..."
+
+failed=()
+for SERVICE in "${CALLABLE_SERVICES[@]}"; do
   echo "→ $SERVICE"
-  gcloud run services add-iam-policy-binding "$SERVICE" \
+  if ! gcloud run services add-iam-policy-binding "$SERVICE" \
     --project="$PROJECT" \
     --region="$REGION" \
     --member="allUsers" \
     --role="roles/run.invoker" \
-    --quiet || echo "  (skip if service name differs — check Cloud Run console)"
+    --quiet 2>&1; then
+    failed+=("$SERVICE")
+  fi
 done
 
-echo "Done. Retry the in-app ping meter (signed in)."
+if ((${#failed[@]} > 0)); then
+  echo ""
+  echo "Failed (service missing or no permission): ${failed[*]}"
+  echo "Deployed callables in $REGION:"
+  gcloud run services list --project="$PROJECT" --region="$REGION" --format='table(metadata.name)' 2>&1 || true
+  echo ""
+  echo "Deploy missing functions first, e.g.:"
+  echo "  firebase deploy --only functions:touchPresence,functions:joinMatchmakingQueue"
+  exit 1
+fi
+
+echo "Done. Callable invoker IAM updated for: ${CALLABLE_SERVICES[*]}"

@@ -48,6 +48,26 @@ internal suspend fun DocumentReference.confirmExistsOnServer(
     return false
 }
 
+internal suspend fun DocumentReference.confirmPresenceFreshOnServer(
+    maxAgeMs: Long,
+    confirmTimeoutMs: Long = 8_000,
+    pollIntervalMs: Long = 300L,
+): Boolean {
+    val minTime = System.currentTimeMillis() - maxAgeMs
+    val deadline = System.currentTimeMillis() + confirmTimeoutMs
+    while (System.currentTimeMillis() < deadline) {
+        val snap = withTimeoutOrNull(4_000) {
+            get(Source.SERVER).await()
+        }
+        val lastSeenMs = snap?.getTimestamp("lastSeen")?.toDate()?.time
+        if (snap != null && snap.exists() && lastSeenMs != null && lastSeenMs >= minTime) {
+            return true
+        }
+        delay(pollIntervalMs)
+    }
+    return false
+}
+
 internal suspend fun DocumentReference.confirmChoiceOnServer(
     choice: String,
     confirmTimeoutMs: Long = 10_000,

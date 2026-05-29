@@ -112,6 +112,7 @@ fun ProfileScreen(
                         ProfileSummaryCard(
                             displayName = profile?.displayName ?: DisplayNames.DEFAULT,
                             profile = profile,
+                            emphasized = uiState.isOwnProfile,
                         )
                     }
                     item {

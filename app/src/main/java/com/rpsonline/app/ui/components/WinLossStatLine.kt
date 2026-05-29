@@ -10,11 +10,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import com.rpsonline.app.data.preferences.AppThemeStyle
-import com.rpsonline.app.ui.leaderboard.leaderboardWinRateColor
-import com.rpsonline.app.ui.leaderboard.leaderboardSpectrumColor
 import com.rpsonline.app.ui.leaderboard.winRatePercent
-import com.rpsonline.app.ui.theme.currentAppThemeStyle
 
 @Composable
 fun WinLossStatLine(
@@ -26,12 +22,7 @@ fun WinLossStatLine(
 ) {
     val winRate = winRatePercent(wins, losses, draws)
     val separatorColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val isCyberpunk = currentAppThemeStyle() == AppThemeStyle.CYBERPUNK
-    val winRateColor = if (isCyberpunk) {
-        MaterialTheme.colorScheme.tertiary
-    } else {
-        winRate?.let { leaderboardSpectrumColor(it.toFloat()) } ?: MaterialTheme.colorScheme.tertiary
-    }
+    val winRateColor = winRate?.let { profileStatValueColor() } ?: MaterialTheme.colorScheme.onSurfaceVariant
     val fontSize = textStyle.fontSize
     val fontFamily = textStyle.fontFamily
     val letterSpacing = textStyle.letterSpacing
@@ -165,7 +156,8 @@ fun RoundWinRateLine(
             }
             withStyle(
                 SpanStyle(
-                    color = leaderboardWinRateColor(roundWinRate),
+                    color = roundWinRate?.let { profileStatValueColor() }
+                        ?: MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                 ),
             ) {
