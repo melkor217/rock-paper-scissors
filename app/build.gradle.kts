@@ -44,11 +44,6 @@ android {
         }
     }
 
-    // GitHub Releases only: release APKs are sideloaded, so default to debug App Check (not Play Integrity).
-    // CI passes -PuseDebugAppCheck=true. Override with -PuseDebugAppCheck=false only for Play Store + Play Integrity.
-    val useDebugAppCheckForRelease =
-        (project.findProperty("useDebugAppCheck") as String?)?.toBoolean() ?: true
-
     buildTypes {
         debug {
             buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "false")
@@ -62,7 +57,8 @@ android {
             )
             signingConfig = signingConfigs.getByName("release")
             buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "true")
-            buildConfigField("boolean", "USE_DEBUG_APP_CHECK", useDebugAppCheckForRelease.toString())
+            // GitHub-only distribution: sideloaded release APKs always use debug App Check tokens.
+            buildConfigField("boolean", "USE_DEBUG_APP_CHECK", "true")
         }
     }
 

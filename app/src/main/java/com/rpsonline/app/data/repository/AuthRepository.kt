@@ -204,21 +204,28 @@ class AuthRepository(
     private fun buildAppCheckErrorMessage(cause: Exception): String {
         val detail = cause.message?.takeIf { it.isNotBlank() } ?: cause.javaClass.simpleName
         val usesDebugAppCheck = BuildConfig.DEBUG || BuildConfig.USE_DEBUG_APP_CHECK
-        return if (usesDebugAppCheck) {
-            val buildLabel = if (BuildConfig.DEBUG) {
-                "On debug builds (emulator or phone)"
-            } else {
-                "On this GitHub release APK"
-            }
-            "App Check failed ($detail). $buildLabel: open Logcat, filter DebugAppCheckProvider, " +
-                "copy the debug secret, add it in Firebase Console → App Check → " +
-                "com.rpsonline.app → Manage debug tokens, then cold-restart the app."
-        } else {
-            "App Check failed ($detail). Play Store releases need Play Integrity in Firebase Console → " +
+        if (!usesDebugAppCheck) {
+            return "App Check failed ($detail). Play Store releases need Play Integrity in Firebase Console → " +
                 "App Check → register Play Integrity for com.rpsonline.app (same package and signing key " +
                 "as Google Play). GitHub APKs use a debug token — install a release from GitHub Releases " +
                 "or a debug build from Android Studio."
         }
+
+        val buildLabel = if (BuildConfig.DEBUG) {
+            "On this debug build"
+        } else {
+            "On this release APK"
+        }
+        val rateLimitHint = if (detail.contains("Too many attempts", ignoreCase = true)) {
+            " Wait 1–2 minutes before retrying after registering the token."
+        } else {
+            ""
+        }
+        return "$buildLabel App Check is not set up yet ($detail). " +
+            "In Android Studio Logcat on this device, filter DebugAppCheckProvider, copy the debug secret, " +
+            "add it in Firebase Console → App Check → com.rpsonline.app → Manage debug tokens, " +
+            "then force-stop and reopen the app. " +
+            "GitHub APK and Studio release builds use different signing keys — register the token from the APK you installed.$rateLimitHint"
     }
 
     private suspend fun probeAppCheckToken(): Boolean {
