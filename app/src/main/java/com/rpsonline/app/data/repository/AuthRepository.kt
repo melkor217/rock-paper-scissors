@@ -234,6 +234,7 @@ class AuthRepository(
         val deadline = System.currentTimeMillis() + 12_000
         while (System.currentTimeMillis() < deadline) {
             val snap = docRef.getServerSnapshotOrNull(4_000)
+                ?: docRef.getCacheSnapshotOrNull(1_000)
             if (snap != null && snap.isQueueReadyProfile()) {
                 val synced = snap.toUserProfile(uid)
                 UserProfileSync.rememberQueueReady(uid, synced)

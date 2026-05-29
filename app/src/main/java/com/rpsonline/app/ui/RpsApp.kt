@@ -95,7 +95,7 @@ fun RpsApp() {
 
     LaunchedEffect(user?.uid) {
         val uid = user?.uid ?: return@LaunchedEffect
-        presenceRepository.touchPresence(uid)
+        presenceRepository.touchPresence(uid, forceAuthRefresh = true)
         while (true) {
             delay(PresenceRepository.HEARTBEAT_INTERVAL_MS)
             presenceRepository.touchPresence(uid)

@@ -10,21 +10,35 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.tasks.await
 
 class PresenceRepository(
     private val firestore: FirebaseFirestore = appFirestore(),
 ) {
-    /** Best-effort heartbeat; failures must never crash the app. */
-    suspend fun touchPresence(uid: String) {
-        runCatching { awaitFirestoreAuth() }
+    /**
+     * Writes [COLLECTION]/[uid] so other clients can count this player as online.
+     * Retries once with a fresh auth token — Google sign-in often needs that on the first heartbeat.
+     */
+    suspend fun touchPresence(uid: String, forceAuthRefresh: Boolean = false) {
         val now = Timestamp.now()
-        firestore.collection(COLLECTION)
-            .document(uid)
-            .setBestEffort(mapOf("lastSeen" to now))
+        val payload = mapOf("lastSeen" to now)
+        val presenceRef = firestore.collection(COLLECTION).document(uid)
+
+        for (attempt in 0..1) {
+            awaitFirestoreAuth(forceRefresh = forceAuthRefresh || attempt > 0)
+            val wrote = runCatching {
+                withTimeout(PRESENCE_WRITE_TIMEOUT_MS) {
+                    presenceRef.set(payload).awaitTask()
+                }
+            }.isSuccess
+            if (wrote) return
+            delay(350)
+        }
+
         firestore.collection("users")
             .document(uid)
-            .updateBestEffort(mapOf("lastSeen" to now))
+            .updateBestEffort(payload)
     }
 
     fun clearPresence(uid: String) {
@@ -106,6 +120,7 @@ class PresenceRepository(
         private const val COUNT_RECALC_INTERVAL_MS = 10_000L
         /** Refresh presence docs from server in case the snapshot listener went stale. */
         private const val SERVER_SYNC_INTERVAL_MS = 45_000L
+        private const val PRESENCE_WRITE_TIMEOUT_MS = 8_000L
 
         fun countOnlineDocuments(
             documents: List<DocumentSnapshot>,

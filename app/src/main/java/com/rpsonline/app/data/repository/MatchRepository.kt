@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.google.firebase.FirebaseApp
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -51,8 +52,8 @@ class MatchRepository(
 
         private const val PREFS_NAME = "concluded_match_cache"
         private const val PREF_KEY_VERSION_CODE = "version_code"
-        private const val QUEUE_WRITE_TIMEOUT_MS = 12_000L
-        private const val ENABLE_NETWORK_TIMEOUT_MS = 3_000L
+        private const val QUEUE_WRITE_TIMEOUT_MS = 20_000L
+        private const val ENABLE_NETWORK_TIMEOUT_MS = 2_000L
         /** Align with [functions/src/queue.ts] [QUEUE_STALE_MS] and server matchmaking. */
         private const val ACTIVE_MATCH_RECONNECT_MAX_AGE_MS = 90_000L
         private const val QUEUE_READ_TIMEOUT_MS = 8_000L
@@ -203,12 +204,10 @@ class MatchRepository(
             runCatching { firestore.enableNetwork().await() }
         }
 
-        val authRepository = AuthRepository()
         val queueProfile = UserProfileSync.queueReadyProfile(userId) ?: profile
         UserProfileSync.rememberQueueReady(userId, queueProfile)
 
         val activeMatchId = queueProfile.activeMatchId
-            ?: authRepository.fetchServerProfile(userId)?.activeMatchId
         if (!activeMatchId.isNullOrBlank()) {
             val match = withTimeoutOrNull(3_000) { getMatchFromServer(activeMatchId) }
             if (
@@ -222,21 +221,38 @@ class MatchRepository(
 
         val clientJoinedAtMs = System.currentTimeMillis()
         val joinedAt = Timestamp.now()
-        withTimeout(QUEUE_WRITE_TIMEOUT_MS) {
-            firestore.collection("queue").document(userId).set(
-                mapOf(
-                    "joinedAt" to joinedAt,
-                    "lastHeartbeatAt" to joinedAt,
-                    "clientJoinedAt" to clientJoinedAtMs,
-                    "elo" to queueProfile.elo,
-                    "displayName" to queueProfile.displayName,
-                    "matchModes" to matchModes.map { it.name },
-                ),
-            ).awaitTask()
-        }
+        val queuePayload = mapOf(
+            "joinedAt" to joinedAt,
+            "lastHeartbeatAt" to joinedAt,
+            "clientJoinedAt" to clientJoinedAtMs,
+            "elo" to queueProfile.elo,
+            "displayName" to queueProfile.displayName,
+            "matchModes" to matchModes.map { it.name },
+        )
+        val queueRef = firestore.collection("queue").document(userId)
+        writeQueueEntry(queueRef, queuePayload)
         MatchSessionMonitor.confirmQueueJoinedAt(clientJoinedAtMs)
 
         return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = clientJoinedAtMs)
+    }
+
+    private suspend fun writeQueueEntry(queueRef: DocumentReference, payload: Map<String, Any>) {
+        var lastError: Exception? = null
+        repeat(2) { attempt ->
+            try {
+                withTimeout(QUEUE_WRITE_TIMEOUT_MS) {
+                    queueRef.set(payload).awaitTask()
+                }
+                return
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt == 0) {
+                    awaitFirestoreAuth(forceRefresh = true)
+                    delay(400)
+                }
+            }
+        }
+        throw lastError ?: IllegalStateException("Could not join matchmaking queue")
     }
 
     /**
