@@ -5,35 +5,24 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
 /**
- * Top bar container that extends into the display cutout region.
- * Icons sit in the side "ears" beside the camera — not pushed below the cutout.
+ * Top bar row that draws into the display cutout band.
+ * Icons sit at the top beside the camera — no extra height below the cutout.
  */
 @Composable
-fun Modifier.rpsTopBarLayout(): Modifier {
-    val density = LocalDensity.current
-    val cutoutTopPx = WindowInsets.statusBars
-        .union(WindowInsets.displayCutout)
-        .getTop(density)
-    val minBarHeight = with(density) { cutoutTopPx.toDp() }.coerceAtLeast(20.dp) + 36.dp
-    return this
-        .fillMaxWidth()
+fun Modifier.rpsTopBarLayout(): Modifier =
+    fillMaxWidth()
         .windowInsetsPadding(
             WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
         )
-        .heightIn(min = minBarHeight)
-}
+        .padding(top = 2.dp, bottom = 4.dp)
 
 /** Screen content below the global top bar; respects side cutouts and gesture nav. */
 @Composable
