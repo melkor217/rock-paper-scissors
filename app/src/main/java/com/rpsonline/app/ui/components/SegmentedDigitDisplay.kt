@@ -118,6 +118,10 @@ fun resolutionBurstSegmentsAtProgress(move: Move, fillProgress: Float): Set<Char
     if (fillProgress >= 1f) return allSevenSegments
     if (fillProgress <= 0f) return emptySet()
     val sequence = resolutionBurstFillSequence(move)
+    val fillCompleteProgress = ResolutionPulseFillCompleteAtMs.toFloat() / ResolutionPulseDurationMs
+    if (fillProgress >= fillCompleteProgress) {
+        return sequence.last()
+    }
     val index = (fillProgress * (sequence.size - 1))
         .toInt()
         .coerceIn(0, sequence.lastIndex)

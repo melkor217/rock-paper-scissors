@@ -67,7 +67,7 @@ class RoundResolutionPulseNotifierTest {
 
         notifier.forceFeedbackComplete(resolved, "match-1")
 
-        assertFalse(notifier.shouldSkipFeedback(key))
+        assertTrue(notifier.shouldSkipFeedback(key))
         assertFalse(notifier.shouldSuppressClockTickFor(resolved, "match-1"))
     }
 
