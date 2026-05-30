@@ -18,7 +18,7 @@ class MatchResultDetailTest {
     fun roundTimeout_win() {
         val match = completedMatch(endReason = MatchEndReason.ROUND_TIMEOUT)
         assertEquals(
-            "Won on round timeout — opponent didn't play in time",
+            "Round timeout",
             matchResultOutcomeDetail(match, resolution = ViewerMatchResolution.WIN),
         )
     }
@@ -27,7 +27,7 @@ class MatchResultDetailTest {
     fun clockTimeout_loss() {
         val match = completedMatch(endReason = MatchEndReason.CLOCK_TIMEOUT, winnerId = opp)
         assertEquals(
-            "Lost on clock timeout — your match clock ran out",
+            "Clock timeout",
             matchResultOutcomeDetail(match, resolution = ViewerMatchResolution.LOSS),
         )
     }
@@ -63,7 +63,7 @@ class MatchResultDetailTest {
             ),
         )
         assertEquals(
-            "Won on timeout",
+            "Timeout",
             matchResultOutcomeDetail(match, resolution = ViewerMatchResolution.WIN),
         )
     }

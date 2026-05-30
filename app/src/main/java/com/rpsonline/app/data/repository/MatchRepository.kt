@@ -432,6 +432,10 @@ class MatchRepository(
      * [GameViewModel] confirms via snapshot sync.
      */
     suspend fun submitMove(matchId: String, move: Move, roundNumber: Int) {
+        val openRoundNumber = getMatchFromServer(matchId)?.openRound()?.roundNumber
+        if (openRoundNumber != roundNumber) {
+            throw IllegalStateException("This round is no longer open.")
+        }
         try {
             GameFunctions.submitMove(matchId, roundNumber, move)
         } catch (callableError: Exception) {
@@ -480,7 +484,8 @@ class MatchRepository(
             .document(matchId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    trySend(null)
+                    // Keep the last snapshot on transient listener errors so match-end navigation
+                    // is not lost for one client.
                     return@addSnapshotListener
                 }
                 trySend(snapshot?.toMatch(matchId))
@@ -662,6 +667,8 @@ internal fun DocumentSnapshot.toMatch(id: String): Match {
     val rounds = roundsData.map { map ->
         RoundResult(
             roundNumber = (map["roundNumber"] as? Number)?.toInt() ?: 0,
+            player1Submitted = map["player1Submitted"] as? Boolean ?: false,
+            player2Submitted = map["player2Submitted"] as? Boolean ?: false,
             player1Choice = map["player1Choice"] as? String,
             player2Choice = map["player2Choice"] as? String,
             winner = map["winner"] as? String,
@@ -786,6 +793,8 @@ private fun JSONObject.toMatch(): Match {
 private fun RoundResult.toJson(): JSONObject {
     val obj = JSONObject()
     obj.put("roundNumber", roundNumber)
+    if (player1Submitted) obj.put("player1Submitted", true)
+    if (player2Submitted) obj.put("player2Submitted", true)
     obj.put("player1Choice", player1Choice)
     obj.put("player2Choice", player2Choice)
     obj.put("winner", winner)
@@ -801,6 +810,8 @@ private fun RoundResult.toJson(): JSONObject {
 private fun JSONObject.toRoundResult(): RoundResult =
     RoundResult(
         roundNumber = optInt("roundNumber", 0),
+        player1Submitted = optBoolean("player1Submitted", false),
+        player2Submitted = optBoolean("player2Submitted", false),
         player1Choice = optNullableString("player1Choice"),
         player2Choice = optNullableString("player2Choice"),
         winner = optNullableString("winner"),
@@ -820,6 +831,9 @@ private fun JSONObject.optNullableInt(name: String): Int? =
 
 private fun JSONObject.optNullableLong(name: String): Long? =
     if (has(name) && !isNull(name)) optLong(name) else null
+
+private fun JSONObject.optBoolean(name: String, default: Boolean): Boolean =
+    if (has(name) && !isNull(name)) getBoolean(name) else default
 
 private data class ConcludedMatchCacheEntry(
     val createdAtMs: Long,

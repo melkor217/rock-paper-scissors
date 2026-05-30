@@ -26,6 +26,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +64,7 @@ class SignInViewModel(
     private var latestAuthUser: FirebaseUser? = null
     private var restoreJob: Job? = null
     private var guestSignInJob: Job? = null
+    private val firebaseAvailabilityMutex = Mutex()
     /** Blocks [maybeStartSessionRestore] while email auth + save-password UI is in flight. */
     private var blockSessionRestore = false
 
@@ -77,7 +80,7 @@ class SignInViewModel(
             _uiState.update { it.copy(error = message) }
         }
         viewModelScope.launch {
-            runFirebaseAvailabilityCheck()
+            runFirebaseAvailabilityCheck(showProgress = true)
             monitorFirebaseAvailability()
         }
         viewModelScope.launch {
@@ -118,7 +121,14 @@ class SignInViewModel(
 
     fun retryFirebaseAvailabilityCheck() {
         viewModelScope.launch {
-            runFirebaseAvailabilityCheck()
+            runFirebaseAvailabilityCheck(showProgress = !_uiState.value.isFirebaseAvailable)
+            maybeStartSessionRestore()
+        }
+    }
+
+    fun refreshFirebaseAvailabilityOnResume() {
+        viewModelScope.launch {
+            runFirebaseAvailabilityCheck(showProgress = false)
             maybeStartSessionRestore()
         }
     }
@@ -452,34 +462,33 @@ class SignInViewModel(
         error("Unexpected credential type")
     }
 
-    private suspend fun runFirebaseAvailabilityCheck() {
-        _uiState.update {
-            it.copy(
-                isCheckingFirebase = true,
-                isFirebaseAvailable = false,
-                error = null,
-            )
-        }
-        val available = authRepository.isFirebaseAvailable()
-        _uiState.update {
-            it.copy(
-                isCheckingFirebase = false,
-                isFirebaseAvailable = available,
-                error = null,
-            )
+    private suspend fun runFirebaseAvailabilityCheck(showProgress: Boolean = false) {
+        firebaseAvailabilityMutex.withLock {
+            val shouldShowProgress = showProgress && !_uiState.value.isFirebaseAvailable
+            if (shouldShowProgress) {
+                _uiState.update {
+                    it.copy(
+                        isCheckingFirebase = true,
+                        isFirebaseAvailable = false,
+                        error = null,
+                    )
+                }
+            }
+            val available = authRepository.isFirebaseAvailable()
+            _uiState.update { state ->
+                state.copy(
+                    isCheckingFirebase = false,
+                    isFirebaseAvailable = available,
+                    error = if (shouldShowProgress && available) null else state.error,
+                )
+            }
         }
     }
 
     private suspend fun monitorFirebaseAvailability() {
         while (true) {
-            val available = authRepository.isFirebaseAvailable()
-            _uiState.update {
-                it.copy(
-                    isCheckingFirebase = false,
-                    isFirebaseAvailable = available,
-                )
-            }
-            if (available) {
+            runFirebaseAvailabilityCheck(showProgress = false)
+            if (_uiState.value.isFirebaseAvailable) {
                 maybeStartSessionRestore()
                 delay(60_000)
             } else {

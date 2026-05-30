@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.rpsonline.app.data.monitoring.NetworkConnectionMonitor
 import com.rpsonline.app.data.model.Match
 import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.repository.AuthRepository
@@ -40,15 +41,20 @@ import com.rpsonline.app.data.preferences.ThemePreferences
 import com.rpsonline.app.navigation.RpsNavGraph
 import com.rpsonline.app.ui.components.AppearanceMenuButton
 import com.rpsonline.app.ui.components.ClockSoundMuteButton
+import com.rpsonline.app.ui.components.LocalNetworkConnectionStatus
 import com.rpsonline.app.ui.components.PlayersOnlineIndicator
 import com.rpsonline.app.ui.components.SevenSegmentBlankSlot
+import com.rpsonline.app.ui.components.SegmentedDisplayPulseEffect
+import com.rpsonline.app.ui.components.isServerConnected
 import com.rpsonline.app.ui.components.TopBarSegmentedQueueIndicator
 import com.rpsonline.app.ui.components.RpsTopStatusBar
 import com.rpsonline.app.ui.util.applyImmersiveFullscreen
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.ui.theme.RpsTheme
 import com.rpsonline.app.ui.util.ClockTickPlayer
-import com.rpsonline.app.ui.util.RoundResolutionSoundEffect
+import com.rpsonline.app.ui.util.LocalRoundResolutionPulse
+import com.rpsonline.app.ui.util.RoundResolutionFeedbackEffect
+import com.rpsonline.app.ui.util.RoundResolutionPulseNotifier
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -61,6 +67,13 @@ fun RpsApp() {
     var themeStyle by remember { mutableStateOf(themePreferences.get()) }
     var clockSoundMuted by remember { mutableStateOf(soundPreferences.isClockMuted()) }
     val scope = rememberCoroutineScope()
+    val connectionMonitor = remember { NetworkConnectionMonitor(context) }
+    val connectionStatus by connectionMonitor.status.collectAsStateWithLifecycle()
+
+    DisposableEffect(connectionMonitor, scope) {
+        connectionMonitor.start(scope)
+        onDispose { connectionMonitor.stop() }
+    }
 
     LifecycleResumeEffect(activity) {
         activity?.applyImmersiveFullscreen()
@@ -178,15 +191,22 @@ fun RpsApp() {
     }
 
     RpsTheme(style = themeStyle) {
-        CompositionLocalProvider(LocalClockSoundMuted provides clockSoundMuted) {
+        val roundResolutionPulseNotifier = remember { RoundResolutionPulseNotifier() }
+        CompositionLocalProvider(
+            LocalClockSoundMuted provides clockSoundMuted,
+            LocalNetworkConnectionStatus provides connectionStatus,
+            LocalRoundResolutionPulse provides roundResolutionPulseNotifier,
+        ) {
+            RoundResolutionFeedbackEffect(
+                activeMatch = activeMatch,
+                userId = user?.uid,
+                pulseNotifier = roundResolutionPulseNotifier,
+            )
             GlobalMatchClockTickEffect(
                 activeMatch = activeMatch,
                 userId = user?.uid,
                 muted = clockSoundMuted,
-            )
-            RoundResolutionSoundEffect(
-                activeMatch = activeMatch,
-                userId = user?.uid,
+                pulseNotifier = roundResolutionPulseNotifier,
             )
             val topPanelColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh
             val topPanelGradient = Brush.linearGradient(
@@ -212,21 +232,37 @@ fun RpsApp() {
                             if (user != null) {
                                 val inMatch = activeMatch?.status == MatchStatus.ACTIVE
                                 val inQueue = queueJoinedAtMs != null && !inMatch
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                                val playerClockStopped = inMatch &&
+                                    activeMatch?.isPlayerClockRunning(user?.uid) != true
+                                val resolutionPulseTrigger =
+                                    roundResolutionPulseNotifier.pulseTrigger
+                                SegmentedDisplayPulseEffect(
+                                    resolutionPulseTrigger = resolutionPulseTrigger,
+                                    pulseMove = roundResolutionPulseNotifier.activePulseMove,
                                 ) {
-                                    PlayersOnlineIndicator(count = onlinePlayerCount)
-                                    SevenSegmentBlankSlot()
-                                    TopBarSegmentedQueueIndicator(
-                                        inMatch = inMatch,
-                                        inQueue = inQueue,
-                                        elapsedSeconds = if (inMatch) {
-                                            matchElapsedSeconds
-                                        } else {
-                                            queueElapsedSeconds
-                                        },
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                                    ) {
+                                        PlayersOnlineIndicator(
+                                            count = if (connectionStatus.isServerConnected()) {
+                                                onlinePlayerCount
+                                            } else {
+                                                null
+                                            },
+                                        )
+                                        SevenSegmentBlankSlot()
+                                        TopBarSegmentedQueueIndicator(
+                                            inMatch = inMatch,
+                                            inQueue = inQueue,
+                                            elapsedSeconds = if (inMatch) {
+                                                matchElapsedSeconds
+                                            } else {
+                                                queueElapsedSeconds
+                                            },
+                                            playerClockStopped = playerClockStopped,
+                                        )
+                                    }
                                 }
                             }
                         },
@@ -269,32 +305,32 @@ private fun GlobalMatchClockTickEffect(
     activeMatch: Match?,
     userId: String?,
     muted: Boolean,
+    pulseNotifier: RoundResolutionPulseNotifier,
 ) {
     val tickPlayer = remember { ClockTickPlayer() }
 
-    val myClockRunning = remember(activeMatch, userId) {
-        val match = activeMatch
-        val uid = userId
-        val openRound = match?.openRound()
-        val hasSubmittedMove = when {
-            uid == null || match == null || openRound == null -> false
-            uid == match.player1 -> openRound.player1Choice != null
-            else -> openRound.player2Choice != null
-        }
-        match?.status == MatchStatus.ACTIVE &&
-            openRound != null &&
-            !hasSubmittedMove
-    }
+    val myClockRunning = activeMatch?.isPlayerClockRunning(userId) == true
+    val suppressForResolutionFeedback = activeMatch?.let { match ->
+        pulseNotifier.shouldSuppressClockTickFor(match.lastResolvedRound(), match.id)
+    } == true
+    val shouldTick = myClockRunning && !muted && !suppressForResolutionFeedback
 
     DisposableEffect(Unit) {
         onDispose { tickPlayer.release() }
     }
 
-    LaunchedEffect(myClockRunning, muted) {
-        if (!myClockRunning || muted) return@LaunchedEffect
-        while (true) {
-            tickPlayer.playTick()
-            delay(500)
+    LaunchedEffect(shouldTick) {
+        if (!shouldTick) {
+            tickPlayer.stop()
+            return@LaunchedEffect
+        }
+        try {
+            while (true) {
+                tickPlayer.playTick()
+                delay(500)
+            }
+        } finally {
+            tickPlayer.stop()
         }
     }
 }

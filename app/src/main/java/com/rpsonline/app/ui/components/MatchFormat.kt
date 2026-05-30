@@ -29,8 +29,20 @@ fun postMatchElo(preMatchElo: Int?, eloDelta: Int?): Int? {
 
 fun formatMatchMode(mode: MatchMode): String = mode.label
 
-/** e.g. `Best of 5 (first to 3)` or `Best of 10 (first to 6, 5–5 draw)`. */
-fun formatMatchSeriesDetail(mode: MatchMode): String {
+/** e.g. `BO10` for the in-match sub-header. */
+fun formatMatchModeCode(mode: MatchMode): String = mode.name
+
+/** e.g. `Bo5 · to 3` or `Best of 5 (first to 3)`. */
+fun formatMatchSeriesDetail(mode: MatchMode, compact: Boolean = false): String {
+    if (compact) {
+        val base = "Bo${mode.bestOfRounds} · to ${mode.winsToFinish}"
+        val tied = mode.tiedSeriesScore
+        return if (tied != null) {
+            "$base · ${tied}–${tied}"
+        } else {
+            base
+        }
+    }
     val base = "${mode.label} (first to ${mode.winsToFinish})"
     val tied = mode.tiedSeriesScore
     return if (tied != null) {

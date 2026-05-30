@@ -24,6 +24,8 @@ import {
   applyClockIncrement,
   clockExpiry,
   initialClockFields,
+  player1HasSubmitted,
+  player2HasSubmitted,
   tickClocks,
 } from "./clockControl";
 import {
@@ -46,6 +48,9 @@ const ELO_WINDOW = 300;
 
 interface RoundDoc {
   roundNumber: number;
+  /** Set when player1 locks in; actual move stays in choices subcollection until resolve. */
+  player1Submitted?: boolean;
+  player2Submitted?: boolean;
   player1Choice?: Move;
   player2Choice?: Move;
   winner?: string;
@@ -409,11 +414,80 @@ function getOpenRound(match: MatchDoc): RoundDoc | undefined {
   return [...match.rounds].reverse().find((round) => !round.resolvedAt);
 }
 
+function roundClockState(round: RoundDoc) {
+  return {
+    player1Submitted: round.player1Submitted,
+    player2Submitted: round.player2Submitted,
+    player1Choice: round.player1Choice,
+    player2Choice: round.player2Choice,
+  };
+}
+
+async function loadRoundChoices(
+  matchId: string,
+  match: MatchDoc,
+  roundNumber: number,
+  round: RoundDoc,
+): Promise<{ p1Choice?: Move; p2Choice?: Move }> {
+  const choicesSnap = await db
+    .collection("matches")
+    .doc(matchId)
+    .collection("rounds")
+    .doc(String(roundNumber))
+    .collection("choices")
+    .get();
+
+  let p1Choice = round.player1Choice;
+  let p2Choice = round.player2Choice;
+  for (const doc of choicesSnap.docs) {
+    const choice = doc.get("choice") as string;
+    if (!isValidMove(choice)) continue;
+    if (doc.id === match.player1) p1Choice = choice as Move;
+    else if (doc.id === match.player2) p2Choice = choice as Move;
+  }
+  return { p1Choice, p2Choice };
+}
+
+/** Both submission flags set but choice docs missing (legacy blind-play bug) — reopen the round. */
+async function resetCorruptedOpenRound(
+  matchRef: FirebaseFirestore.DocumentReference,
+  match: MatchDoc,
+  rounds: RoundDoc[],
+  roundIndex: number,
+  round: RoundDoc,
+): Promise<void> {
+  const now = Timestamp.now();
+  const ticked = tickClocks(
+    match,
+    { player1Submitted: false, player2Submitted: false },
+    now,
+  );
+  rounds[roundIndex] = sanitizeRound({
+    roundNumber: round.roundNumber,
+    startedAt: now,
+    deadline: Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS),
+  });
+  await matchRef.update({
+    rounds: sanitizeRounds(rounds),
+    player1ClockMs: ticked.player1ClockMs,
+    player2ClockMs: ticked.player2ClockMs,
+    clocksUpdatedAt: ticked.clocksUpdatedAt,
+    lastActivityAt: FieldValue.serverTimestamp(),
+  });
+  await clearChoicesForRound(matchRef.id, round.roundNumber);
+}
+
 /** Firestore rejects undefined field values; strip them from round payloads. */
 function sanitizeRound(round: RoundDoc): RoundDoc {
   const clean: RoundDoc = { roundNumber: round.roundNumber };
-  if (round.player1Choice) clean.player1Choice = round.player1Choice;
-  if (round.player2Choice) clean.player2Choice = round.player2Choice;
+  const resolved = !!round.resolvedAt;
+  if (resolved) {
+    if (round.player1Choice) clean.player1Choice = round.player1Choice;
+    if (round.player2Choice) clean.player2Choice = round.player2Choice;
+  } else {
+    if (round.player1Submitted) clean.player1Submitted = true;
+    if (round.player2Submitted) clean.player2Submitted = true;
+  }
   if (round.winner) clean.winner = round.winner;
   if (round.resolvedAt) clean.resolvedAt = round.resolvedAt;
   if (round.startedAt) clean.startedAt = round.startedAt;
@@ -620,11 +694,13 @@ async function resolveRoundIfReady(
   if (!round) return;
 
   const now = Timestamp.now();
-  const ticked = tickClocks(match, round, now);
+  const clockRound = roundClockState(round);
+  const ticked = tickClocks(match, clockRound, now);
   match = { ...match, ...ticked };
 
-  const p1Choice = round.player1Choice;
-  const p2Choice = round.player2Choice;
+  const { p1Choice, p2Choice } = await loadRoundChoices(matchRef.id, match, round.roundNumber, round);
+  const p1Submitted = player1HasSubmitted(round) || !!p1Choice;
+  const p2Submitted = player2HasSubmitted(round) || !!p2Choice;
   const deadlinePassed =
     options?.forceDeadline === true ||
     (round.deadline ? round.deadline.toMillis() <= now.toMillis() : false);
@@ -633,7 +709,7 @@ async function resolveRoundIfReady(
   const roundIndex = rounds.findIndex((r) => r.roundNumber === round.roundNumber && !r.resolvedAt);
   if (roundIndex < 0) return;
 
-  const expiry = clockExpiry(ticked.player1ClockMs, ticked.player2ClockMs, round);
+  const expiry = clockExpiry(ticked.player1ClockMs, ticked.player2ClockMs, clockRound);
   if (expiry === "player1") {
     const winner = match.player2;
     const pendingRound: RoundDoc = {
@@ -673,11 +749,11 @@ async function resolveRoundIfReady(
     return;
   }
   if (expiry === "both") {
-    if (p1Choice && !p2Choice) {
+    if (p1Submitted && !p2Submitted) {
       const winner = match.player1;
       const pendingRound: RoundDoc = {
         ...round,
-        player1Choice: p1Choice,
+        ...(p1Choice ? { player1Choice: p1Choice } : {}),
         winner,
         resolvedAt: now,
         endReason: CLOCK_TIMEOUT_END_REASON,
@@ -692,7 +768,7 @@ async function resolveRoundIfReady(
       );
       return;
     }
-    if (!p1Choice && p2Choice) {
+    if (!p1Submitted && p2Submitted) {
       const winner = match.player2;
       const pendingRound: RoundDoc = {
         ...round,
@@ -716,15 +792,15 @@ async function resolveRoundIfReady(
   }
 
   // Both players submitted — resolve normally.
-  if (p1Choice && p2Choice) {
+  if (p1Submitted && p2Submitted) {
     // fall through to winner resolution below
   } else if (deadlinePassed) {
     // Late player forfeits the entire series (not just the round).
-    if (p1Choice && !p2Choice) {
+    if (p1Submitted && !p2Submitted) {
       const winner = match.player1;
       const pendingRound: RoundDoc = {
         ...round,
-        player1Choice: p1Choice,
+        ...(p1Choice ? { player1Choice: p1Choice } : {}),
         winner,
         resolvedAt: now,
         endReason: ROUND_TIMEOUT_END_REASON,
@@ -739,7 +815,7 @@ async function resolveRoundIfReady(
       );
       return;
     }
-    if (!p1Choice && p2Choice) {
+    if (!p1Submitted && p2Submitted) {
       const winner = match.player2;
       const pendingRound: RoundDoc = {
         ...round,
@@ -766,8 +842,26 @@ async function resolveRoundIfReady(
     return;
   }
 
+  let resolvedP1Choice = p1Choice;
+  let resolvedP2Choice = p2Choice;
+  if (p1Submitted && p2Submitted && (!resolvedP1Choice || !resolvedP2Choice)) {
+    await syncPendingChoicesFromSubcollection(matchRef.id, round.roundNumber);
+    const reloaded = await loadRoundChoices(matchRef.id, match, round.roundNumber, round);
+    resolvedP1Choice = reloaded.p1Choice;
+    resolvedP2Choice = reloaded.p2Choice;
+  }
+
+  if (!resolvedP1Choice || !resolvedP2Choice) {
+    if (p1Submitted && p2Submitted) {
+      await resetCorruptedOpenRound(matchRef, match, rounds, roundIndex, round);
+      return;
+    }
+    await persistClocks(matchRef, ticked);
+    return;
+  }
+
   let winner: string;
-  const result = resolveRound(p1Choice!, p2Choice!);
+  const result = resolveRound(resolvedP1Choice, resolvedP2Choice);
   if (result === "tie") {
     winner = "tie";
   } else if (result === "player1") {
@@ -778,8 +872,8 @@ async function resolveRoundIfReady(
 
   const pendingRound: RoundDoc = {
     ...round,
-    player1Choice: p1Choice,
-    player2Choice: p2Choice,
+    player1Choice: resolvedP1Choice,
+    player2Choice: resolvedP2Choice,
     winner,
     resolvedAt: now,
     endReason: PLAYED_ROUND_END_REASON,
@@ -801,11 +895,12 @@ async function resolveRoundIfReady(
       player1Wins,
       player2Wins,
       now,
-      p1Choice!,
-      p2Choice!,
+      resolvedP1Choice,
+      resolvedP2Choice,
       winner,
     )
   ) {
+    await clearChoicesForRound(matchRef.id, round.roundNumber);
     return;
   }
 
@@ -824,6 +919,7 @@ async function resolveRoundIfReady(
     clocksUpdatedAt: now,
     lastActivityAt: FieldValue.serverTimestamp(),
   });
+  await clearChoicesForRound(matchRef.id, round.roundNumber);
 }
 
 /** Client writes queue/{uid}; this trigger runs matchmaking (no Callable / Cloud Run IAM). */
@@ -873,24 +969,26 @@ async function applyPlayerChoice(
     const now = Timestamp.now();
     let current = { ...rounds[idx] };
     const timings: RecordedMoveTiming[] = [];
-    const ticked = tickClocks(match, current, now);
+    const ticked = tickClocks(match, roundClockState(current), now);
 
     if (uid === match.player1) {
-      if (current.player1Choice) return;
+      if (player1HasSubmitted(current)) return;
       const stamped = recordMoveTiming(current, match, uid, now);
       if (stamped) {
         current = stamped.round;
         timings.push(stamped.timing);
       }
-      current.player1Choice = choice as Move;
+      current.player1Submitted = true;
+      delete current.player1Choice;
     } else {
-      if (current.player2Choice) return;
+      if (player2HasSubmitted(current)) return;
       const stamped = recordMoveTiming(current, match, uid, now);
       if (stamped) {
         current = stamped.round;
         timings.push(stamped.timing);
       }
-      current.player2Choice = choice as Move;
+      current.player2Submitted = true;
+      delete current.player2Choice;
     }
 
     rounds[idx] = sanitizeRound(current);
@@ -908,7 +1006,10 @@ async function applyPlayerChoice(
   const updated = await matchRef.get();
   if (updated.exists) {
     await resolveRoundIfReady(matchRef, updated.data() as MatchDoc);
-    await clearChoicesForRound(matchId, roundNumber);
+    const after = await matchRef.get();
+    if (after.exists) {
+      await clearChoicesIfRoundClosed(matchId, roundNumber, after.data() as MatchDoc);
+    }
   }
 }
 
@@ -925,9 +1026,21 @@ async function clearChoicesForRound(matchId: string, roundNumber: number) {
   await batch.commit();
 }
 
+/** Choice subcollections are only needed while a round is open; drop them once it advances. */
+async function clearChoicesIfRoundClosed(
+  matchId: string,
+  roundNumber: number,
+  match: MatchDoc,
+): Promise<void> {
+  const open = getOpenRound(match);
+  if (!open || open.roundNumber !== roundNumber) {
+    await clearChoicesForRound(matchId, roundNumber);
+  }
+}
+
 /**
  * Applies any pending choice docs still in the subcollection (trigger may lag).
- * Subcollections are the client write path; the match doc is the sole read model.
+ * Open-round moves live in subcollections; the match doc exposes submission flags only.
  */
 async function syncPendingChoicesFromSubcollection(
   matchId: string,
@@ -973,10 +1086,7 @@ async function resolveExpiredOpenRound(matchId: string, match: MatchDoc): Promis
   const after = await db.collection("matches").doc(matchId).get();
   if (!after.exists) return;
   const afterMatch = after.data() as MatchDoc;
-  const stillOpen = getOpenRound(afterMatch);
-  if (stillOpen && stillOpen.roundNumber === open.roundNumber) {
-    await clearChoicesForRound(matchId, open.roundNumber);
-  }
+  await clearChoicesIfRoundClosed(matchId, open.roundNumber, afterMatch);
 }
 
 /** Client writes when the round timer hits zero; resolves immediately (scheduler is backup). */
@@ -1001,10 +1111,7 @@ export const onRoundTimeout = onDocumentCreated(
     const after = await loaded.ref.get();
     if (!after.exists) return;
     const match = after.data() as MatchDoc;
-    const open = getOpenRound(match);
-    if (open && open.roundNumber === roundNumber) {
-      await clearChoicesForRound(matchId, roundNumber);
-    }
+    await clearChoicesIfRoundClosed(matchId, roundNumber, match);
   },
 );
 
@@ -1085,6 +1192,18 @@ export const submitMatchMove = onCall(async (request) => {
     submittedAt: FieldValue.serverTimestamp(),
   });
   await applyPlayerChoice(matchId, uid, choice, roundNumber);
+
+  const updated = await db.collection("matches").doc(matchId).get();
+  if (!updated.exists) {
+    throw new HttpsError("internal", "Move was not recorded. Try again.");
+  }
+  const open = getOpenRound(updated.data() as MatchDoc);
+  const recorded = open?.roundNumber === roundNumber && (
+    uid === match.player1 ? player1HasSubmitted(open) : player2HasSubmitted(open)
+  );
+  if (!recorded) {
+    throw new HttpsError("internal", "Move was not recorded. Try again.");
+  }
 
   return { ok: true };
 });

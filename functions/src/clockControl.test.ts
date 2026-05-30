@@ -11,7 +11,19 @@ import {
 } from "./clockControl";
 
 describe("clockControl", () => {
-  it("ticks only for players without a choice", () => {
+  it("ticks only for players without a submission", () => {
+    const t0 = Timestamp.fromMillis(0);
+    const t5 = Timestamp.fromMillis(5_000);
+    const result = tickClocks(
+      { player1ClockMs: 50_000, player2ClockMs: 50_000, clocksUpdatedAt: t0 },
+      { player1Submitted: true },
+      t5,
+    );
+    assert.equal(result.player1ClockMs, 50_000);
+    assert.equal(result.player2ClockMs, 45_000);
+  });
+
+  it("supports legacy choice fields on open rounds", () => {
     const t0 = Timestamp.fromMillis(0);
     const t5 = Timestamp.fromMillis(5_000);
     const result = tickClocks(
@@ -39,6 +51,7 @@ describe("clockControl", () => {
 
   it("detects clock expiry", () => {
     assert.equal(clockExpiry(0, 5_000, {}), "player1");
+    assert.equal(clockExpiry(5_000, 0, { player1Submitted: true }), "player2");
     assert.equal(clockExpiry(5_000, 0, { player1Choice: "ROCK" }), "player2");
     assert.equal(clockExpiry(0, 0, {}), "both");
     assert.equal(clockExpiry(INITIAL_CLOCK_MS, INITIAL_CLOCK_MS, {}), null);

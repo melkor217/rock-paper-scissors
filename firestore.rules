@@ -105,7 +105,7 @@ service cloud.firestore {
       allow write: if false;
 
       match /rounds/{roundNumber}/choices/{userId} {
-        allow read: if isSignedIn()
+        allow read: if isOwner(userId)
           && (get(/databases/$(database)/documents/matches/$(matchId)).data.player1 == request.auth.uid
               || get(/databases/$(database)/documents/matches/$(matchId)).data.player2 == request.auth.uid);
         allow create: if isOwner(userId)

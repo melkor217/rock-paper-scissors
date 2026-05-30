@@ -59,6 +59,8 @@ enum class RoundEndReason {
 
 data class RoundResult(
     val roundNumber: Int = 0,
+    val player1Submitted: Boolean = false,
+    val player2Submitted: Boolean = false,
     val player1Choice: String? = null,
     val player2Choice: String? = null,
     val winner: String? = null,
@@ -95,6 +97,17 @@ data class RoundResult(
             RoundEndReason.NORMAL
         winner != null -> null
         else -> null
+    }
+
+    /** True when this player locked in a move for this round (open or resolved). */
+    fun hasSubmittedFor(userId: String, player1Id: String): Boolean = when {
+        userId == player1Id -> player1Submitted || player1Choice != null
+        else -> player2Submitted || player2Choice != null
+    }
+
+    fun opponentHasSubmittedFor(userId: String, player1Id: String): Boolean = when {
+        userId == player1Id -> player2Submitted || player2Choice != null
+        else -> player1Submitted || player1Choice != null
     }
 }
 
@@ -167,6 +180,16 @@ data class Match(
     private fun roundWinsFor(playerId: String): Int =
         rounds.count { it.resolvedAt != null && it.winner == playerId }
 
+    /** Winning throw for each round this player won, oldest to newest. */
+    fun winMovesFor(playerId: String): List<Move> =
+        rounds
+            .filter { it.resolvedAt != null && it.winner == playerId }
+            .sortedBy { it.roundNumber }
+            .mapNotNull { round ->
+                val choice = if (playerId == player1) round.player1Choice else round.player2Choice
+                Move.fromString(choice)
+            }
+
     fun myClockMs(userId: String): Long =
         if (userId == player1) player1ClockMs else player2ClockMs
 
@@ -202,11 +225,25 @@ data class Match(
     fun openRound(): RoundResult? =
         rounds.filter { it.resolvedAt == null }.lastOrNull()
 
+    /** True while the local player still has an open-round pick and their match clock is ticking. */
+    fun isPlayerClockRunning(userId: String?): Boolean {
+        val uid = userId ?: return false
+        if (status != MatchStatus.ACTIVE) return false
+        val open = openRound() ?: return false
+        return !open.hasSubmittedFor(uid, player1)
+    }
+
     /** Choice for [userId] in [roundNumber], including after the round has resolved. */
     fun choiceForPlayerInRound(userId: String, roundNumber: Int): String? =
         rounds.find { it.roundNumber == roundNumber }?.let { round ->
             if (userId == player1) round.player1Choice else round.player2Choice
         }
+
+    fun hasSubmittedInRound(userId: String, roundNumber: Int): Boolean =
+        rounds.find { it.roundNumber == roundNumber }?.hasSubmittedFor(userId, player1) == true
+
+    fun opponentHasSubmittedInRound(userId: String, roundNumber: Int): Boolean =
+        rounds.find { it.roundNumber == roundNumber }?.opponentHasSubmittedFor(userId, player1) == true
 
     /** Last round had a winner; next round is open — keep showing outcome until play resumes. */
     fun pendingRoundOutcome(): RoundResult? {

@@ -52,7 +52,9 @@ import com.rpsonline.app.R
 import com.rpsonline.app.data.update.ReleaseChangelog
 import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.components.AppUpdateDialogs
+import com.rpsonline.app.ui.components.LocalNetworkConnectionStatus
 import com.rpsonline.app.ui.components.ProfileSummaryCard
+import com.rpsonline.app.ui.components.isServerConnected
 import com.rpsonline.app.ui.components.ownProfileDisplayName
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.RpsCard
@@ -73,6 +75,7 @@ fun HomeScreen(
     updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isServerConnected = LocalNetworkConnectionStatus.current.isServerConnected()
     val openingMatchId by viewModel.navigateToGameMatchId.collectAsState()
     val updateState by updateViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -86,13 +89,18 @@ fun HomeScreen(
     }
 
     LifecycleResumeEffect(Unit) {
-        viewModel.refresh()
+        viewModel.reconcileQueueOnResume(context)
         onPauseOrDispose { }
     }
 
     var autoMatchmakingStarted by remember(autoStartMatchModes) { mutableStateOf(false) }
-    LaunchedEffect(autoStartMatchModes, uiState.profile) {
-        if (autoStartMatchModes != null && !autoMatchmakingStarted && uiState.profile != null) {
+    LaunchedEffect(autoStartMatchModes, uiState.profile, isServerConnected) {
+        if (
+            autoStartMatchModes != null &&
+            !autoMatchmakingStarted &&
+            uiState.profile != null &&
+            isServerConnected
+        ) {
             autoMatchmakingStarted = true
             viewModel.startMatchmaking(context, autoStartMatchModes)
         }
@@ -289,6 +297,7 @@ fun HomeScreen(
             else -> {
                 Button(
                     onClick = { viewModel.startMatchmaking(context, selectedModes) },
+                    enabled = isServerConnected,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(80.dp),

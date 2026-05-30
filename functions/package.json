@@ -1,7 +1,7 @@
 {
   "name": "functions",
   "scripts": {
-    "build": "cp ../shared/game-rules.json src/game-rules.json && tsc && cp src/game-rules.json lib/game-rules.json",
+    "build": "node -e \"require('fs').copyFileSync('../shared/game-rules.json','src/game-rules.json')\" && tsc && node -e \"require('fs').copyFileSync('src/game-rules.json','lib/game-rules.json')\"",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "deploy": "firebase deploy --only functions,firestore:rules,firestore:indexes",

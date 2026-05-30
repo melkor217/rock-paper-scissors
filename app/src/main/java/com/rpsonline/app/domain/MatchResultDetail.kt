@@ -15,32 +15,18 @@ fun matchResultOutcomeDetail(
 ): String? {
     if (resolution == ViewerMatchResolution.DRAW || match.status != MatchStatus.COMPLETED) return null
 
-    val won = resolution == ViewerMatchResolution.WIN
-
     match.endReason?.let { reason ->
-        return detailForReason(reason, won)
+        return detailForReason(reason)
     }
 
     if (!match.endedByForfeitRound()) return null
-    return if (won) {
-        "Won on timeout"
-    } else {
-        "Lost on timeout"
-    }
+    return "Timeout"
 }
 
-private fun detailForReason(reason: MatchEndReason, won: Boolean): String? = when (reason) {
+private fun detailForReason(reason: MatchEndReason): String? = when (reason) {
     MatchEndReason.NORMAL -> null
-    MatchEndReason.ROUND_TIMEOUT -> if (won) {
-        "Won on round timeout — opponent didn't play in time"
-    } else {
-        "Lost on round timeout — you didn't play in time"
-    }
-    MatchEndReason.CLOCK_TIMEOUT -> if (won) {
-        "Won on clock timeout — opponent's match clock ran out"
-    } else {
-        "Lost on clock timeout — your match clock ran out"
-    }
+    MatchEndReason.ROUND_TIMEOUT -> "Round timeout"
+    MatchEndReason.CLOCK_TIMEOUT -> "Clock timeout"
 }
 
 /** Final decisive round had a forfeit (one player never locked a move). */

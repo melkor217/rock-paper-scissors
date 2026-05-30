@@ -18,20 +18,26 @@ class MoveSoundPlayer(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun play(move: Move, repetitions: Int) {
-        val resId = when (move) {
-            Move.ROCK -> R.raw.move_rock
-            Move.PAPER -> R.raw.move_paper
-            Move.SCISSORS -> R.raw.move_scissors
-        }
+        val resId = moveSoundResId(move)
         val count = repetitions.coerceIn(1, 3)
         scope.launch {
             repeat(count) { index ->
                 playOnce(resId)
                 if (index < count - 1) {
-                    delay(BURST_GAP_MS)
+                    delay(ROUND_RESOLUTION_BURST_GAP_MS)
                 }
             }
         }
+    }
+
+    suspend fun playOnce(move: Move) {
+        playOnce(moveSoundResId(move))
+    }
+
+    private fun moveSoundResId(move: Move): Int = when (move) {
+        Move.ROCK -> R.raw.move_rock
+        Move.PAPER -> R.raw.move_paper
+        Move.SCISSORS -> R.raw.move_scissors
     }
 
     fun release() {
@@ -72,9 +78,5 @@ class MoveSoundPlayer(context: Context) {
             }
             player.start()
         }
-    }
-
-    private companion object {
-        const val BURST_GAP_MS = 70L
     }
 }

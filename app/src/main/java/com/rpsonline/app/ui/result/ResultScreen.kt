@@ -47,7 +47,6 @@ import com.rpsonline.app.ui.components.ownProfileDisplayName
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.RpsLoadingColumn
 import com.rpsonline.app.ui.components.formatMatchScore
-import com.rpsonline.app.ui.components.formatMatchSeriesDetail
 import com.rpsonline.app.ui.components.rpsScreenPadding
 
 @Composable
@@ -146,13 +145,6 @@ fun ResultScreen(
                 outcomeDetail = outcomeDetail,
             )
 
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = formatMatchSeriesDetail(currentMatch.matchMode),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
         Spacer(modifier = Modifier.height(12.dp))
 
         FinalScoreCard(
@@ -192,9 +184,14 @@ fun ResultScreen(
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = { onPlayAgain(currentMatch.matchMode) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(80.dp),
         ) {
-            Text(stringResource(R.string.play_again))
+            Text(
+                text = stringResource(R.string.play_again),
+                style = MaterialTheme.typography.headlineSmall,
+            )
         }
         Spacer(modifier = Modifier.height(8.dp))
         HomeOutlinedButton(onClick = onHome)

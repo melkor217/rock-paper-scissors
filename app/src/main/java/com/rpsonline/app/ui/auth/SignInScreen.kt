@@ -81,7 +81,7 @@ fun SignInScreen(
     }
 
     LifecycleResumeEffect(Unit) {
-        viewModel.retryFirebaseAvailabilityCheck()
+        viewModel.refreshFirebaseAvailabilityOnResume()
         onPauseOrDispose { }
     }
 
@@ -123,7 +123,8 @@ fun SignInScreen(
         if (uiState.isLoading) {
             SignInLoadingState(isRestoringSession = uiState.isRestoringSession)
         } else {
-            if (uiState.isCheckingFirebase) {
+            val showFirebaseCheck = uiState.isCheckingFirebase && !uiState.isFirebaseAvailable
+            if (showFirebaseCheck) {
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(

@@ -251,11 +251,7 @@ private fun NonGameMatchResolutionEffect(navController: NavHostController) {
                 continue
             }
 
-            val myChoiceSubmitted = when (userId) {
-                latest.player1 -> openRound.player1Choice != null
-                latest.player2 -> openRound.player2Choice != null
-                else -> true
-            }
+            val myChoiceSubmitted = openRound.hasSubmittedFor(userId, latest.player1)
             if (myChoiceSubmitted) {
                 delay(1_000)
                 continue

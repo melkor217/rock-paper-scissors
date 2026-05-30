@@ -17,6 +17,7 @@ fun TopBarSegmentedQueueIndicator(
     inMatch: Boolean,
     inQueue: Boolean,
     elapsedSeconds: Long,
+    playerClockStopped: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val description = when {
@@ -39,10 +40,10 @@ fun TopBarSegmentedQueueIndicator(
             elapsedSeconds = elapsedSeconds,
             showLiveTime = inQueue || inMatch,
             animateSpinner = inQueue || inMatch,
-            spinnerStyle = if (inMatch) {
-                SegmentedSpinnerStyle.MATCH
-            } else {
-                SegmentedSpinnerStyle.QUEUE
+            spinnerStyle = when {
+                !inMatch -> SegmentedSpinnerStyle.QUEUE
+                playerClockStopped -> SegmentedSpinnerStyle.MATCH_CLOCK_STOPPED
+                else -> SegmentedSpinnerStyle.MATCH
             },
             modifier = Modifier.height(SegmentedDisplayHeight),
         )

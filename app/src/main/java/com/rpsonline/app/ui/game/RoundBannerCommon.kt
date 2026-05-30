@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.res.stringResource
+import com.rpsonline.app.R
 import com.rpsonline.app.data.model.Move
 
 enum class RoundBannerKind {
@@ -36,10 +38,17 @@ enum class RoundBannerKind {
     Draw,
 }
 
+@Composable
+fun panelRoundOutcomeHeadline(kind: RoundBannerKind, roundNumber: Int): String = when (kind) {
+    RoundBannerKind.Win -> stringResource(R.string.panel_round_won, roundNumber)
+    RoundBannerKind.Lose -> stringResource(R.string.panel_round_lost, roundNumber)
+    RoundBannerKind.Draw -> stringResource(R.string.panel_round_draw, roundNumber)
+}
+
 fun roundBannerHeadline(kind: RoundBannerKind, roundNumber: Int): String = when (kind) {
-    RoundBannerKind.Win -> "You won Round #$roundNumber"
-    RoundBannerKind.Lose -> "You lost Round #$roundNumber"
-    RoundBannerKind.Draw -> "Draw on Round #$roundNumber"
+    RoundBannerKind.Win -> "Won round $roundNumber"
+    RoundBannerKind.Lose -> "Lost round $roundNumber"
+    RoundBannerKind.Draw -> "Draw · R$roundNumber"
 }
 
 fun roundBannerSubtitle(
@@ -48,13 +57,13 @@ fun roundBannerSubtitle(
     showFollowUpHint: Boolean,
 ): String = when (kind) {
     RoundBannerKind.Draw -> when {
-        compact && showFollowUpHint -> "Replay this round."
-        compact -> "No point awarded."
-        showFollowUpHint -> "Replay this round. Score unchanged."
-        else -> "No point awarded."
+        compact && showFollowUpHint -> "Replay round."
+        compact -> "No point."
+        showFollowUpHint -> "Replay · score unchanged."
+        else -> "No point."
     }
-    RoundBannerKind.Win -> roundBannerScoredSubtitle("Point scored", compact, showFollowUpHint)
-    RoundBannerKind.Lose -> roundBannerScoredSubtitle("Opponent scored", compact, showFollowUpHint)
+    RoundBannerKind.Win -> roundBannerScoredSubtitle("+1 point", compact, showFollowUpHint)
+    RoundBannerKind.Lose -> roundBannerScoredSubtitle("They scored", compact, showFollowUpHint)
 }
 
 private fun roundBannerScoredSubtitle(
@@ -63,9 +72,9 @@ private fun roundBannerScoredSubtitle(
     showFollowUpHint: Boolean,
 ): String = when {
     compact && showFollowUpHint -> ""
-    compact -> "$base."
-    showFollowUpHint -> "$base — pick your move for the next round."
-    else -> "$base."
+    compact -> base
+    showFollowUpHint -> "$base · pick next"
+    else -> base
 }
 
 @Composable

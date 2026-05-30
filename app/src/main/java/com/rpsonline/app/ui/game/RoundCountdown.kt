@@ -96,7 +96,11 @@ fun RoundCountdown(
                     warning -> stringResource(R.string.hurry_clock_warning)
                     else -> stringResource(R.string.seconds_to_pick)
                 },
-                style = MaterialTheme.typography.labelMedium,
+                style = if (compact) {
+                    MaterialTheme.typography.titleSmall
+                } else {
+                    MaterialTheme.typography.titleMedium
+                },
                 color = footerColor,
             )
         }

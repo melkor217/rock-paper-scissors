@@ -9,9 +9,21 @@ export interface ClockFields {
   clocksUpdatedAt?: Timestamp;
 }
 
-export interface OpenRoundChoices {
+/** Per-player submission state for an open round (choices may live only in subcollections). */
+export interface OpenRoundClockState {
+  player1Submitted?: boolean;
+  player2Submitted?: boolean;
+  /** Legacy: choices were written to the match doc before blind-play. */
   player1Choice?: string;
   player2Choice?: string;
+}
+
+export function player1HasSubmitted(round: OpenRoundClockState): boolean {
+  return round.player1Submitted === true || !!round.player1Choice;
+}
+
+export function player2HasSubmitted(round: OpenRoundClockState): boolean {
+  return round.player2Submitted === true || !!round.player2Choice;
 }
 
 export function clockMs(value: number | undefined): number {
@@ -32,7 +44,7 @@ export function initialClockFields(now: Timestamp): Required<Pick<ClockFields, "
  */
 export function tickClocks(
   clocks: ClockFields,
-  round: OpenRoundChoices,
+  round: OpenRoundClockState,
   now: Timestamp,
 ): Required<Pick<ClockFields, "player1ClockMs" | "player2ClockMs" | "clocksUpdatedAt">> {
   const lastTick = clocks.clocksUpdatedAt ?? now;
@@ -41,10 +53,10 @@ export function tickClocks(
   let player1ClockMs = clockMs(clocks.player1ClockMs);
   let player2ClockMs = clockMs(clocks.player2ClockMs);
 
-  if (!round.player1Choice) {
+  if (!player1HasSubmitted(round)) {
     player1ClockMs = Math.max(0, player1ClockMs - elapsed);
   }
-  if (!round.player2Choice) {
+  if (!player2HasSubmitted(round)) {
     player2ClockMs = Math.max(0, player2ClockMs - elapsed);
   }
 
@@ -67,10 +79,10 @@ export type ClockExpiry = "player1" | "player2" | "both" | null;
 export function clockExpiry(
   player1ClockMs: number,
   player2ClockMs: number,
-  round: OpenRoundChoices,
+  round: OpenRoundClockState,
 ): ClockExpiry {
-  const p1Out = player1ClockMs <= 0 && !round.player1Choice;
-  const p2Out = player2ClockMs <= 0 && !round.player2Choice;
+  const p1Out = player1ClockMs <= 0 && !player1HasSubmitted(round);
+  const p2Out = player2ClockMs <= 0 && !player2HasSubmitted(round);
   if (p1Out && p2Out) return "both";
   if (p1Out) return "player1";
   if (p2Out) return "player2";

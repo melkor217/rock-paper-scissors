@@ -50,6 +50,7 @@ object MatchSessionMonitor {
     private var userListener: ListenerRegistration? = null
     private var matchListener: ListenerRegistration? = null
     private var queueListener: ListenerRegistration? = null
+    private var listeningMatchId: String? = null
     private var attachedUid: String? = null
 
     fun ensureStarted() {
@@ -154,11 +155,9 @@ object MatchSessionMonitor {
                 firestore.collection("queue").document(uid).get(Source.SERVER).await()
             }.getOrNull()
             val queueExists = queueSnap != null && queueSnap.exists()
-            _hasQueueEntry.value = queueExists
-            _queueJoinedAtMs.value = if (queueExists) {
-                resolveQueueJoinedAtMs(queueSnap!!)
-            } else {
-                null
+            if (queueExists) {
+                _hasQueueEntry.value = true
+                _queueJoinedAtMs.value = resolveQueueJoinedAtMs(queueSnap!!)
             }
         } else {
             runCatching { matchRepository.clearStaleSessionQueue(uid) }
@@ -196,7 +195,13 @@ object MatchSessionMonitor {
 
                 val matchId = snapshot?.getString("activeMatchId")
                 if (matchId.isNullOrBlank()) {
-                    _activeMatch.value = null
+                    val finalizedMatchId = listeningMatchId ?: _activeMatch.value?.id
+                    listeningMatchId = null
+                    if (finalizedMatchId.isNullOrBlank()) {
+                        _activeMatch.value = null
+                    } else {
+                        publishFinalMatchSnapshot(finalizedMatchId)
+                    }
                     return@addSnapshotListener
                 }
 
@@ -204,15 +209,35 @@ object MatchSessionMonitor {
             }
     }
 
+    /** Match ended server-side; user doc cleared first — fetch final snapshot for UI feedback. */
+    private fun publishFinalMatchSnapshot(matchId: String) {
+        sessionScope.launch {
+            val snap = runCatching {
+                firestore.collection("matches").document(matchId).get().await()
+            }.getOrNull()
+            if (snap != null && snap.exists()) {
+                publishActiveMatch(snap.toMatch(matchId))
+            } else if (_activeMatch.value?.id == matchId) {
+                _activeMatch.value = null
+            }
+        }
+    }
+
     private fun applyQueueSnapshot(snapshot: DocumentSnapshot?, error: Exception?) {
         if (error != null || snapshot == null || !snapshot.exists()) {
-            _hasQueueEntry.value = false
-            _queueJoinedAtMs.value = null
+            if (!_matchmakingInProgress.value) {
+                _hasQueueEntry.value = false
+                _queueJoinedAtMs.value = null
+            }
             return
         }
         if (!_matchmakingInProgress.value) {
             _hasQueueEntry.value = false
             _queueJoinedAtMs.value = null
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                matchRepository.leaveQueueBestEffort(uid)
+            }
             return
         }
         _hasQueueEntry.value = true
@@ -230,6 +255,7 @@ object MatchSessionMonitor {
     }
 
     private fun attachMatchListener(matchId: String) {
+        listeningMatchId = matchId
         matchListener = firestore.collection("matches").document(matchId)
             .addSnapshotListener { matchSnapshot, matchError ->
                 if (matchError != null) {
@@ -259,6 +285,7 @@ object MatchSessionMonitor {
         userListener = null
         matchListener?.remove()
         matchListener = null
+        listeningMatchId = null
     }
 
     /** Local fallback when queue heartbeat fails and snapshot lag leaves stale UI. */

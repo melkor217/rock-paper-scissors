@@ -1,5 +1,9 @@
 package com.rpsonline.app.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -9,8 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -24,8 +31,170 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.rpsonline.app.data.model.Move
 import com.rpsonline.app.ui.theme.isRpsDarkTheme
+import com.rpsonline.app.ui.util.LocalSegmentedDisplayPulseMove
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/** Current half-lit pulse blend for the full top-bar segmented row (0 = normal). */
+val LocalSegmentedDisplayPulseAlpha = compositionLocalOf { 0f }
+
+/** Fill progress for resolution bursts (0 → 1 during rise/hold; drives segment sequence). */
+val LocalSegmentedDisplayPulseFill = compositionLocalOf { 0f }
+
+private const val ResolutionPulseDurationMs = 320
+/** Fill sequence runs over this span (~75% of burst); each step gets an equal hold. */
+private const val ResolutionPulseFillCompleteAtMs = 240
+private const val ResolutionPulseHoldUntilMs = 275
+
+private fun resolutionPulseFillAnimationSpec(move: Move) = keyframes {
+    durationMillis = ResolutionPulseDurationMs
+    val stepCount = resolutionBurstFillSequence(move).size
+    if (stepCount <= 1) {
+        0f at 0
+        1f at ResolutionPulseFillCompleteAtMs
+        1f at ResolutionPulseDurationMs
+        return@keyframes
+    }
+    for (index in 0 until stepCount) {
+        val progress = index.toFloat() / (stepCount - 1)
+        val stepStartMs = (ResolutionPulseFillCompleteAtMs * index / (stepCount - 1)).toInt()
+        val stepEndMs = if (index < stepCount - 1) {
+            (ResolutionPulseFillCompleteAtMs * (index + 1) / (stepCount - 1)).toInt() - 1
+        } else {
+            ResolutionPulseDurationMs
+        }
+        progress at stepStartMs
+        if (index < stepCount - 1) {
+            progress at stepEndMs.coerceAtLeast(stepStartMs)
+        }
+    }
+    1f at ResolutionPulseDurationMs
+}
+
+private val allSevenSegments = setOf('a', 'b', 'c', 'd', 'e', 'f', 'g')
+
+private fun cumulativeFillSteps(additions: List<Set<Char>>): List<Set<Char>> {
+    var accumulated = emptySet<Char>()
+    return additions.map { step ->
+        accumulated = accumulated + step
+        accumulated
+    }
+}
+
+/** Move-specific fill steps; each step adds segments until all are lit at peak. */
+fun resolutionBurstFillSequence(move: Move): List<Set<Char>> = when (move) {
+    Move.ROCK -> cumulativeFillSteps(
+        listOf(
+            setOf('g'),
+            setOf('a', 'd'),
+            setOf('f', 'b'),
+            setOf('e', 'c'),
+        ),
+    )
+    Move.PAPER -> cumulativeFillSteps(
+        listOf(
+            setOf('a'),
+            setOf('f', 'b'),
+            setOf('g'),
+            setOf('d'),
+            setOf('e', 'c'),
+        ),
+    )
+    Move.SCISSORS -> cumulativeFillSteps(
+        listOf(
+            setOf('f', 'b'),
+            setOf('e', 'c'),
+            setOf('g'),
+            setOf('a', 'd'),
+        ),
+    )
+}
+
+/** Segments lit at burst fill progress in [0, 1]; peak uses all segments. */
+fun resolutionBurstSegmentsAtProgress(move: Move, fillProgress: Float): Set<Char> {
+    if (fillProgress >= 1f) return allSevenSegments
+    if (fillProgress <= 0f) return emptySet()
+    val sequence = resolutionBurstFillSequence(move)
+    val index = (fillProgress * (sequence.size - 1))
+        .toInt()
+        .coerceIn(0, sequence.lastIndex)
+    return sequence[index]
+}
+
+/** Burst segments that may be half-lit without touching protected full-lit segments. */
+fun resolutionBurstSegmentsExcluding(
+    move: Move,
+    progress: Float,
+    protectedSegments: Set<Char>,
+): Set<Char> = resolutionBurstSegmentsAtProgress(move, progress) - protectedSegments
+
+/** Final move-specific shape one step before the all-segment peak. */
+fun resolutionBurstSegments(move: Move): Set<Char> =
+    resolutionBurstFillSequence(move).let { sequence ->
+        if (sequence.size < 2) sequence.lastOrNull().orEmpty() else sequence[sequence.lastIndex - 1]
+    }
+
+/** Drives resolution pulse alpha for all segmented digits in [content]. */
+@Composable
+fun SegmentedDisplayPulseEffect(
+    resolutionPulseTrigger: Int,
+    pulseMove: Move,
+    content: @Composable () -> Unit,
+) {
+    var pulseAlphaValue by remember { mutableFloatStateOf(0f) }
+    var pulseFillProgress by remember { mutableFloatStateOf(0f) }
+    var lastPulseTrigger by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(resolutionPulseTrigger) {
+        if (resolutionPulseTrigger <= lastPulseTrigger) return@LaunchedEffect
+        while (lastPulseTrigger < resolutionPulseTrigger) {
+            lastPulseTrigger++
+            try {
+                pulseAlphaValue = 0f
+                pulseFillProgress = 0f
+                coroutineScope {
+                    val fillJob = launch {
+                        animate(
+                            initialValue = 0f,
+                            targetValue = 0f,
+                            animationSpec = resolutionPulseFillAnimationSpec(pulseMove),
+                        ) { value, _ ->
+                            pulseFillProgress = value
+                        }
+                    }
+                    animate(
+                        initialValue = 0f,
+                        targetValue = 0f,
+                        animationSpec = keyframes {
+                            durationMillis = ResolutionPulseDurationMs
+                            0f at 0
+                            1f at ResolutionPulseFillCompleteAtMs using FastOutSlowInEasing
+                            1f at ResolutionPulseHoldUntilMs
+                            0f at ResolutionPulseDurationMs using LinearOutSlowInEasing
+                        },
+                    ) { value, _ ->
+                        pulseAlphaValue = value
+                    }
+                    fillJob.join()
+                }
+            } finally {
+                pulseAlphaValue = 0f
+                pulseFillProgress = 0f
+            }
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalSegmentedDisplayPulseAlpha provides pulseAlphaValue,
+        LocalSegmentedDisplayPulseFill provides pulseFillProgress,
+        LocalSegmentedDisplayPulseMove provides pulseMove,
+    ) {
+        content()
+    }
+}
 
 /** Default seven-segment digit size for top-bar indicators. */
 val SegmentedDigitWidth = 11.dp
@@ -64,6 +233,7 @@ private fun sevenSegmentLitColor(): Color {
 private fun sevenSegmentHalfLitColor(): Color {
     return lerp(sevenSegmentGhostColor(), sevenSegmentLitColor(), 0.58f)
 }
+
 @Composable
 fun SevenSegmentBlankSlot(
     modifier: Modifier = Modifier,
@@ -71,28 +241,33 @@ fun SevenSegmentBlankSlot(
     digitHeight: Dp = SegmentedDigitHeight,
 ) {
     val ghost = sevenSegmentGhostColor()
-    SevenSegmentDigit(
-        digit = '8',
-        segmentOnColor = ghost,
-        segmentOffColor = ghost,
-        showGhostOnly = true,
-        modifier = modifier.size(digitWidth, digitHeight),
+    val pulseAlpha = LocalSegmentedDisplayPulseAlpha.current
+    SegmentedDisplayPulseSlot(
+        pulseAlpha = pulseAlpha,
+        offColor = ghost,
+        digitWidth = digitWidth,
+        digitHeight = digitHeight,
+        modifier = modifier,
     )
 }
 
 @Composable
-private fun SevenSegmentValueDigit(
+private fun SevenSegmentValuePulseSlot(
     digit: Char,
     isLeadingZero: Boolean,
-    litColor: Color,
+    pulseAlpha: Float,
     offColor: Color,
-    modifier: Modifier = Modifier,
+    digitWidth: Dp,
+    digitHeight: Dp,
 ) {
-    SevenSegmentDigit(
-        digit = digit,
-        segmentOnColor = if (isLeadingZero) sevenSegmentHalfLitColor() else litColor,
-        segmentOffColor = offColor,
-        modifier = modifier,
+    val segments = segmentsFor(digit)
+    SegmentedDisplayPulseSlot(
+        pulseAlpha = pulseAlpha,
+        offColor = offColor,
+        fullLitSegments = if (isLeadingZero) emptySet() else segments,
+        halfLitSegments = if (isLeadingZero) segments else emptySet(),
+        digitWidth = digitWidth,
+        digitHeight = digitHeight,
     )
 }
 
@@ -103,8 +278,8 @@ fun ThreeDigitSegmentedDisplay(
     digitWidth: Dp = SegmentedDigitWidth,
     digitHeight: Dp = SegmentedDigitHeight,
 ) {
-    val litColor = sevenSegmentLitColor()
     val offColor = sevenSegmentGhostColor()
+    val pulseAlpha = LocalSegmentedDisplayPulseAlpha.current
 
     if (value == null) {
         Row(
@@ -113,12 +288,11 @@ fun ThreeDigitSegmentedDisplay(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             repeat(3) {
-                SevenSegmentDigit(
-                    digit = '8',
-                    segmentOnColor = offColor,
-                    segmentOffColor = offColor,
-                    showGhostOnly = true,
-                    modifier = Modifier.size(digitWidth, digitHeight),
+                SegmentedDisplayPulseSlot(
+                    pulseAlpha = pulseAlpha,
+                    offColor = offColor,
+                    digitWidth = digitWidth,
+                    digitHeight = digitHeight,
                 )
             }
         }
@@ -137,12 +311,13 @@ fun ThreeDigitSegmentedDisplay(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         digits.forEachIndexed { index, char ->
-            SevenSegmentValueDigit(
+            SevenSegmentValuePulseSlot(
                 digit = char,
                 isLeadingZero = index < firstSignificantIndex,
-                litColor = litColor,
+                pulseAlpha = pulseAlpha,
                 offColor = offColor,
-                modifier = Modifier.size(digitWidth, digitHeight),
+                digitWidth = digitWidth,
+                digitHeight = digitHeight,
             )
         }
     }
@@ -151,6 +326,7 @@ fun ThreeDigitSegmentedDisplay(
 enum class SegmentedSpinnerStyle {
     QUEUE,
     MATCH,
+    MATCH_CLOCK_STOPPED,
 }
 
 /** Spinner segment + four digits for queue elapsed time (MM:SS). */
@@ -166,6 +342,7 @@ fun QueueTimeSegmentedDisplay(
     animateSpinner: Boolean = true,
     spinnerStyle: SegmentedSpinnerStyle = SegmentedSpinnerStyle.QUEUE,
 ) {
+    val pulseAlpha = LocalSegmentedDisplayPulseAlpha.current
     val totalSeconds = elapsedSeconds.coerceAtLeast(0)
     val minutes = (totalSeconds / 60).coerceAtMost(99)
     val seconds = (totalSeconds % 60).coerceAtMost(59)
@@ -178,14 +355,21 @@ fun QueueTimeSegmentedDisplay(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SpinningSevenSegmentSlot(
-            segmentOffColor = offColor,
+        SpinningSevenSegmentPulseSlot(
+            pulseAlpha = pulseAlpha,
+            offColor = offColor,
+            digitWidth = digitWidth,
+            digitHeight = digitHeight,
             animate = animateSpinner,
             style = spinnerStyle,
-            modifier = Modifier.size(digitWidth, digitHeight),
         )
         SpacerBetweenSegments()
-        SevenSegmentBlankSlot(digitWidth = digitWidth, digitHeight = digitHeight)
+        SegmentedDisplayPulseSlot(
+            pulseAlpha = pulseAlpha,
+            offColor = offColor,
+            digitWidth = digitWidth,
+            digitHeight = digitHeight,
+        )
         SpacerBetweenSegments()
         Row(
             horizontalArrangement = Arrangement.spacedBy(SegmentedDigitSpacing),
@@ -193,26 +377,30 @@ fun QueueTimeSegmentedDisplay(
         ) {
             digits.take(2).forEachIndexed { index, digit ->
                 if (showLiveTime) {
-                    SevenSegmentValueDigit(
+                    SevenSegmentValuePulseSlot(
                         digit = digit,
                         isLeadingZero = index < firstSignificantIndex,
-                        litColor = litColor,
+                        pulseAlpha = pulseAlpha,
                         offColor = offColor,
-                        modifier = Modifier.size(digitWidth, digitHeight),
+                        digitWidth = digitWidth,
+                        digitHeight = digitHeight,
                     )
                 } else {
-                    SevenSegmentBlankSlot(
+                    SegmentedDisplayPulseSlot(
+                        pulseAlpha = pulseAlpha,
+                        offColor = offColor,
                         digitWidth = digitWidth,
                         digitHeight = digitHeight,
                     )
                 }
             }
         }
-        SevenSegmentTimeColon(
-            color = if (showLiveTime) litColor else offColor,
-            digitHeight = digitHeight,
+        SegmentedColonPulseSlot(
+            pulseAlpha = pulseAlpha,
             lit = showLiveTime,
-            modifier = Modifier.padding(horizontal = SegmentedTimeColonSpacing),
+            litColor = litColor,
+            offColor = offColor,
+            digitHeight = digitHeight,
         )
         Row(
             horizontalArrangement = Arrangement.spacedBy(SegmentedDigitSpacing),
@@ -221,21 +409,115 @@ fun QueueTimeSegmentedDisplay(
             digits.drop(2).forEachIndexed { index, digit ->
                 val digitIndex = index + 2
                 if (showLiveTime) {
-                    SevenSegmentValueDigit(
+                    SevenSegmentValuePulseSlot(
                         digit = digit,
                         isLeadingZero = digitIndex < firstSignificantIndex,
-                        litColor = litColor,
+                        pulseAlpha = pulseAlpha,
                         offColor = offColor,
-                        modifier = Modifier.size(digitWidth, digitHeight),
+                        digitWidth = digitWidth,
+                        digitHeight = digitHeight,
                     )
                 } else {
-                    SevenSegmentBlankSlot(
+                    SegmentedDisplayPulseSlot(
+                        pulseAlpha = pulseAlpha,
+                        offColor = offColor,
                         digitWidth = digitWidth,
                         digitHeight = digitHeight,
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SegmentedDisplayPulseSlot(
+    pulseAlpha: Float,
+    offColor: Color,
+    digitWidth: Dp,
+    digitHeight: Dp,
+    modifier: Modifier = Modifier,
+    fullLitSegments: Set<Char> = emptySet(),
+    halfLitSegments: Set<Char> = emptySet(),
+) {
+    val pulseMove = LocalSegmentedDisplayPulseMove.current
+    val fillProgress = LocalSegmentedDisplayPulseFill.current.coerceIn(0f, 1f)
+    val brightness = pulseAlpha.coerceIn(0f, 1f)
+    val protectedSegments = fullLitSegments + halfLitSegments
+    val burstSegments = if (fillProgress > 0.001f && brightness > 0.001f) {
+        resolutionBurstSegmentsExcluding(pulseMove, fillProgress, protectedSegments)
+    } else {
+        emptySet()
+    }
+
+    SevenSegmentDisplayWithPulse(
+        fullLitSegments = fullLitSegments,
+        halfLitSegments = halfLitSegments,
+        burstSegments = burstSegments,
+        burstAlpha = brightness,
+        offColor = offColor,
+        modifier = modifier.size(digitWidth, digitHeight),
+    )
+}
+
+@Composable
+private fun SegmentedColonPulseSlot(
+    pulseAlpha: Float,
+    lit: Boolean,
+    litColor: Color,
+    offColor: Color,
+    digitHeight: Dp,
+    modifier: Modifier = Modifier,
+) {
+    SevenSegmentTimeColon(
+        color = when {
+            lit -> litColor
+            pulseAlpha > 0.001f -> sevenSegmentHalfLitColor()
+            else -> offColor
+        },
+        digitHeight = digitHeight,
+        lit = lit,
+        modifier = modifier.padding(horizontal = SegmentedTimeColonSpacing),
+    )
+}
+
+@Composable
+private fun SevenSegmentDisplayWithPulse(
+    fullLitSegments: Set<Char>,
+    halfLitSegments: Set<Char>,
+    burstSegments: Set<Char>,
+    burstAlpha: Float,
+    offColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val fullLitColor = sevenSegmentLitColor()
+    val halfLitColor = sevenSegmentHalfLitColor()
+    Canvas(modifier = modifier) {
+        val layout = sevenSegmentLayout(size.width, size.height)
+        layout
+            .sortedWith(
+                compareBy<SegmentLayout> { segment ->
+                    when {
+                        segment.id in fullLitSegments -> 3
+                        segment.id in halfLitSegments -> 2
+                        segment.id in burstSegments -> 1
+                        else -> 0
+                    }
+                }.thenBy { if (it.id == 'g') 1 else 0 },
+            )
+            .forEach { segment ->
+                when {
+                    segment.id in fullLitSegments -> drawSevenSegmentLit(segment, fullLitColor)
+                    segment.id in halfLitSegments -> drawSevenSegment(segment, halfLitColor)
+                    segment.id in burstSegments && burstAlpha > 0.001f -> {
+                        drawSevenSegment(
+                            segment,
+                            lerp(offColor, halfLitColor, burstAlpha),
+                        )
+                    }
+                    else -> drawSevenSegment(segment, offColor)
+                }
+            }
     }
 }
 
@@ -320,21 +602,37 @@ private val matchSpinnerSegmentSteps = listOf(
     setOf('b', 'c'),
 )
 
+/** Slow pause bars and side pairs — player submitted; match clock held. */
+private val matchClockStoppedSpinnerSteps = listOf(
+    setOf('a', 'd'),
+    setOf('a', 'd'),
+    setOf('g'),
+    setOf('g'),
+    setOf('f', 'e'),
+    setOf('b', 'c'),
+    setOf('f', 'e'),
+    setOf('b', 'c'),
+)
+
 @Composable
-private fun SpinningSevenSegmentSlot(
-    segmentOffColor: Color,
+private fun SpinningSevenSegmentPulseSlot(
+    pulseAlpha: Float,
+    offColor: Color,
+    digitWidth: Dp,
+    digitHeight: Dp,
     animate: Boolean = true,
     style: SegmentedSpinnerStyle = SegmentedSpinnerStyle.QUEUE,
     modifier: Modifier = Modifier,
 ) {
-    val segmentOnColor = sevenSegmentHalfLitColor()
     val steps = when (style) {
         SegmentedSpinnerStyle.QUEUE -> queueSpinnerSegmentSteps
         SegmentedSpinnerStyle.MATCH -> matchSpinnerSegmentSteps
+        SegmentedSpinnerStyle.MATCH_CLOCK_STOPPED -> matchClockStoppedSpinnerSteps
     }
     val stepDelayMs = when (style) {
         SegmentedSpinnerStyle.QUEUE -> 90L
         SegmentedSpinnerStyle.MATCH -> 180L
+        SegmentedSpinnerStyle.MATCH_CLOCK_STOPPED -> 340L
     }
     var step by remember(style) { mutableIntStateOf(0) }
     LaunchedEffect(animate, style) {
@@ -347,26 +645,12 @@ private fun SpinningSevenSegmentSlot(
             step = (step + 1) % steps.size
         }
     }
-    SevenSegmentDisplay(
-        activeSegments = if (animate) steps[step] else emptySet(),
-        segmentOnColor = segmentOnColor,
-        segmentOffColor = segmentOffColor,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun SevenSegmentDigit(
-    digit: Char,
-    segmentOnColor: Color,
-    segmentOffColor: Color,
-    modifier: Modifier = Modifier,
-    showGhostOnly: Boolean = false,
-) {
-    SevenSegmentDisplay(
-        activeSegments = if (showGhostOnly) emptySet() else segmentsFor(digit),
-        segmentOnColor = segmentOnColor,
-        segmentOffColor = segmentOffColor,
+    SegmentedDisplayPulseSlot(
+        pulseAlpha = pulseAlpha,
+        offColor = offColor,
+        halfLitSegments = if (animate) steps[step] else emptySet(),
+        digitWidth = digitWidth,
+        digitHeight = digitHeight,
         modifier = modifier,
     )
 }
@@ -402,32 +686,6 @@ private fun sevenSegmentLayout(width: Float, height: Float): List<SegmentLayout>
         SegmentLayout('e', leftX, lowerVertTop, lowerVertLen, thickness, horizontal = false),
         SegmentLayout('c', rightX, lowerVertTop, lowerVertLen, thickness, horizontal = false),
     )
-}
-
-@Composable
-private fun SevenSegmentDisplay(
-    activeSegments: Set<Char>,
-    segmentOnColor: Color,
-    segmentOffColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    Canvas(modifier = modifier) {
-        val layout = sevenSegmentLayout(size.width, size.height)
-        val ghostColor = segmentOffColor
-        val litColor = segmentOnColor.copy(alpha = 1f)
-        layout
-            .sortedWith(
-                compareBy<SegmentLayout> { if (it.id in activeSegments) 1 else 0 }
-                    .thenBy { if (it.id == 'g') 1 else 0 },
-            )
-            .forEach { segment ->
-                if (segment.id in activeSegments) {
-                    drawSevenSegmentLit(segment, litColor)
-                } else {
-                    drawSevenSegment(segment, ghostColor)
-                }
-            }
-    }
 }
 
 private data class SegmentLayout(

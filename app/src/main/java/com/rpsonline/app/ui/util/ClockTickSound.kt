@@ -25,6 +25,20 @@ class ClockTickPlayer {
         }
     }
 
+    fun stop() {
+        try {
+            audioTrack?.let { track ->
+                if (track.state == AudioTrack.STATE_INITIALIZED &&
+                    track.playState == AudioTrack.PLAYSTATE_PLAYING
+                ) {
+                    track.stop()
+                }
+            }
+        } catch (_: Exception) {
+            release()
+        }
+    }
+
     fun release() {
         audioTrack?.run {
             stop()
