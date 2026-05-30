@@ -71,12 +71,16 @@ service cloud.firestore {
         && request.resource.data.throwsRock == 0
         && request.resource.data.throwsPaper == 0
         && request.resource.data.throwsScissors == 0
-        && request.resource.data.lastSeen is timestamp;
+        && request.resource.data.lastSeen is timestamp
+        && (!('isGuest' in request.resource.data) || request.resource.data.isGuest is bool)
+        && (!('leaderboardVisible' in request.resource.data)
+            || request.resource.data.leaderboardVisible == false);
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).changedKeys().hasAny([
           'elo', 'wins', 'losses', 'draws', 'activeMatchId',
           'moveTimeMs', 'moveCount',
-          'throwsRock', 'throwsPaper', 'throwsScissors'
+          'throwsRock', 'throwsPaper', 'throwsScissors',
+          'isGuest', 'leaderboardVisible'
         ])
         && (!('lastSeen' in request.resource.data.diff(resource.data).changedKeys())
             || request.resource.data.lastSeen is timestamp);

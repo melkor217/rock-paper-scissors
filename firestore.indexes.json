@@ -32,6 +32,14 @@
         { "fieldPath": "player2", "order": "ASCENDING" },
         { "fieldPath": "lastActivityAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "leaderboardVisible", "order": "ASCENDING" },
+        { "fieldPath": "elo", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

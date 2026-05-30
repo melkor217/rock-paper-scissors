@@ -41,6 +41,12 @@ import {
   markGuestCleanupComplete,
   runZeroMatchGuestCleanup,
 } from "./guestCleanup";
+import {
+  leaderboardBackfillAlreadyCompleted,
+  leaderboardVisibleAfterMatch,
+  markLeaderboardBackfillComplete,
+  runLeaderboardVisibilityBackfill,
+} from "./leaderboardVisibility";
 
 admin.initializeApp();
 
@@ -585,6 +591,12 @@ async function finalizeMatch(
     losses: FieldValue.increment(winnerId === match.player1 ? 0 : 1),
     activeMatchId: FieldValue.delete(),
     lastSeen: FieldValue.serverTimestamp(),
+    leaderboardVisible: leaderboardVisibleAfterMatch(
+      p1Snap.data() as Record<string, unknown>,
+      winnerId === match.player1 ? 1 : 0,
+      winnerId === match.player1 ? 0 : 1,
+      0,
+    ),
   });
   batch.update(db.collection("users").doc(match.player2), {
     elo: elo.newB,
@@ -592,6 +604,12 @@ async function finalizeMatch(
     losses: FieldValue.increment(winnerId === match.player2 ? 0 : 1),
     activeMatchId: FieldValue.delete(),
     lastSeen: FieldValue.serverTimestamp(),
+    leaderboardVisible: leaderboardVisibleAfterMatch(
+      p2Snap.data() as Record<string, unknown>,
+      winnerId === match.player2 ? 1 : 0,
+      winnerId === match.player2 ? 0 : 1,
+      0,
+    ),
   });
   await batch.commit();
 }
@@ -629,11 +647,23 @@ async function finalizeMatchDraw(
     draws: FieldValue.increment(1),
     activeMatchId: FieldValue.delete(),
     lastSeen: FieldValue.serverTimestamp(),
+    leaderboardVisible: leaderboardVisibleAfterMatch(
+      p1Snap.data() as Record<string, unknown>,
+      0,
+      0,
+      1,
+    ),
   });
   batch.update(db.collection("users").doc(match.player2), {
     draws: FieldValue.increment(1),
     activeMatchId: FieldValue.delete(),
     lastSeen: FieldValue.serverTimestamp(),
+    leaderboardVisible: leaderboardVisibleAfterMatch(
+      p2Snap.data() as Record<string, unknown>,
+      0,
+      0,
+      1,
+    ),
   });
   await batch.commit();
 }
@@ -1403,6 +1433,38 @@ export const cleanupZeroMatchGuests = onCall(
       await markGuestCleanupComplete(db, summary);
     }
 
+    return summary;
+  },
+);
+
+/**
+ * One-time backfill: set isGuest and leaderboardVisible on existing user profiles.
+ * Uses the same secret as cleanupZeroMatchGuests.
+ */
+export const backfillLeaderboardVisibility = onCall(
+  { timeoutSeconds: 540, memory: "512MiB", secrets: [guestCleanupSecret] },
+  async (request) => {
+    const configuredSecret = guestCleanupSecret.value()?.trim();
+    const providedSecret = typeof request.data?.secret === "string"
+      ? request.data.secret.trim()
+      : "";
+    if (!configuredSecret || providedSecret !== configuredSecret) {
+      throw new HttpsError("permission-denied", "Invalid cleanup secret.");
+    }
+
+    const dryRun = request.data?.dryRun !== false;
+    const force = request.data?.force === true;
+    if (!dryRun && !force && await leaderboardBackfillAlreadyCompleted(db)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Leaderboard visibility backfill already completed. Pass force: true to run again.",
+      );
+    }
+
+    const summary = await runLeaderboardVisibilityBackfill(db, dryRun);
+    if (!dryRun) {
+      await markLeaderboardBackfillComplete(db, summary);
+    }
     return summary;
   },
 );

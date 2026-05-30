@@ -10,6 +10,10 @@ object DisplayNames {
         return name.isEmpty() || name == DEFAULT
     }
 
+    /** Anonymous accounts are stored with a generated guest display name. */
+    fun isGuestAccount(storedName: String?): Boolean =
+        storedName?.trim()?.startsWith("Guest ") == true
+
     fun resolve(storedName: String?, uid: String): String =
         if (isGeneric(storedName)) guestName(uid) else storedName!!.trim()
 }

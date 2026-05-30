@@ -36,7 +36,6 @@ class LeaderboardViewModel(
     private var appendJob: Job? = null
 
     private var nextCursor: DocumentSnapshot? = null
-    private var pendingEntries: List<LeaderboardEntry> = emptyList()
     private var hasMoreFromFirestore: Boolean = true
 
     private companion object {
@@ -45,12 +44,8 @@ class LeaderboardViewModel(
 
     private fun resetPagination() {
         nextCursor = null
-        pendingEntries = emptyList()
         hasMoreFromFirestore = true
     }
-
-    private fun hasMorePages(): Boolean =
-        pendingEntries.isNotEmpty() || hasMoreFromFirestore
 
     private fun appendEntries(existing: List<LeaderboardEntry>, newEntries: List<LeaderboardEntry>): List<LeaderboardEntry> =
         (existing + newEntries).distinctBy { it.uid }
@@ -77,15 +72,13 @@ class LeaderboardViewModel(
                     startAfter = null,
                 )
                 nextCursor = page.nextCursor
-                pendingEntries = page.pendingEntries
                 hasMoreFromFirestore = page.hasMoreFromFirestore
-                val entries = page.entries
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        entries = entries,
+                        entries = page.entries,
                         currentUserId = userId,
-                        hasMore = hasMorePages(),
+                        hasMore = page.hasMore,
                     )
                 }
             } catch (e: Exception) {
@@ -101,39 +94,29 @@ class LeaderboardViewModel(
     }
 
     fun loadMore() {
-        // Guard against multiple in-flight requests and end-of-list.
         if (_uiState.value.isLoading || _uiState.value.isAppending || !_uiState.value.hasMore) return
 
         appendJob?.cancel()
         appendJob = viewModelScope.launch {
             _uiState.update { it.copy(isAppending = true, error = null) }
             try {
-                if (!hasMorePages()) {
+                if (!hasMoreFromFirestore) {
                     _uiState.update { it.copy(isAppending = false, hasMore = false) }
                     return@launch
                 }
 
-                val newEntries =
-                    if (pendingEntries.isNotEmpty()) {
-                        val chunk = pendingEntries.take(PAGE_SIZE.toInt())
-                        pendingEntries = pendingEntries.drop(chunk.size)
-                        chunk
-                    } else {
-                        val page = userRepository.getLeaderboardPage(
-                            pageSize = PAGE_SIZE,
-                            startAfter = nextCursor,
-                        )
-                        nextCursor = page.nextCursor
-                        pendingEntries = page.pendingEntries
-                        hasMoreFromFirestore = page.hasMoreFromFirestore
-                        page.entries
-                    }
+                val page = userRepository.getLeaderboardPage(
+                    pageSize = PAGE_SIZE,
+                    startAfter = nextCursor,
+                )
+                nextCursor = page.nextCursor
+                hasMoreFromFirestore = page.hasMoreFromFirestore
 
                 _uiState.update {
                     it.copy(
                         isAppending = false,
-                        entries = appendEntries(it.entries, newEntries),
-                        hasMore = hasMorePages(),
+                        entries = appendEntries(it.entries, page.entries),
+                        hasMore = page.hasMore,
                     )
                 }
             } catch (e: Exception) {

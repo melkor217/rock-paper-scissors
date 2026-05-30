@@ -215,6 +215,8 @@ class AuthRepository(
                     put("throwsRock", profile.throwsRock)
                     put("throwsPaper", profile.throwsPaper)
                     put("throwsScissors", profile.throwsScissors)
+                    put("isGuest", auth.currentUser?.isAnonymous == true)
+                    put("leaderboardVisible", false)
                     put("createdAt", now)
                     put("lastSeen", now)
                 },

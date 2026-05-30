@@ -29,4 +29,13 @@ class DisplayNamesTest {
         assertTrue(DisplayNames.isGeneric(null))
         assertFalse(DisplayNames.isGeneric("Guest abc123"))
     }
+
+    @Test
+    fun isGuestAccountDetectsAnonymousProfiles() {
+        assertTrue(DisplayNames.isGuestAccount("Guest abc123"))
+        assertTrue(DisplayNames.isGuestAccount("  Guest abc123  "))
+        assertFalse(DisplayNames.isGuestAccount("Player"))
+        assertFalse(DisplayNames.isGuestAccount("Alice"))
+        assertFalse(DisplayNames.isGuestAccount(null))
+    }
 }
