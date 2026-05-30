@@ -5,6 +5,7 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { defineSecret } from "firebase-functions/params";
 import {
   calculateElo,
   isValidMove,
@@ -35,8 +36,15 @@ import {
   ROUND_TIMEOUT_MS,
   withMoveMs,
 } from "./moveTiming";
+import {
+  guestCleanupAlreadyCompleted,
+  markGuestCleanupComplete,
+  runZeroMatchGuestCleanup,
+} from "./guestCleanup";
 
 admin.initializeApp();
+
+const guestCleanupSecret = defineSecret("GUEST_CLEANUP_SECRET");
 
 /** All Cloud Functions deploy to the same region as Firestore triggers (not us-central1). */
 setGlobalOptions({ region: "europe-west1" });
@@ -1332,5 +1340,48 @@ export const cleanupStale = onSchedule(
     batch.update(db.collection("users").doc(match.player2), { activeMatchId: FieldValue.delete() });
     await batch.commit();
   }
+  },
+);
+
+/**
+ * One-time admin cleanup: delete anonymous guests who never played a match.
+ * Set GUEST_CLEANUP_SECRET in Functions config before invoking.
+ */
+export const cleanupZeroMatchGuests = onCall(
+  { timeoutSeconds: 540, memory: "512MiB", secrets: [guestCleanupSecret] },
+  async (request) => {
+    const configuredSecret = guestCleanupSecret.value()?.trim();
+    const providedSecret = typeof request.data?.secret === "string"
+      ? request.data.secret.trim()
+      : "";
+    if (!configuredSecret || providedSecret !== configuredSecret) {
+      throw new HttpsError("permission-denied", "Invalid cleanup secret.");
+    }
+
+    const dryRun = request.data?.dryRun !== false;
+    const force = request.data?.force === true;
+    if (!dryRun && !force && await guestCleanupAlreadyCompleted(db)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Guest cleanup already completed. Pass force: true to run again.",
+      );
+    }
+
+    const minAgeHours = Number(request.data?.minAgeHours ?? 1);
+    const minAgeMs = Number.isFinite(minAgeHours) && minAgeHours >= 0
+      ? minAgeHours * 60 * 60 * 1000
+      : 60 * 60 * 1000;
+
+    const summary = await runZeroMatchGuestCleanup({
+      db,
+      dryRun,
+      minAgeMs,
+    });
+
+    if (!dryRun) {
+      await markGuestCleanupComplete(db, summary);
+    }
+
+    return summary;
   },
 );

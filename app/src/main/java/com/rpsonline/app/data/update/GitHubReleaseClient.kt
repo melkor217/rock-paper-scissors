@@ -176,7 +176,7 @@ class GitHubReleaseClient(
     }
 
     companion object {
-        const val RELEASES_PAGE_SIZE = 10
+        const val RELEASES_PAGE_SIZE = 100
         private val NEXT_PAGE_LINK_REGEX = Regex("""<[^>]+>;\s*rel="next"""")
     }
 }

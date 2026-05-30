@@ -31,6 +31,7 @@ class ChangelogViewModel : ViewModel() {
 
     private var repository: AppUpdateRepository? = null
     private var currentPage = 0
+    private var rawReleaseEntries: List<ReleaseChangelogEntry> = emptyList()
 
     fun load(context: Context) {
         if (!NetworkUtils.isOnline(context)) {
@@ -47,6 +48,7 @@ class ChangelogViewModel : ViewModel() {
         val repo = AppUpdateRepository(context.applicationContext)
         repository = repo
         currentPage = 0
+        rawReleaseEntries = emptyList()
         _uiState.update {
             it.copy(
                 versionName = repo.currentVersionName(),
@@ -102,9 +104,14 @@ class ChangelogViewModel : ViewModel() {
             }
 
             currentPage = page
+            rawReleaseEntries = if (reset) {
+                result.entries
+            } else {
+                val seen = rawReleaseEntries.map { it.tag }.toSet()
+                rawReleaseEntries + result.entries.filter { it.tag !in seen }
+            }
+            val entries = ReleaseChangelog.mergeEntriesByDay(rawReleaseEntries)
             _uiState.update { state ->
-                val rawEntries = if (reset) result.entries else state.entries + result.entries
-                val entries = ReleaseChangelog.mergeEntriesByDay(rawEntries)
                 state.copy(
                     isLoading = false,
                     isLoadingMore = false,
@@ -117,6 +124,15 @@ class ChangelogViewModel : ViewModel() {
                     },
                 )
             }
+
+            if (result.hasMore && entries.size < MIN_ENTRIES_BEFORE_STOP_PREFETCH) {
+                fetchPage(reset = false)
+            }
         }
+    }
+
+    companion object {
+        /** Prefetch until the list scrolls or GitHub runs out of pages. */
+        private const val MIN_ENTRIES_BEFORE_STOP_PREFETCH = 12
     }
 }

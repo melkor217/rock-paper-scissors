@@ -61,6 +61,7 @@ object ReleaseChangelog {
             .map { it.trim().removePrefix("•").removePrefix("-").removePrefix("*").trim() }
             .filter { it.isNotBlank() }
 
+    /** Combine same-day releases into one entry (newest version label, merged notes). */
     fun mergeEntriesByDay(entries: List<ReleaseChangelogEntry>): List<ReleaseChangelogEntry> {
         if (entries.isEmpty()) return emptyList()
         val byDay = linkedMapOf<LocalDate, MutableList<ReleaseChangelogEntry>>()
