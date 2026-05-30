@@ -185,11 +185,12 @@ fun RpsApp() {
     LaunchedEffect(hasQueueEntry) {
         if (!hasQueueEntry) return@LaunchedEffect
         var consecutiveFailures = 0
+        matchRepository.sendQueueHeartbeat()
         while (true) {
             if (!matchRepository.sendQueueHeartbeat()) {
                 consecutiveFailures += 1
                 if (consecutiveFailures >= 3) {
-                    MatchSessionMonitor.clearQueueState()
+                    MatchSessionMonitor.signalQueueDocLost()
                     break
                 }
             } else {

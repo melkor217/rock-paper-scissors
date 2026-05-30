@@ -495,11 +495,20 @@ class HomeViewModel(
                 return@launch
             }
 
-            if (localJoinedAtMs != null &&
-                (_uiState.value.isInQueue || MatchSessionMonitor.isMatchmakingInProgress())
-            ) {
+            val waitingForMatch = _uiState.value.isJoiningQueue ||
+                _uiState.value.isInQueue ||
+                MatchSessionMonitor.isMatchmakingInProgress() ||
+                localJoinedAtMs != null
+
+            if (waitingForMatch) {
                 MatchSessionMonitor.setMatchmakingInProgress(true)
-                enterConfirmedQueue(localJoinedAtMs)
+                MatchSessionMonitor.signalQueueDocLost()
+                if (_uiState.value.isJoiningQueue && matchmakingJob?.isActive != true) {
+                    failMatchmaking(
+                        generation = matchmakingGeneration,
+                        message = "Matchmaking was interrupted. Tap Find Match to try again.",
+                    )
+                }
                 return@launch
             }
 
@@ -507,18 +516,9 @@ class HomeViewModel(
                 return@launch
             }
 
-            if (_uiState.value.isJoiningQueue && MatchSessionMonitor.isMatchmakingInProgress()) {
-                return@launch
-            }
-
-            if (_uiState.value.isInQueue && MatchSessionMonitor.isMatchmakingInProgress()) {
-                return@launch
-            }
-
             val appearsQueuedLocally = _uiState.value.isJoiningQueue ||
                 _uiState.value.isInQueue ||
-                MatchSessionMonitor.isMatchmakingInProgress() ||
-                localJoinedAtMs != null
+                MatchSessionMonitor.isMatchmakingInProgress()
 
             if (!appearsQueuedLocally || MatchSessionMonitor.hasQueueEntry.value) {
                 return@launch

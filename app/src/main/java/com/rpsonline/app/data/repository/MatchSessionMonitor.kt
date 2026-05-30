@@ -163,8 +163,12 @@ object MatchSessionMonitor {
             _hasQueueEntry.value = true
             _matchmakingInProgress.value = true
             resolveQueueJoinedAtMs(queueSnap!!)?.let { mergeQueueJoinedAtMs(it) }
-        } else if (!_matchmakingInProgress.value) {
-            runCatching { matchRepository.clearStaleSessionQueue(uid) }
+        } else {
+            _hasQueueEntry.value = false
+            _queueJoinedAtMs.value = null
+            if (!_matchmakingInProgress.value) {
+                runCatching { matchRepository.clearStaleSessionQueue(uid) }
+            }
         }
 
         val matchId = userSnap.getString("activeMatchId")
@@ -229,10 +233,8 @@ object MatchSessionMonitor {
 
     private fun applyQueueSnapshot(snapshot: DocumentSnapshot?, error: Exception?) {
         if (error != null || snapshot == null || !snapshot.exists()) {
-            if (!_matchmakingInProgress.value) {
-                _hasQueueEntry.value = false
-                _queueJoinedAtMs.value = null
-            }
+            _hasQueueEntry.value = false
+            _queueJoinedAtMs.value = null
             return
         }
         if (!_matchmakingInProgress.value) {
@@ -286,7 +288,16 @@ object MatchSessionMonitor {
         listeningMatchId = null
     }
 
-    /** Local fallback when queue heartbeat fails and snapshot lag leaves stale UI. */
+    /**
+     * Queue doc is gone or heartbeats failed; clear local queue markers but keep matchmaking
+     * active so [HomeViewModel] can rejoin the server queue.
+     */
+    fun signalQueueDocLost() {
+        _hasQueueEntry.value = false
+        _queueJoinedAtMs.value = null
+    }
+
+    /** Local fallback when the user leaves matchmaking or auth/session resets. */
     fun clearQueueState(endMatchmaking: Boolean = true) {
         _hasQueueEntry.value = false
         _queueJoinedAtMs.value = null
