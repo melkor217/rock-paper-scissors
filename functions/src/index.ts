@@ -1341,6 +1341,16 @@ export const cleanupStale = onSchedule(
     batch.update(db.collection("users").doc(match.player2), { activeMatchId: FieldValue.delete() });
     await batch.commit();
   }
+
+  const presenceCutoff = Timestamp.fromMillis(Date.now() - 3 * 60 * 1000);
+  const stalePresence = await db.collection("presence")
+    .where("lastSeen", "<", presenceCutoff)
+    .get();
+  if (!stalePresence.empty) {
+    const presenceBatch = db.batch();
+    stalePresence.docs.forEach((doc) => presenceBatch.delete(doc.ref));
+    await presenceBatch.commit();
+  }
   },
 );
 

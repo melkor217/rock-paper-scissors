@@ -17,7 +17,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.Date
 
 class PresenceRepository(
     private val firestore: FirebaseFirestore = appFirestore(),
@@ -88,35 +87,20 @@ class PresenceRepository(
     }
 
     suspend fun fetchOnlineCountFromServer(
-        onlineWindowMs: Long = ONLINE_WINDOW_MS,
+        onlineWindowMs: Long = ONLINE_PRESENCE_WINDOW_MS,
         selfUid: String? = null,
     ): Int {
         awaitFirestoreAuth()
         val nowMs = currentTimeMs()
-        val cutoff = Timestamp(Date(nowMs - onlineWindowMs))
         val presenceSnap = withTimeout(FETCH_TIMEOUT_MS) {
             firestore.collection(COLLECTION).get(Source.SERVER).await()
         }
-        val usersSnap = withTimeout(FETCH_TIMEOUT_MS) {
-            firestore.collection("users")
-                .whereGreaterThan("lastSeen", cutoff)
-                .get(Source.SERVER)
-                .await()
-        }
-
-        val onlineUids = mutableSetOf<String>()
-        presenceSnap.documents.forEach { doc ->
-            if (isDocumentOnline(doc, onlineWindowMs, nowMs)) {
-                onlineUids.add(doc.id)
-            }
-        }
-        usersSnap.documents.forEach { doc ->
-            onlineUids.add(doc.id)
-        }
-        if (selfUid != null) {
-            onlineUids.add(selfUid)
-        }
-        return onlineUids.size
+        return countOnlineDocuments(
+            documents = presenceSnap.documents,
+            onlineWindowMs = onlineWindowMs,
+            nowMs = nowMs,
+            selfUid = selfUid,
+        )
     }
 
     /**
@@ -124,7 +108,7 @@ class PresenceRepository(
      * [selfUid] is always included while this session is active (avoids under-counting on clock skew).
      */
     fun observeOnlineCount(
-        onlineWindowMs: Long = ONLINE_WINDOW_MS,
+        onlineWindowMs: Long = ONLINE_PRESENCE_WINDOW_MS,
         selfUid: String? = null,
     ): Flow<Int?> = callbackFlow {
         var lastEmitted: Int? = null
@@ -207,7 +191,10 @@ class PresenceRepository(
 
     companion object {
         const val COLLECTION = "presence"
+        /** Legacy profile activity window (match stats, guest cleanup). */
         const val ONLINE_WINDOW_MS = 2 * 60 * 1000L
+        /** Presence heartbeat window for the online counter (~4 missed beats at 20s). */
+        const val ONLINE_PRESENCE_WINDOW_MS = 90_000L
         const val HEARTBEAT_INTERVAL_MS = 20_000L
         private const val ONLINE_COUNT_STALE_MS = ConnectionReachabilityPolicy.SERVER_STALE_MS
         private const val PRESENCE_WRITE_TIMEOUT_MS = 8_000L
@@ -217,24 +204,37 @@ class PresenceRepository(
         private const val SERVER_POLL_INTERVAL_MS = 5_000L
         private const val AUTH_REFRESH_INTERVAL_MS = 3 * 60 * 1000L
         private const val AUTH_REFRESH_EVERY_N_POLLS = 36 // ~3 min at 5s poll
-        /** Extra tolerance when comparing server lastSeen to a client-derived cutoff. */
-        private const val ONLINE_WINDOW_GRACE_MS = 30_000L
-
-        private fun isDocumentOnline(
-            doc: DocumentSnapshot,
-            onlineWindowMs: Long,
-            nowMs: Long,
-        ): Boolean {
-            val cutoff = nowMs - onlineWindowMs - ONLINE_WINDOW_GRACE_MS
-            return doc.getTimestamp("lastSeen")?.toDate()?.time?.let { it >= cutoff } == true
-        }
 
         fun countOnlineDocuments(
             documents: List<DocumentSnapshot>,
-            onlineWindowMs: Long = ONLINE_WINDOW_MS,
+            onlineWindowMs: Long = ONLINE_PRESENCE_WINDOW_MS,
+            nowMs: Long = System.currentTimeMillis(),
+            selfUid: String? = null,
+        ): Int = countOnlineUids(
+            lastSeenByUid = documents.associate { doc ->
+                doc.id to doc.getTimestamp("lastSeen")?.toDate()?.time
+            },
+            onlineWindowMs = onlineWindowMs,
+            nowMs = nowMs,
+            selfUid = selfUid,
+        )
+
+        internal fun countOnlineUids(
+            lastSeenByUid: Map<String, Long?>,
+            onlineWindowMs: Long = ONLINE_PRESENCE_WINDOW_MS,
+            nowMs: Long = System.currentTimeMillis(),
+            selfUid: String? = null,
         ): Int {
-            val nowMs = System.currentTimeMillis()
-            return documents.count { isDocumentOnline(it, onlineWindowMs, nowMs) }
+            val onlineUids = lastSeenByUid
+                .filter { (_, lastSeenMs) ->
+                    lastSeenMs != null && lastSeenMs >= nowMs - onlineWindowMs
+                }
+                .keys
+                .toMutableSet()
+            if (selfUid != null) {
+                onlineUids.add(selfUid)
+            }
+            return onlineUids.size
         }
     }
 }
