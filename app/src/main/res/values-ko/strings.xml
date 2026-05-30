@@ -45,7 +45,7 @@
     <string name="replay">리플레이</string>
     <string name="vs_label">vs</string>
     <string name="selected">선택됨</string>
-    <string name="app_tagline">가위바위보 순위.\n3 또는 5 중 최고. ELO 매치메이킹.</string>
+    <string name="app_tagline">가위바위보 순위.</string>
     <string name="could_not_load_profile">프로필을 로드할 수 없습니다.</string>
     <string name="match_found">일치하는 항목을 찾았습니다.</string>
     <string name="opening_game">오프닝 게임…</string>

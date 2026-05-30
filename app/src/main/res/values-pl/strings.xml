@@ -45,7 +45,7 @@
     <string name="replay">Powtorka</string>
     <string name="vs_label">vs</string>
     <string name="selected">Wybrane</string>
-    <string name="app_tagline">Rankingowe papier-kamień-nożyce.\nNajlepsze z 3 lub 5. Dobieranie graczy ELO.</string>
+    <string name="app_tagline">Rankingowe papier-kamień-nożyce.</string>
     <string name="could_not_load_profile">Nie można załadować Twojego profilu.</string>
     <string name="match_found">Znaleziono dopasowanie</string>
     <string name="opening_game">Gra otwierająca…</string>

@@ -1206,10 +1206,20 @@ export const submitMatchMove = onCall(async (request) => {
   if (!updated.exists) {
     throw new HttpsError("internal", "Move was not recorded. Try again.");
   }
-  const open = getOpenRound(updated.data() as MatchDoc);
-  const recorded = open?.roundNumber === roundNumber && (
+  let open = getOpenRound(updated.data() as MatchDoc);
+  let recorded = open?.roundNumber === roundNumber && (
     uid === match.player1 ? player1HasSubmitted(open) : player2HasSubmitted(open)
   );
+  if (!recorded) {
+    await syncPendingChoicesFromSubcollection(matchId, roundNumber);
+    const retried = await db.collection("matches").doc(matchId).get();
+    if (retried.exists) {
+      open = getOpenRound(retried.data() as MatchDoc);
+      recorded = open?.roundNumber === roundNumber && (
+        uid === match.player1 ? player1HasSubmitted(open) : player2HasSubmitted(open)
+      );
+    }
+  }
   if (!recorded) {
     throw new HttpsError("internal", "Move was not recorded. Try again.");
   }

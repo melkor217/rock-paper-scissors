@@ -45,7 +45,7 @@
     <string name="replay">Tekrar</string>
     <string name="vs_label">vs</string>
     <string name="selected">Secili</string>
-    <string name="app_tagline">Dereceli taş-kağıt-makas.\n3 veya 5\'in en iyisi. ELO eşleştirme.</string>
+    <string name="app_tagline">Dereceli taş-kağıt-makas.</string>
     <string name="could_not_load_profile">Profiliniz yüklenemedi.</string>
     <string name="match_found">Eşleşme bulundu</string>
     <string name="opening_game">Oyun açılıyor…</string>

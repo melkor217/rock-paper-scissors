@@ -102,6 +102,7 @@ fun ResultScreen(
     }
 
     val scrollState = rememberScrollState()
+    var playAgainTriggered by remember(matchId) { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.rpsScreenPadding(),
@@ -183,7 +184,12 @@ fun ResultScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
         Button(
-            onClick = { onPlayAgain(currentMatch.matchMode) },
+            onClick = {
+                if (playAgainTriggered) return@Button
+                playAgainTriggered = true
+                onPlayAgain(currentMatch.matchMode)
+            },
+            enabled = !playAgainTriggered,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(80.dp),

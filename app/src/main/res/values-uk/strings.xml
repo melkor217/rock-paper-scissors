@@ -45,7 +45,7 @@
     <string name="replay">Повтор</string>
     <string name="vs_label">vs</string>
     <string name="selected">Вибрано</string>
-    <string name="app_tagline">Рейтинг камінь-ножиці-папір.\nНайкраще з 3 або 5. ELO matchmaking.</string>
+    <string name="app_tagline">Рейтинг камінь-ножиці-папір.</string>
     <string name="could_not_load_profile">Не вдалося завантажити ваш профіль.</string>
     <string name="match_found">Збіг знайдено</string>
     <string name="opening_game">Відкриття гри…</string>

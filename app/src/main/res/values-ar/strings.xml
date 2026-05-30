@@ -45,7 +45,7 @@
     <string name="replay">اعادة</string>
     <string name="vs_label">vs</string>
     <string name="selected">محدد</string>
-    <string name="app_tagline">تصنيف حجرة ورقة مقص.\nالأفضل من 3 أو 5. التوفيق بين ELO.</string>
+    <string name="app_tagline">تصنيف حجرة ورقة مقص.</string>
     <string name="could_not_load_profile">تعذر تحميل ملف التعريف الخاص بك.</string>
     <string name="match_found">تم العثور على المباراة</string>
     <string name="opening_game">المباراة الافتتاحية…</string>

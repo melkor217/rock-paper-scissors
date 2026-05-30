@@ -45,7 +45,7 @@
     <string name="replay">Uusinta</string>
     <string name="vs_label">vs</string>
     <string name="selected">Valittu</string>
-    <string name="app_tagline">Luokiteltu kivi-paperi-sakset.\nParas 3 tai 5. ELO matchmaking.</string>
+    <string name="app_tagline">Luokiteltu kivi-paperi-sakset.</string>
     <string name="could_not_load_profile">Profiiliasi ei voitu ladata.</string>
     <string name="match_found">Ottelu löytyi</string>
     <string name="opening_game">Pelin avaus…</string>

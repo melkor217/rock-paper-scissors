@@ -45,7 +45,7 @@
     <string name="replay">Main ulang</string>
     <string name="vs_label">vs</string>
     <string name="selected">Dipilih</string>
-    <string name="app_tagline">Peringkat batu-gunting-kertas.\nTerbaik dari 3 atau 5. Perjodohan ELO.</string>
+    <string name="app_tagline">Peringkat batu-gunting-kertas.</string>
     <string name="could_not_load_profile">Tidak dapat memuat profil Anda.</string>
     <string name="match_found">Kecocokan ditemukan</string>
     <string name="opening_game">Permainan pembuka…</string>

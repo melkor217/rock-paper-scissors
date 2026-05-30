@@ -45,7 +45,7 @@
     <string name="replay">Переиграть</string>
     <string name="vs_label">vs</string>
     <string name="selected">Seleccionado</string>
-    <string name="app_tagline">Clasificado piedra, papel o tijera.\nLo mejor de 3 o 5. Emparejamiento ELO.</string>
+    <string name="app_tagline">Clasificado piedra, papel o tijera.</string>
     <string name="could_not_load_profile">No se pudo cargar tu perfil.</string>
     <string name="match_found">Coincidencia encontrada</string>
     <string name="opening_game">Juego inaugural...</string>

@@ -45,7 +45,7 @@
     <string name="replay">Spela om</string>
     <string name="vs_label">vs</string>
     <string name="selected">Vald</string>
-    <string name="app_tagline">Rankad sten-pappersax.\nBäst av 3 eller 5. ELO-matchmaking.</string>
+    <string name="app_tagline">Rankad sten-pappersax.</string>
     <string name="could_not_load_profile">Det gick inte att ladda din profil.</string>
     <string name="match_found">Matchning hittades</string>
     <string name="opening_game">Öppnar spelet...</string>

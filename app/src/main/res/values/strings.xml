@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">RPS Online</string>
-    <string name="app_tagline">Ranked rock-paper-scissors.\nBest of 3 or 5. ELO matchmaking.</string>
+    <string name="app_tagline">Ranked rock-paper-scissors.</string>
     <string name="loading_profile">Loading profile…</string>
     <string name="loading_release_notes">Loading release notes…</string>
     <string name="loading_weekly_chart">Loading weekly chart</string>

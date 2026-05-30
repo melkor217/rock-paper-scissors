@@ -18,7 +18,7 @@ fun PlayersOnlineIndicator(
         null -> stringResource(R.string.players_online_loading)
         else -> stringResource(R.string.players_online_count, count)
     }
-    ThreeDigitSegmentedDisplay(
+    FourDigitSegmentedDisplay(
         value = count,
         modifier = modifier
             .height(SegmentedDisplayHeight)

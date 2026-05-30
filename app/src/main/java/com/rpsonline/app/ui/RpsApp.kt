@@ -1,6 +1,5 @@
 package com.rpsonline.app.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,7 +41,6 @@ import com.rpsonline.app.navigation.RpsNavGraph
 import com.rpsonline.app.ui.components.AppearanceMenuButton
 import com.rpsonline.app.ui.components.ClockSoundMuteButton
 import com.rpsonline.app.ui.components.LocalNetworkConnectionStatus
-import com.rpsonline.app.ui.components.PlayersOnlineIndicator
 import com.rpsonline.app.ui.components.SegmentedDisplayPulseEffect
 import com.rpsonline.app.ui.components.isServerConnected
 import com.rpsonline.app.ui.components.TopBarSegmentedQueueIndicator
@@ -265,28 +263,21 @@ fun RpsApp() {
                                     resolutionPulseTrigger = resolutionPulseTrigger,
                                     pulseMove = roundResolutionPulseNotifier.activePulseMove,
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        PlayersOnlineIndicator(
-                                            count = if (connectionStatus.isServerConnected()) {
-                                                onlinePlayerCount
-                                            } else {
-                                                null
-                                            },
-                                        )
-                                        TopBarSegmentedQueueIndicator(
-                                            inMatch = inMatch,
-                                            inQueue = inQueue,
-                                            elapsedSeconds = if (inMatch) {
-                                                matchElapsedSeconds
-                                            } else {
-                                                queueElapsedSeconds
-                                            },
-                                            playerClockStopped = playerClockStopped,
-                                        )
-                                    }
+                                    TopBarSegmentedQueueIndicator(
+                                        onlineCount = if (connectionStatus.isServerConnected()) {
+                                            onlinePlayerCount
+                                        } else {
+                                            null
+                                        },
+                                        inMatch = inMatch,
+                                        inQueue = inQueue,
+                                        elapsedSeconds = if (inMatch) {
+                                            matchElapsedSeconds
+                                        } else {
+                                            queueElapsedSeconds
+                                        },
+                                        playerClockStopped = playerClockStopped,
+                                    )
                                 }
                             }
                         },

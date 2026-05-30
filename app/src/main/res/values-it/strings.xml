@@ -45,7 +45,7 @@
     <string name="replay">Rigioca</string>
     <string name="vs_label">vs</string>
     <string name="selected">Selezionato</string>
-    <string name="app_tagline">Classifica sasso-carta-forbici.\nAl meglio di 3 o 5. Matchmaking ELO.</string>
+    <string name="app_tagline">Classifica sasso-carta-forbici.</string>
     <string name="could_not_load_profile">Impossibile caricare il tuo profilo.</string>
     <string name="match_found">Corrispondenza trovata</string>
     <string name="opening_game">Gioco di apertura...</string>

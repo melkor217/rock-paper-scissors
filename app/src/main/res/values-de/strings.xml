@@ -45,7 +45,7 @@
     <string name="replay">Wiederholung</string>
     <string name="vs_label">vs</string>
     <string name="selected">Ausgewahlt</string>
-    <string name="app_tagline">Rangliste Schere, Stein, Papier.\nBeste von 3 oder 5. ELO-Matchmaking.</string>
+    <string name="app_tagline">Rangliste Schere, Stein, Papier.</string>
     <string name="could_not_load_profile">Ihr Profil konnte nicht geladen werden.</string>
     <string name="match_found">Übereinstimmung gefunden</string>
     <string name="opening_game">Eröffnungsspiel…</string>

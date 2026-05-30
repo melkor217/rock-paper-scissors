@@ -45,7 +45,7 @@
     <string name="replay">重赛</string>
     <string name="vs_label">vs</string>
     <string name="selected">已选择</string>
-    <string name="app_tagline">石头剪刀布排名。\n3 或 5 胜制。ELO 配对。</string>
+    <string name="app_tagline">石头剪刀布排名。</string>
     <string name="could_not_load_profile">无法加载您的个人资料。</string>
     <string name="match_found">找到匹配项</string>
     <string name="opening_game">开场比赛…</string>

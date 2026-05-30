@@ -45,7 +45,7 @@
     <string name="replay">Repetir</string>
     <string name="vs_label">vs</string>
     <string name="selected">Selecionado</string>
-    <string name="app_tagline">Classificação pedra-papel-tesoura.\nMelhor de 3 ou 5. Matchmaking ELO.</string>
+    <string name="app_tagline">Classificação pedra-papel-tesoura.</string>
     <string name="could_not_load_profile">Não foi possível carregar seu perfil.</string>
     <string name="match_found">Correspondência encontrada</string>
     <string name="opening_game">Jogo de abertura…</string>

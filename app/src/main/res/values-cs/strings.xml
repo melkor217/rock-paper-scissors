@@ -45,7 +45,7 @@
     <string name="replay">Opakovat</string>
     <string name="vs_label">vs</string>
     <string name="selected">Vybrano</string>
-    <string name="app_tagline">Hodnocení kámen-nůžky-papír.\nNejlepší ze 3 nebo 5. ELO matchmaking.</string>
+    <string name="app_tagline">Hodnocení kámen-nůžky-papír.</string>
     <string name="could_not_load_profile">Nelze načíst váš profil.</string>
     <string name="match_found">Shoda nalezena</string>
     <string name="opening_game">Otevírání hry…</string>

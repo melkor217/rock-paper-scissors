@@ -45,7 +45,7 @@
     <string name="replay">Choi lai</string>
     <string name="vs_label">vs</string>
     <string name="selected">Da chon</string>
-    <string name="app_tagline">Xếp hạng oẳn tù tì.\nTốt nhất là 3 hoặc 5. Mai mối ELO.</string>
+    <string name="app_tagline">Xếp hạng oẳn tù tì.</string>
     <string name="could_not_load_profile">Không thể tải hồ sơ của bạn.</string>
     <string name="match_found">Đã tìm thấy kết quả phù hợp</string>
     <string name="opening_game">Trò chơi mở đầu…</string>

@@ -62,4 +62,45 @@ class ResolutionBurstSegmentsTest {
         val burst = resolutionBurstSegmentsExcluding(Move.ROCK, 1f, protected)
         assertEquals(setOf('c', 'd', 'e', 'f'), burst)
     }
+
+    @Test
+    fun eachMove_hasDistinctSlotActivationOrder() {
+        val rock = resolutionBurstSlotActivationOrder(Move.ROCK)
+        val paper = resolutionBurstSlotActivationOrder(Move.PAPER)
+        val scissors = resolutionBurstSlotActivationOrder(Move.SCISSORS)
+
+        assertEquals(TopBarSegmentedSlotCount, rock.size)
+        assertEquals(TopBarSegmentedSlotCount, paper.size)
+        assertEquals(TopBarSegmentedSlotCount, scissors.size)
+        assertNotEquals(rock, paper)
+        assertNotEquals(paper, scissors)
+        assertNotEquals(rock, scissors)
+    }
+
+    @Test
+    fun rockWave_propagatesLeftToRight() {
+        val early = resolutionBurstSlotFillProgress(0.12f, slotIndex = 0, move = Move.ROCK)
+        val late = resolutionBurstSlotFillProgress(0.12f, slotIndex = 11, move = Move.ROCK)
+        assertTrue(early > late)
+    }
+
+    @Test
+    fun scissorsWave_propagatesFromBothEdges() {
+        val edge = resolutionBurstSlotFillProgress(0.12f, slotIndex = 0, move = Move.SCISSORS)
+        val center = resolutionBurstSlotFillProgress(0.12f, slotIndex = 5, move = Move.SCISSORS)
+        assertTrue(edge > center)
+    }
+
+    @Test
+    fun allSlotsPeakWhenGlobalFillCompletes() {
+        listOf(Move.ROCK, Move.PAPER, Move.SCISSORS).forEach { move ->
+            for (slot in 0 until TopBarSegmentedSlotCount) {
+                assertEquals(
+                    1f,
+                    resolutionBurstSlotFillProgress(0.85f, slot, move),
+                    0.001f,
+                )
+            }
+        }
+    }
 }

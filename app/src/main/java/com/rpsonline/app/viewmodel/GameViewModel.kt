@@ -110,6 +110,7 @@ class GameViewModel(
         val userId = authRepository.currentUserId
         val openRound = match?.openRound()
         val openRoundNumber = openRound?.roundNumber
+        val previousOpenRound = lastObservedOpenRound
         if (openRoundNumber != lastObservedOpenRound) {
             if (lastObservedOpenRound != null) {
                 cancelInFlightSubmit(clearPendingUi = true)
@@ -122,6 +123,10 @@ class GameViewModel(
         val alreadySubmitted = when {
             match == null || userId == null || openRound == null -> false
             else -> openRound.hasSubmittedFor(userId, match.player1)
+        }
+        if (_uiState.value.error != null && !alreadySubmitted) {
+            locallySubmittedRound = null
+            lockedMoveRound = null
         }
         if (alreadySubmitted && openRoundNumber == locallySubmittedRound) {
             locallySubmittedRound = null
@@ -167,7 +172,17 @@ class GameViewModel(
             resolvingRetryJob = null
         }
 
+        val openRoundChanged = previousOpenRound != null && openRoundNumber != previousOpenRound
+        val staleSubmitting = _uiState.value.isSubmitting && activeSubmitJob?.isActive != true
+
         _uiState.update {
+            val canPickAgain = match?.status == MatchStatus.ACTIVE &&
+                openRound != null &&
+                !hasSubmittedMove &&
+                !localSubmitPending &&
+                !it.isResolvingTimeout
+            val clearError = it.error != null &&
+                (clearResolving || openRoundChanged || canPickAgain)
             it.copy(
                 match = match,
                 userId = userId,
@@ -176,13 +191,18 @@ class GameViewModel(
                 opponentHasSubmitted = opponentHasSubmitted,
                 lockedMove = lockedMove,
                 // Server confirmed our choice — do not keep "Communicating to server" until write() returns.
-                isSubmitting = if (alreadySubmitted) false else it.isSubmitting,
+                isSubmitting = when {
+                    alreadySubmitted -> false
+                    staleSubmitting -> false
+                    else -> it.isSubmitting
+                },
                 pendingMove = when {
                     !hasSubmittedMove -> null
                     lockedMove != null -> null
                     else -> it.pendingMove
                 },
                 isResolvingTimeout = if (clearResolving) false else it.isResolvingTimeout,
+                error = if (clearError) null else it.error,
             )
         }
         if (openRound?.roundNumber != timeoutRequestedForRound) {
@@ -493,19 +513,27 @@ class GameViewModel(
     }
 
     fun submitMove(move: Move) {
+        recoverStuckSubmitUiIfNeeded()
+
         val state = _uiState.value
         val userId = state.userId
         val match = state.match
         val openRound = match?.openRound()
         if (
-            state.hasSubmittedMove ||
             state.isSubmitting ||
-            state.pendingMove != null ||
             match?.status != MatchStatus.ACTIVE ||
             openRound == null ||
-            userId == null ||
-            openRound.hasSubmittedFor(userId, match.player1)
+            userId == null
         ) {
+            return
+        }
+        if (openRound.hasSubmittedFor(userId, match.player1)) {
+            if (!state.serverMoveSubmitted) {
+                viewModelScope.launch { runCatching { syncMatchFromServer() } }
+            }
+            return
+        }
+        if (state.hasSubmittedMove || state.pendingMove != null) {
             return
         }
 
@@ -615,6 +643,33 @@ class GameViewModel(
                 hasSubmittedMove = serverSubmitted,
                 serverMoveSubmitted = serverSubmitted,
                 lockedMove = if (serverSubmitted) it.lockedMove else null,
+                error = if (serverSubmitted) it.error else null,
+            )
+        }
+    }
+
+    /** Clears stale local submit UI so a failed move can be retried. */
+    private fun recoverStuckSubmitUiIfNeeded() {
+        val state = _uiState.value
+        if (state.serverMoveSubmitted) return
+        if (state.isSubmitting && activeSubmitJob?.isActive == true) return
+
+        val stuckLocalSubmit = state.hasSubmittedMove ||
+            state.pendingMove != null ||
+            locallySubmittedRound != null
+        if (!stuckLocalSubmit && state.error == null) return
+
+        cancelInFlightSubmit(clearPendingUi = true)
+        locallySubmittedRound = null
+        lockedMoveRound = null
+        _uiState.update {
+            it.copy(
+                error = null,
+                hasSubmittedMove = false,
+                serverMoveSubmitted = false,
+                isSubmitting = false,
+                pendingMove = null,
+                lockedMove = null,
             )
         }
     }

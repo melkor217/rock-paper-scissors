@@ -45,7 +45,7 @@
     <string name="replay">リプレイ</string>
     <string name="vs_label">vs</string>
     <string name="selected">選択済み</string>
-    <string name="app_tagline">ランク付けされたジャンケン。\nベスト オブ 3 または 5。ELO マッチメイキング。</string>
+    <string name="app_tagline">ランク付けされたジャンケン。</string>
     <string name="could_not_load_profile">プロフィールを読み込めませんでした。</string>
     <string name="match_found">一致が見つかりました</string>
     <string name="opening_game">開幕戦…</string>

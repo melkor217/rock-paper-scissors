@@ -1,26 +1,24 @@
 package com.rpsonline.app.ui.components
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.rpsonline.app.R
 import com.rpsonline.app.ui.util.formatQueueTimeMmSs
 
 @Composable
 fun TopBarSegmentedQueueIndicator(
+    onlineCount: Int?,
     inMatch: Boolean,
     inQueue: Boolean,
     elapsedSeconds: Long,
     playerClockStopped: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val description = when {
+    val timerDescription = when {
         inMatch -> stringResource(
             R.string.in_match_with_time,
             formatQueueTimeMmSs(elapsedSeconds),
@@ -31,32 +29,33 @@ fun TopBarSegmentedQueueIndicator(
         )
         else -> stringResource(R.string.queue_timer_idle)
     }
-
-    Row(
-        modifier = modifier.semantics { contentDescription = description },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        QueueTimeSegmentedDisplay(
-            elapsedSeconds = elapsedSeconds,
-            showLiveTime = inQueue || inMatch,
-            animateSpinner = inQueue || inMatch,
-            spinnerStyle = when {
-                !inMatch -> SegmentedSpinnerStyle.QUEUE
-                playerClockStopped -> SegmentedSpinnerStyle.MATCH_CLOCK_STOPPED
-                else -> SegmentedSpinnerStyle.MATCH
-            },
-            modifier = Modifier.height(SegmentedDisplayHeight),
-        )
+    val onlineDescription = when (onlineCount) {
+        null -> stringResource(R.string.players_online_loading)
+        else -> stringResource(R.string.players_online_count, onlineCount)
     }
+
+    TopBarSegmentedStatusRow(
+        onlineCount = onlineCount,
+        inMatch = inMatch,
+        inQueue = inQueue,
+        elapsedSeconds = elapsedSeconds,
+        playerClockStopped = playerClockStopped,
+        modifier = modifier
+            .height(SegmentedDisplayHeight)
+            .semantics {
+                contentDescription = "$onlineDescription. $timerDescription"
+            },
+    )
 }
 
-/** @deprecated Use [TopBarSegmentedQueueIndicator] */
+/** @deprecated Use [TopBarSegmentedQueueIndicator] with [onlineCount]. */
 @Composable
 fun InQueueTopBarIndicator(
     elapsedSeconds: Long,
     modifier: Modifier = Modifier,
 ) {
     TopBarSegmentedQueueIndicator(
+        onlineCount = null,
         inMatch = false,
         inQueue = true,
         elapsedSeconds = elapsedSeconds,

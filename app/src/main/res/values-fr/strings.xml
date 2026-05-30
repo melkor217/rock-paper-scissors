@@ -45,7 +45,7 @@
     <string name="replay">Rejouer</string>
     <string name="vs_label">vs</string>
     <string name="selected">Selectionne</string>
-    <string name="app_tagline">Classement pierre-feuille-ciseaux.\nLe meilleur des 3 ou 5. Matchmaking ELO.</string>
+    <string name="app_tagline">Classement pierre-feuille-ciseaux.</string>
     <string name="could_not_load_profile">Impossible de charger votre profil.</string>
     <string name="match_found">Correspondance trouvée</string>
     <string name="opening_game">Match d’ouverture…</string>

@@ -45,7 +45,7 @@
     <string name="replay">Переигровка</string>
     <string name="vs_label">vs</string>
     <string name="selected">Выбрано</string>
-    <string name="app_tagline">Ранговый «камень-ножницы-бумага».\nЛучший из 3 или 5. Подбор игроков по ELO.</string>
+    <string name="app_tagline">Ранговый «камень-ножницы-бумага».</string>
     <string name="could_not_load_profile">Не удалось загрузить ваш профиль.</string>
     <string name="match_found">Матч найден</string>
     <string name="opening_game">Открытие игры…</string>

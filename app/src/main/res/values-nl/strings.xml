@@ -45,7 +45,7 @@
     <string name="replay">Opnieuw</string>
     <string name="vs_label">vs</string>
     <string name="selected">Geselecteerd</string>
-    <string name="app_tagline">Gerangschikt als steen-papier-schaar.\nBeste van 3 of 5. ELO-matchmaking.</string>
+    <string name="app_tagline">Gerangschikt als steen-papier-schaar.</string>
     <string name="could_not_load_profile">Kan uw profiel niet laden.</string>
     <string name="match_found">Overeenkomst gevonden</string>
     <string name="opening_game">Openingsspel…</string>

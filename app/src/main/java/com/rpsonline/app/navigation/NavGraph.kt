@@ -72,6 +72,13 @@ private fun MatchFoundNavigationEffect(navController: NavHostController) {
             MatchSessionMonitor.setMatchmakingInProgress(false)
             return@LaunchedEffect
         }
+        // Play Again may still be closing the result screen while matchmaking assigns a game.
+        if (currentRoute?.startsWith("result/") == true) {
+            return@LaunchedEffect
+        }
+        if (currentRoute?.startsWith("home") != true) {
+            return@LaunchedEffect
+        }
         navController.navigate(Routes.game(matchId)) {
             popUpTo(Routes.HOME)
         }
@@ -174,8 +181,10 @@ fun RpsNavGraph() {
             ResultScreen(
                 matchId = matchId,
                 onPlayAgain = { matchMode ->
+                    MatchSessionMonitor.consumeGameNavigation()
+                    MatchSessionMonitor.clearQueueState(endMatchmaking = true)
                     navController.navigate(Routes.home(setOf(matchMode))) {
-                        popUpTo(Routes.RESULT) { inclusive = true }
+                        popUpTo(Routes.HOME) { inclusive = true }
                         launchSingleTop = true
                     }
                 },

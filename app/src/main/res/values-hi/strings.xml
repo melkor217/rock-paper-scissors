@@ -45,7 +45,7 @@
     <string name="replay">फिर खेलें</string>
     <string name="vs_label">vs</string>
     <string name="selected">चयनित</string>
-    <string name="app_tagline">रैंक किए गए रॉक-पेपर-कैंची।\n3 या 5 में से सर्वश्रेष्ठ। ईएलओ मैचमेकिंग।</string>
+    <string name="app_tagline">रैंक किए गए रॉक-पेपर-कैंची।</string>
     <string name="could_not_load_profile">आपकी प्रोफ़ाइल लोड नहीं हो सकी.</string>
     <string name="match_found">मिलान मिला</string>
     <string name="opening_game">शुरुआती गेम...</string>

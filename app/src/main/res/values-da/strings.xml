@@ -45,7 +45,7 @@
     <string name="replay">Spil igen</string>
     <string name="vs_label">vs</string>
     <string name="selected">Valgt</string>
-    <string name="app_tagline">Rangeret sten-papir-saks.\nBedst af 3 eller 5. ELO matchmaking.</string>
+    <string name="app_tagline">Rangeret sten-papir-saks.</string>
     <string name="could_not_load_profile">Kunne ikke indlæse din profil.</string>
     <string name="match_found">Match fundet</string>
     <string name="opening_game">Åbner spil...</string>
