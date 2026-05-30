@@ -20,14 +20,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -41,6 +44,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.rpsonline.app.R
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.data.preferences.MoveDisplayPreferences
 import com.rpsonline.app.ui.components.MoveIconCard
 import com.rpsonline.app.ui.components.RpsCard
 import com.rpsonline.app.ui.components.moveBarFillColor
@@ -94,8 +98,30 @@ fun MatchRoundMovesPanel(
         compact -> 5.dp
         else -> 6.dp
     }
-    var ownMoveRevealed by remember(roundNumber) { mutableStateOf(false) }
-    val allowOwnMoveTapToReveal = myMove.display == PanelMoveDisplay.Secret && myMove.move != null
+    val context = LocalContext.current
+    val moveDisplayPreferences = remember {
+        MoveDisplayPreferences(context.applicationContext)
+    }
+    var ownMoveRevealed by rememberSaveable {
+        mutableStateOf(moveDisplayPreferences.isOwnMoveRevealed())
+    }
+    var cachedSecretMove by remember(roundNumber) { mutableStateOf<Move?>(null) }
+    LaunchedEffect(myMove.move) {
+        if (myMove.move != null) {
+            cachedSecretMove = myMove.move
+        }
+    }
+    val panelMyMove = if (
+        myMove.display == PanelMoveDisplay.Secret &&
+        myMove.move == null &&
+        cachedSecretMove != null
+    ) {
+        myMove.copy(move = cachedSecretMove)
+    } else {
+        myMove
+    }
+    val allowOwnMoveTapToReveal =
+        panelMyMove.display == PanelMoveDisplay.Secret && panelMyMove.move != null
 
     RpsCard(
         modifier = modifier.fillMaxWidth(),
@@ -130,10 +156,14 @@ fun MatchRoundMovesPanel(
                         score = myWins,
                         winsToFinish = winsToFinish,
                         winMoves = myWinMoves,
-                        presentation = myMove,
+                        presentation = panelMyMove,
                         moveRevealed = ownMoveRevealed,
                         allowTapToReveal = allowOwnMoveTapToReveal,
-                        onTapToReveal = { ownMoveRevealed = !ownMoveRevealed },
+                        onTapToReveal = {
+                            val next = !ownMoveRevealed
+                            ownMoveRevealed = next
+                            moveDisplayPreferences.setOwnMoveRevealed(next)
+                        },
                         moveSquareSide = moveSquareSide,
                         compact = compact,
                         tight = tight,

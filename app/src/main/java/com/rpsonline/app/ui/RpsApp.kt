@@ -43,7 +43,6 @@ import com.rpsonline.app.ui.components.AppearanceMenuButton
 import com.rpsonline.app.ui.components.ClockSoundMuteButton
 import com.rpsonline.app.ui.components.LocalNetworkConnectionStatus
 import com.rpsonline.app.ui.components.PlayersOnlineIndicator
-import com.rpsonline.app.ui.components.SevenSegmentBlankSlot
 import com.rpsonline.app.ui.components.SegmentedDisplayPulseEffect
 import com.rpsonline.app.ui.components.isServerConnected
 import com.rpsonline.app.ui.components.TopBarSegmentedQueueIndicator
@@ -121,6 +120,13 @@ fun RpsApp() {
     LifecycleResumeEffect(user?.uid) {
         val uid = user?.uid
         if (uid != null) {
+            if (
+                MatchSessionMonitor.isMatchmakingInProgress() ||
+                MatchSessionMonitor.hasQueueEntry.value ||
+                MatchSessionMonitor.queueJoinedAtMs.value != null
+            ) {
+                MatchSessionMonitor.setMatchmakingInProgress(true)
+            }
             onlineCountRefreshGeneration++
             scope.launch {
                 runCatching { MatchSessionMonitor.refreshOnResume() }
@@ -136,16 +142,22 @@ fun RpsApp() {
     val activeMatch by MatchSessionMonitor.activeMatch.collectAsStateWithLifecycle()
     val hasQueueEntry by MatchSessionMonitor.hasQueueEntry.collectAsStateWithLifecycle()
     val queueJoinedAtMs by MatchSessionMonitor.queueJoinedAtMs.collectAsStateWithLifecycle()
-    var queueElapsedSeconds by remember(queueJoinedAtMs) { mutableStateOf(0L) }
+    var queueElapsedSeconds by remember(queueJoinedAtMs) {
+        mutableStateOf(
+            queueJoinedAtMs?.let { joinedAt ->
+                ((System.currentTimeMillis() - joinedAt) / 1_000).coerceAtLeast(0L)
+            } ?: 0L,
+        )
+    }
     var matchElapsedSeconds by remember(activeMatch?.id) { mutableStateOf(0L) }
 
     LaunchedEffect(queueJoinedAtMs) {
-        val joinedAt = queueJoinedAtMs
-        if (joinedAt == null) {
-            queueElapsedSeconds = 0L
-            return@LaunchedEffect
-        }
         while (true) {
+            val joinedAt = queueJoinedAtMs
+            if (joinedAt == null) {
+                queueElapsedSeconds = 0L
+                return@LaunchedEffect
+            }
             queueElapsedSeconds = ((System.currentTimeMillis() - joinedAt) / 1_000).coerceAtLeast(0L)
             delay(1_000)
         }
@@ -153,7 +165,15 @@ fun RpsApp() {
 
     LaunchedEffect(activeMatch?.id, activeMatch?.status, activeMatch?.createdAt) {
         val match = activeMatch
-        if (match == null || match.status != MatchStatus.ACTIVE || match.createdAt <= 0L) {
+        if (match == null || match.createdAt <= 0L) {
+            matchElapsedSeconds = 0L
+            return@LaunchedEffect
+        }
+        if (match.status == MatchStatus.COMPLETED || match.status == MatchStatus.ABANDONED) {
+            matchElapsedSeconds = ((System.currentTimeMillis() - match.createdAt) / 1_000).coerceAtLeast(0L)
+            return@LaunchedEffect
+        }
+        if (match.status != MatchStatus.ACTIVE) {
             matchElapsedSeconds = 0L
             return@LaunchedEffect
         }
@@ -230,10 +250,15 @@ fun RpsApp() {
                         background = Modifier.background(topPanelGradient),
                         leftContent = {
                             if (user != null) {
-                                val inMatch = activeMatch?.status == MatchStatus.ACTIVE
+                                val matchEndTransitionActive = activeMatch?.let { match ->
+                                    (match.status == MatchStatus.COMPLETED || match.status == MatchStatus.ABANDONED) &&
+                                        roundResolutionPulseNotifier.isLiveMatch(match.id)
+                                } == true
+                                val inMatch = activeMatch?.status == MatchStatus.ACTIVE || matchEndTransitionActive
                                 val inQueue = queueJoinedAtMs != null && !inMatch
                                 val playerClockStopped = inMatch &&
-                                    activeMatch?.isPlayerClockRunning(user?.uid) != true
+                                    (matchEndTransitionActive ||
+                                        activeMatch?.isPlayerClockRunning(user?.uid) != true)
                                 val resolutionPulseTrigger =
                                     roundResolutionPulseNotifier.pulseTrigger
                                 SegmentedDisplayPulseEffect(
@@ -242,7 +267,7 @@ fun RpsApp() {
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     ) {
                                         PlayersOnlineIndicator(
                                             count = if (connectionStatus.isServerConnected()) {
@@ -251,7 +276,6 @@ fun RpsApp() {
                                                 null
                                             },
                                         )
-                                        SevenSegmentBlankSlot()
                                         TopBarSegmentedQueueIndicator(
                                             inMatch = inMatch,
                                             inQueue = inQueue,

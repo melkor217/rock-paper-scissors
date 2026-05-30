@@ -1185,7 +1185,8 @@ export const submitMatchMove = onCall(async (request) => {
   if (uid !== match.player1 && uid !== match.player2) {
     throw new HttpsError("permission-denied", "You are not in this match.");
   }
-  if (match.currentRound !== roundNumber) {
+  const openRound = getOpenRound(match);
+  if (!openRound || openRound.roundNumber !== roundNumber) {
     throw new HttpsError("failed-precondition", "This round is no longer open.");
   }
 

@@ -30,6 +30,8 @@ class NetworkConnectionMonitor(
     private val _status = MutableStateFlow<NetworkConnectionStatus>(NetworkConnectionStatus.Checking)
     val status: StateFlow<NetworkConnectionStatus> = _status.asStateFlow()
 
+    private var lastServerSuccessAtMs = 0L
+
     private var probeJob: Job? = null
     private var networkCallbackRegistered = false
 
@@ -88,17 +90,20 @@ class NetworkConnectionMonitor(
             _status.value = NetworkConnectionStatus.Offline
             return
         }
-        if (showChecking || _status.value == NetworkConnectionStatus.Checking) {
-            _status.value = NetworkConnectionStatus.Checking
+        val nowMs = System.currentTimeMillis()
+        val serverReachable = withContext(Dispatchers.IO) {
+            authRepository.isFirebaseServerReachable()
         }
-        val firebaseReachable = withContext(Dispatchers.IO) {
-            authRepository.isFirebaseAvailable()
+        if (serverReachable) {
+            lastServerSuccessAtMs = nowMs
         }
-        _status.value = if (firebaseReachable) {
-            NetworkConnectionStatus.Connected
-        } else {
-            NetworkConnectionStatus.Offline
-        }
+        val resolved = ConnectionReachabilityPolicy.resolveStatus(
+            hasNetwork = true,
+            serverReachable = serverReachable,
+            nowMs = nowMs,
+            lastServerSuccessMs = lastServerSuccessAtMs,
+        )
+        _status.value = resolved
     }
 
     private fun probeIntervalMs(): Long =

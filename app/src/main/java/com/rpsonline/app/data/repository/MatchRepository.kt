@@ -201,6 +201,7 @@ class MatchRepository(
         val userId = uid
         require(profile.uid == userId) { "Profile uid mismatch" }
         awaitFirestoreAuth(forceRefresh = true)
+        MatchSessionMonitor.awaitSessionBootstrap()
         withTimeoutOrNull(ENABLE_NETWORK_TIMEOUT_MS) {
             runCatching { firestore.enableNetwork().await() }
         }
@@ -296,7 +297,7 @@ class MatchRepository(
     /** Clears any prior queue doc so leave → find again does not race an in-flight join. */
     private suspend fun prepareQueueForJoin(userId: String) {
         QueueWriteGate.withLock {
-            MatchSessionMonitor.clearQueueState()
+            MatchSessionMonitor.clearQueueState(endMatchmaking = false)
             withTimeoutOrNull(3_000) {
                 runCatching {
                     awaitFirestoreAuth(forceRefresh = true)
@@ -365,11 +366,12 @@ class MatchRepository(
      * Drops any leftover queue doc from a previous session. Call on app launch and after sign-in.
      */
     suspend fun clearStaleSessionQueue(userId: String) {
-        if (MatchSessionMonitor.isMatchmakingInProgress()) return
         QueueWriteGate.withLock {
+            if (MatchSessionMonitor.isMatchmakingInProgress()) return@withLock
             MatchSessionMonitor.clearQueueState()
             runCatching {
                 awaitFirestoreAuth(forceRefresh = true)
+                if (MatchSessionMonitor.isMatchmakingInProgress()) return@runCatching
                 leaveQueueForUser(userId)
             }
         }
@@ -432,10 +434,6 @@ class MatchRepository(
      * [GameViewModel] confirms via snapshot sync.
      */
     suspend fun submitMove(matchId: String, move: Move, roundNumber: Int) {
-        val openRoundNumber = getMatchFromServer(matchId)?.openRound()?.roundNumber
-        if (openRoundNumber != roundNumber) {
-            throw IllegalStateException("This round is no longer open.")
-        }
         try {
             GameFunctions.submitMove(matchId, roundNumber, move)
         } catch (callableError: Exception) {

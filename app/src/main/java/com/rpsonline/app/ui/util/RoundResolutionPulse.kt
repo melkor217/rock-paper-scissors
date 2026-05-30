@@ -250,7 +250,7 @@ fun roundResolutionFeedbackDurationMs(repetitions: Int, muted: Boolean): Long {
 
 /** Pause on the match screen after final-round feedback before opening results. */
 
-const val MATCH_END_NAVIGATION_DELAY_MS = 1_000L
+const val MATCH_END_NAVIGATION_DELAY_MS = 2_000L
 
 
 

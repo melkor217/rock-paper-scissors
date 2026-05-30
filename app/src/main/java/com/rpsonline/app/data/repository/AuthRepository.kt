@@ -274,6 +274,12 @@ class AuthRepository(
         return probeFirestoreReachability() || probeFirestoreReachabilityFromCache()
     }
 
+    /** Server-only reachability for connection indicators (ignores local cache). */
+    suspend fun isFirebaseServerReachable(): Boolean {
+        runCatching { appFirestore().enableNetwork().await() }
+        return probeFirestoreServerReachability()
+    }
+
     /**
      * Unauthenticated clients cannot read [users], but a rules rejection still proves Firestore
      * is reachable. Avoid [Source.SERVER] here — it blocks for a long time when offline.
@@ -282,6 +288,21 @@ class AuthRepository(
         return try {
             withTimeoutOrNull(10_000) {
                 firestore.collection("users").limit(1).get().await()
+                true
+            } ?: false
+        } catch (e: FirebaseFirestoreException) {
+            interpretUsersProbeError(e)
+        } catch (_: TimeoutCancellationException) {
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun probeFirestoreServerReachability(): Boolean {
+        return try {
+            withTimeoutOrNull(5_000) {
+                firestore.collection("users").limit(1).get(Source.SERVER).await()
                 true
             } ?: false
         } catch (e: FirebaseFirestoreException) {

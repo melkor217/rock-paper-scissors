@@ -65,6 +65,7 @@ fun GameTimerRow(
     hasSubmittedMove: Boolean,
     compact: Boolean,
     modifier: Modifier = Modifier,
+    roundClockRunning: Boolean = !isResolvingTimeout,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -82,7 +83,7 @@ fun GameTimerRow(
             RoundCountdown(
                 secondsRemaining = roundSecondsRemaining,
                 label = clockLabel(stringResource(R.string.round_label)),
-                isRunning = !isResolvingTimeout,
+                isRunning = roundClockRunning,
                 isResolvingTimeout = isResolvingTimeout,
                 hasSubmittedMove = hasSubmittedMove,
                 showFooter = false,

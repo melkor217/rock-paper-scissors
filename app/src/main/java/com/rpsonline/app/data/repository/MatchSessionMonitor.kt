@@ -92,7 +92,12 @@ object MatchSessionMonitor {
     /** Called when queue entry is confirmed (server or client join timestamp). */
     fun confirmQueueJoinedAt(joinedAtMs: Long) {
         _hasQueueEntry.value = true
-        _queueJoinedAtMs.value = joinedAtMs
+        _matchmakingInProgress.value = true
+        mergeQueueJoinedAtMs(joinedAtMs)
+    }
+
+    private fun mergeQueueJoinedAtMs(candidateMs: Long) {
+        _queueJoinedAtMs.value = mergeQueueJoinedAtMs(_queueJoinedAtMs.value, candidateMs)
     }
 
     private fun attachForUser(uid: String?) {
@@ -150,16 +155,15 @@ object MatchSessionMonitor {
             firestore.collection("users").document(uid).get(Source.SERVER).await()
         }.getOrNull() ?: return
 
-        if (_matchmakingInProgress.value) {
-            val queueSnap = runCatching {
-                firestore.collection("queue").document(uid).get(Source.SERVER).await()
-            }.getOrNull()
-            val queueExists = queueSnap != null && queueSnap.exists()
-            if (queueExists) {
-                _hasQueueEntry.value = true
-                _queueJoinedAtMs.value = resolveQueueJoinedAtMs(queueSnap!!)
-            }
-        } else {
+        val queueSnap = runCatching {
+            firestore.collection("queue").document(uid).get(Source.SERVER).await()
+        }.getOrNull()
+        val queueExists = queueSnap != null && queueSnap.exists()
+        if (queueExists) {
+            _hasQueueEntry.value = true
+            _matchmakingInProgress.value = true
+            resolveQueueJoinedAtMs(queueSnap!!)?.let { mergeQueueJoinedAtMs(it) }
+        } else if (!_matchmakingInProgress.value) {
             runCatching { matchRepository.clearStaleSessionQueue(uid) }
         }
 
@@ -234,16 +238,10 @@ object MatchSessionMonitor {
         if (!_matchmakingInProgress.value) {
             _hasQueueEntry.value = false
             _queueJoinedAtMs.value = null
-            val uid = auth.currentUser?.uid
-            if (uid != null) {
-                matchRepository.leaveQueueBestEffort(uid)
-            }
             return
         }
         _hasQueueEntry.value = true
-        resolveQueueJoinedAtMs(snapshot)?.let { joinedAtMs ->
-            _queueJoinedAtMs.value = joinedAtMs
-        }
+        resolveQueueJoinedAtMs(snapshot)?.let { mergeQueueJoinedAtMs(it) }
         if (snapshot.metadata.hasPendingWrites()) {
             return
         }
@@ -289,8 +287,11 @@ object MatchSessionMonitor {
     }
 
     /** Local fallback when queue heartbeat fails and snapshot lag leaves stale UI. */
-    fun clearQueueState() {
+    fun clearQueueState(endMatchmaking: Boolean = true) {
         _hasQueueEntry.value = false
         _queueJoinedAtMs.value = null
+        if (endMatchmaking) {
+            _matchmakingInProgress.value = false
+        }
     }
 }

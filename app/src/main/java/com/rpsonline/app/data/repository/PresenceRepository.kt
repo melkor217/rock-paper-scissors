@@ -5,6 +5,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Source
+import com.rpsonline.app.data.monitoring.ConnectionReachabilityPolicy
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -125,12 +126,15 @@ class PresenceRepository(
     fun observeOnlineCount(
         onlineWindowMs: Long = ONLINE_WINDOW_MS,
         selfUid: String? = null,
-    ): Flow<Int> = callbackFlow {
+    ): Flow<Int?> = callbackFlow {
         var lastEmitted: Int? = null
+        var lastSuccessfulFetchMs = 0L
+        val observerStartedMs = System.currentTimeMillis()
         var lastAuthRefreshMs = 0L
         val fetchMutex = Mutex()
 
         suspend fun emitCount(alwaysEmit: Boolean, forceAuthRefresh: Boolean) {
+            val nowMs = System.currentTimeMillis()
             val count = fetchMutex.withLock {
                 withTimeoutOrNull(FETCH_TIMEOUT_MS + 2_000) {
                     runCatching {
@@ -144,8 +148,21 @@ class PresenceRepository(
                         fetchOnlineCountFromServer(onlineWindowMs, selfUid)
                     }.getOrNull()
                 }
-            } ?: return
+            }
+            if (count == null) {
+                val staleAfterMs = if (lastSuccessfulFetchMs > 0L) {
+                    lastSuccessfulFetchMs + ONLINE_COUNT_STALE_MS
+                } else {
+                    observerStartedMs + ONLINE_COUNT_STALE_MS
+                }
+                if (nowMs >= staleAfterMs && (alwaysEmit || lastEmitted != null)) {
+                    lastEmitted = null
+                    trySend(null)
+                }
+                return
+            }
 
+            lastSuccessfulFetchMs = nowMs
             if (alwaysEmit || count != lastEmitted) {
                 lastEmitted = count
                 trySend(count)
@@ -192,6 +209,7 @@ class PresenceRepository(
         const val COLLECTION = "presence"
         const val ONLINE_WINDOW_MS = 2 * 60 * 1000L
         const val HEARTBEAT_INTERVAL_MS = 20_000L
+        private const val ONLINE_COUNT_STALE_MS = ConnectionReachabilityPolicy.SERVER_STALE_MS
         private const val PRESENCE_WRITE_TIMEOUT_MS = 8_000L
         private const val PRESENCE_SYNC_TIMEOUT_MS = 10_000L
         private const val PRESENCE_ACK_MAX_AGE_MS = 90_000L

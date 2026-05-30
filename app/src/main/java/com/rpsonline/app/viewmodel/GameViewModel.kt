@@ -126,9 +126,6 @@ class GameViewModel(
         if (alreadySubmitted && openRoundNumber == locallySubmittedRound) {
             locallySubmittedRound = null
         }
-        if (!alreadySubmitted && openRoundNumber != null && locallySubmittedRound == openRoundNumber) {
-            locallySubmittedRound = null
-        }
         val localSubmitPending = locallySubmittedRound != null &&
             match?.status == MatchStatus.ACTIVE &&
             (openRoundNumber == null || locallySubmittedRound == openRoundNumber)
@@ -281,7 +278,29 @@ class GameViewModel(
     }
 
     private fun syncMatchClocks(match: Match?, userId: String?) {
-        if (match?.status != MatchStatus.ACTIVE || userId == null || match.openRound() == null) {
+        if (match == null || userId == null) {
+            clockJob?.cancel()
+            lastClockFingerprint = null
+            _uiState.update { it.copy(myClockSeconds = null, opponentClockSeconds = null) }
+            return
+        }
+        if (match.status == MatchStatus.COMPLETED || match.status == MatchStatus.ABANDONED) {
+            clockJob?.cancel()
+            clockSyncMyRunning = false
+            clockSyncOppRunning = false
+            val maxClockSeconds = (GameRules.MAX_CLOCK_MS / 1_000).toInt()
+            val mySeconds = ((match.myClockMs(userId) + 999) / 1000).toInt().coerceIn(0, maxClockSeconds)
+            val oppSeconds = ((match.opponentClockMs(userId) + 999) / 1000).toInt().coerceIn(0, maxClockSeconds)
+            _uiState.update {
+                it.copy(
+                    myClockSeconds = mySeconds,
+                    opponentClockSeconds = oppSeconds,
+                    opponentHasSubmitted = true,
+                )
+            }
+            return
+        }
+        if (match.status != MatchStatus.ACTIVE || match.openRound() == null) {
             clockJob?.cancel()
             lastClockFingerprint = null
             _uiState.update { it.copy(myClockSeconds = null, opponentClockSeconds = null) }
@@ -369,6 +388,12 @@ class GameViewModel(
         )
 
     private fun syncCountdown(match: Match?) {
+        if (match?.status == MatchStatus.COMPLETED || match?.status == MatchStatus.ABANDONED) {
+            countdownJob?.cancel()
+            roundCountdownRoundKey = null
+            _uiState.update { it.copy(isResolvingTimeout = false) }
+            return
+        }
         val openRound = match?.openRound()
         if (match?.status != MatchStatus.ACTIVE || openRound == null || openRound.roundStartMs() == null) {
             countdownJob?.cancel()
@@ -518,6 +543,7 @@ class GameViewModel(
                 ) { "Move is taking too long to reach the server. Tap a move to try again." }
             }
             var submitError: String? = null
+            var staleRoundSubmit = false
             try {
                 if (!isSubmitForOpenRound(roundNumber)) return@launch
                 withTimeout(SUBMIT_MOVE_TIMEOUT_MS) {
@@ -530,9 +556,15 @@ class GameViewModel(
                     submitError = "Move was interrupted. Tap a move to try again."
                 }
             } catch (e: Exception) {
-                if (!isIgnorableFirestoreRace(e)) {
-                    submitError = GameFunctions.toSubmitErrorMessage(e)
-                        ?: userFacingGameError(e, "Failed to submit move")
+                when {
+                    GameFunctions.isStaleRoundSubmitError(e) -> {
+                        staleRoundSubmit = true
+                        runCatching { syncMatchFromServer() }
+                    }
+                    isIgnorableFirestoreRace(e) -> Unit
+                    else ->
+                        submitError = GameFunctions.toSubmitErrorMessage(e)
+                            ?: userFacingGameError(e, "Failed to submit move")
                 }
             } finally {
                 withContext(NonCancellable) {
@@ -541,6 +573,19 @@ class GameViewModel(
                     if (generation != submitGeneration) return@withContext
                     if (!isSubmitForOpenRound(roundNumber)) {
                         abandonStaleSubmitUi()
+                        return@withContext
+                    }
+                    if (staleRoundSubmit) {
+                        runCatching { syncMatchFromServer() }
+                        if (isMoveConfirmedLocally(roundNumber)) {
+                            finalizeConfirmedMove(roundNumber, move)
+                            return@withContext
+                        }
+                        abandonStaleSubmitUi()
+                        return@withContext
+                    }
+                    if (submitError == null && isMoveConfirmedLocally(roundNumber)) {
+                        finalizeConfirmedMove(roundNumber, move)
                         return@withContext
                     }
                     revertMoveIfServerMissing(
@@ -574,15 +619,38 @@ class GameViewModel(
         }
     }
 
+    private fun isMoveConfirmedLocally(roundNumber: Int): Boolean {
+        val userId = authRepository.currentUserId ?: return false
+        return _uiState.value.match?.hasSubmittedInRound(userId, roundNumber) == true
+    }
+
+    private fun finalizeConfirmedMove(roundNumber: Int, confirmedMove: Move?) {
+        locallySubmittedRound = null
+        lockedMoveRound = roundNumber
+        _uiState.update {
+            it.copy(
+                hasSubmittedMove = true,
+                serverMoveSubmitted = true,
+                lockedMove = confirmedMove ?: it.lockedMove ?: it.pendingMove,
+                isSubmitting = false,
+                pendingMove = null,
+                error = null,
+            )
+        }
+    }
+
     private suspend fun confirmMoveOnServer(roundNumber: Int): Match? {
         val userId = authRepository.currentUserId ?: return null
         repeat(SUBMIT_CONFIRM_ATTEMPTS) { attempt ->
             if (attempt > 0) delay(SUBMIT_CONFIRM_DELAY_MS)
-            runCatching { syncMatchFromServer() }
-            val match = _uiState.value.match ?: return@repeat
-            if (match.openRound()?.roundNumber != roundNumber) return null
-            if (match.hasSubmittedInRound(userId, roundNumber)) {
-                return match
+            _uiState.value.match
+                ?.takeIf { it.hasSubmittedInRound(userId, roundNumber) }
+                ?.let { return it }
+            val fromServer = runCatching { matchRepository.getMatchFromServer(matchId) }.getOrNull()
+                ?: return@repeat
+            if (fromServer.hasSubmittedInRound(userId, roundNumber)) {
+                applyMatchSnapshot(fromServer)
+                return fromServer
             }
         }
         return null
@@ -597,6 +665,10 @@ class GameViewModel(
         if (generation != submitGeneration) return
         if (!isSubmitForOpenRound(roundNumber)) {
             abandonStaleSubmitUi()
+            return
+        }
+        if (isMoveConfirmedLocally(roundNumber)) {
+            finalizeConfirmedMove(roundNumber, confirmedMove)
             return
         }
         val confirmedMatch = confirmMoveOnServer(roundNumber)
@@ -644,8 +716,8 @@ class GameViewModel(
     companion object {
         private const val SUBMIT_MOVE_TIMEOUT_MS = 15_000L
         private const val SUBMIT_STUCK_WATCHDOG_MS = 18_000L
-        private const val SUBMIT_CONFIRM_ATTEMPTS = 6
-        private const val SUBMIT_CONFIRM_DELAY_MS = 400L
+        private const val SUBMIT_CONFIRM_ATTEMPTS = 15
+        private const val SUBMIT_CONFIRM_DELAY_MS = 500L
 
         fun factory(matchId: String): androidx.lifecycle.ViewModelProvider.Factory =
             object : androidx.lifecycle.ViewModelProvider.Factory {
