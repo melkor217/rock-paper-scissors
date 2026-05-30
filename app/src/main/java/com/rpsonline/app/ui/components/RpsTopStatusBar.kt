@@ -26,8 +26,8 @@ import androidx.core.view.ViewCompat
 /** Matches top-bar icon size (see [ClockSoundMuteButton]). */
 val RpsTopBarIconSize = 24.dp
 
-/** Tighter inset at the left ear so segmented displays sit closer to the corner. */
-private val RpsTopBarEarStartPadding = 10.dp
+/** Left ear inset; nudges segmented displays slightly in from the screen edge. */
+private val RpsTopBarEarStartPadding = 22.dp
 
 /**
  * Global status bar split around the camera cutout: left ear | camera | right ear.

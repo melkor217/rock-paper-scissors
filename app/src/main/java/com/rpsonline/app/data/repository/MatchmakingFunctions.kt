@@ -9,11 +9,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
 
+internal data class JoinQueueCallableResult(
+    val clientJoinedAtMs: Long,
+    val activeMatchId: String? = null,
+)
+
 internal object MatchmakingFunctions {
     private const val JOIN_CALLABLE = "joinMatchmakingQueue"
     private const val CALL_TIMEOUT_MS = 15_000L
 
-    suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): Long {
+    suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueCallableResult {
         var lastError: Exception? = null
         repeat(2) { attempt ->
             try {
@@ -33,8 +38,13 @@ internal object MatchmakingFunctions {
                 @Suppress("UNCHECKED_CAST")
                 val body = result.getData() as? Map<String, Any?>
                     ?: throw IllegalStateException("Invalid matchmaking response")
-                return (body["clientJoinedAtMs"] as? Number)?.toLong()
+                val activeMatchId = (body["activeMatchId"] as? String)?.takeIf { it.isNotBlank() }
+                val clientJoinedAtMs = (body["clientJoinedAtMs"] as? Number)?.toLong()
                     ?: System.currentTimeMillis()
+                return JoinQueueCallableResult(
+                    clientJoinedAtMs = clientJoinedAtMs,
+                    activeMatchId = activeMatchId,
+                )
             } catch (e: FirebaseFunctionsException) {
                 lastError = e
                 if (e.code == FirebaseFunctionsException.Code.UNAUTHENTICATED && attempt == 0) {

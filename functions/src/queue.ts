@@ -18,3 +18,15 @@ export function isQueueEntryActive(
   if (lastActive == null) return false;
   return nowMs - lastActive <= QUEUE_STALE_MS;
 }
+
+/**
+ * Queue heartbeats or late join writes must not cancel a match the player is already in.
+ */
+export function shouldDropQueueForLiveMatch(
+  uid: string,
+  matchStatus: string,
+  player1: string,
+  player2: string,
+): boolean {
+  return matchStatus === "active" && (player1 === uid || player2 === uid);
+}

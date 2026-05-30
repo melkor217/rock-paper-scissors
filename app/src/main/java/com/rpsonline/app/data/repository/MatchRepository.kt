@@ -205,15 +205,26 @@ class MatchRepository(
             runCatching { firestore.enableNetwork().await() }
         }
 
+        findLiveActiveMatchId()?.let { matchId ->
+            return JoinQueueResult(immediateMatchId = matchId, clientJoinedAtMs = null)
+        }
+
         val queueProfile = resolveQueueProfile(userId, profile)
 
-        val clientJoinedAtMs = try {
-            MatchmakingFunctions.joinQueue(matchModes, queueProfile)
+        val joinOutcome = try {
+            val callable = MatchmakingFunctions.joinQueue(matchModes, queueProfile)
+            callable.activeMatchId?.let { matchId ->
+                return JoinQueueResult(immediateMatchId = matchId, clientJoinedAtMs = null)
+            }
+            callable.clientJoinedAtMs
         } catch (callableError: Exception) {
             if (!MatchmakingFunctions.isRecoverableViaFirestore(callableError)) {
                 MatchmakingFunctions.toJoinErrorMessage(callableError)?.let {
                     throw IllegalStateException(it, callableError)
                 }
+            }
+            findLiveActiveMatchId()?.let { matchId ->
+                return JoinQueueResult(immediateMatchId = matchId, clientJoinedAtMs = null)
             }
             prepareQueueForJoin(userId)
             runCatching {
@@ -227,10 +238,29 @@ class MatchRepository(
                 throw IllegalStateException(message ?: directError.message, directError)
             }
         }
-        MatchSessionMonitor.confirmQueueJoinedAt(clientJoinedAtMs)
+        MatchSessionMonitor.confirmQueueJoinedAt(joinOutcome)
 
-        return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = clientJoinedAtMs)
+        return JoinQueueResult(immediateMatchId = null, clientJoinedAtMs = joinOutcome)
     }
+
+    /** Avoid re-queuing when the server already assigned an active match (race after pairing). */
+    private suspend fun findLiveActiveMatchId(): String? {
+        val userId = uid
+        awaitFirestoreAuth()
+        val userSnap = withTimeoutOrNull(QUEUE_READ_TIMEOUT_MS) {
+            firestore.collection("users").document(userId).get(Source.SERVER).await()
+        } ?: return null
+        val matchId = userSnap.getString("activeMatchId") ?: return null
+        val matchSnap = withTimeoutOrNull(QUEUE_READ_TIMEOUT_MS) {
+            firestore.collection("matches").document(matchId).get(Source.SERVER).await()
+        } ?: return null
+        if (!matchSnap.exists()) return null
+        val match = matchSnap.toMatch(matchId)
+        if (!match.isParticipant(userId) || !match.isLiveForReconnect(nowMs())) return null
+        return matchId
+    }
+
+    private fun nowMs(): Long = System.currentTimeMillis()
 
     private suspend fun resolveQueueProfile(userId: String, profile: UserProfile): UserProfile {
         UserProfileSync.queueReadyProfile(userId)?.let { return it }

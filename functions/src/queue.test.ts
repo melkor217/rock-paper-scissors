@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { isQueueEntryActive, QUEUE_STALE_MS, queueLastActiveMs } from "./queue";
+import {
+  isQueueEntryActive,
+  QUEUE_STALE_MS,
+  queueLastActiveMs,
+  shouldDropQueueForLiveMatch,
+} from "./queue";
 
 function ts(ms: number) {
   return { toMillis: () => ms };
@@ -38,6 +43,21 @@ describe("queue", () => {
         now,
       ),
       true,
+    );
+  });
+
+  it("drops stray queue when player is already in an active match", () => {
+    assert.equal(
+      shouldDropQueueForLiveMatch("guest", "active", "guest", "daniil"),
+      true,
+    );
+    assert.equal(
+      shouldDropQueueForLiveMatch("guest", "completed", "guest", "daniil"),
+      false,
+    );
+    assert.equal(
+      shouldDropQueueForLiveMatch("other", "active", "guest", "daniil"),
+      false,
     );
   });
 });

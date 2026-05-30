@@ -40,9 +40,9 @@ private fun sevenSegmentGhostColor(): Color {
     val scheme = MaterialTheme.colorScheme
     return if (isRpsDarkTheme()) {
         lerp(
-            lerp(scheme.surface, scheme.surfaceContainerHigh, 0.55f),
+            lerp(scheme.surfaceContainerLow, scheme.surface, 0.38f),
             scheme.outlineVariant,
-            0.12f,
+            0.06f,
         )
     } else {
         lerp(scheme.surfaceContainerHigh, scheme.outlineVariant, 0.36f)
@@ -179,7 +179,6 @@ fun QueueTimeSegmentedDisplay(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SpinningSevenSegmentSlot(
-            segmentOnColor = litColor,
             segmentOffColor = offColor,
             animate = animateSpinner,
             style = spinnerStyle,
@@ -323,12 +322,12 @@ private val matchSpinnerSegmentSteps = listOf(
 
 @Composable
 private fun SpinningSevenSegmentSlot(
-    segmentOnColor: Color,
     segmentOffColor: Color,
     animate: Boolean = true,
     style: SegmentedSpinnerStyle = SegmentedSpinnerStyle.QUEUE,
     modifier: Modifier = Modifier,
 ) {
+    val segmentOnColor = sevenSegmentHalfLitColor()
     val steps = when (style) {
         SegmentedSpinnerStyle.QUEUE -> queueSpinnerSegmentSteps
         SegmentedSpinnerStyle.MATCH -> matchSpinnerSegmentSteps

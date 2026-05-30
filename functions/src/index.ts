@@ -19,7 +19,7 @@ import {
   matchResolutionForWinner,
   type MatchResolution,
 } from "./game";
-import { isQueueEntryActive, QUEUE_STALE_MS } from "./queue";
+import { isQueueEntryActive, QUEUE_STALE_MS, shouldDropQueueForLiveMatch } from "./queue";
 import {
   applyClockIncrement,
   clockExpiry,
@@ -359,27 +359,6 @@ async function tryMatch(uid: string, elo: number, matchModes: MatchMode[]): Prom
   return null;
 }
 
-async function releaseStaleActiveMatchBeforeQueue(
-  matchSnap: FirebaseFirestore.DocumentSnapshot,
-): Promise<void> {
-  const match = matchSnap.data() as MatchDoc;
-  const batch = db.batch();
-  batch.update(matchSnap.ref, {
-    status: "abandoned",
-    resolution: "abandoned",
-    lastActivityAt: FieldValue.serverTimestamp(),
-  });
-  batch.set(db.collection("users").doc(match.player1), {
-    activeMatchId: FieldValue.delete(),
-    lastSeen: FieldValue.serverTimestamp(),
-  }, { merge: true });
-  batch.set(db.collection("users").doc(match.player2), {
-    activeMatchId: FieldValue.delete(),
-    lastSeen: FieldValue.serverTimestamp(),
-  }, { merge: true });
-  await batch.commit();
-}
-
 async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string): Promise<void> {
   const active = await db.collection("matches").doc(activeMatchId).get();
   const userRef = db.collection("users").doc(uid);
@@ -405,16 +384,16 @@ async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Pr
 
   if (profile.activeMatchId) {
     const active = await db.collection("matches").doc(profile.activeMatchId).get();
-    if (active.exists && active.get("status") === "active") {
-      const player1 = active.get("player1");
-      const player2 = active.get("player2");
-      if (player1 === uid || player2 === uid) {
-        // Queuing means the player wants a new opponent, not to stay in the old match.
-        await releaseStaleActiveMatchBeforeQueue(active);
-        await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
-      } else {
-        await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
+    if (active.exists) {
+      const status = active.get("status") as string;
+      const player1 = active.get("player1") as string;
+      const player2 = active.get("player2") as string;
+      if (shouldDropQueueForLiveMatch(uid, status, player1, player2)) {
+        // Late queue join/heartbeat after pairing — keep the live match, drop stray queue doc.
+        await db.collection("queue").doc(uid).delete();
+        return;
       }
+      await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
     } else {
       await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
     }
@@ -1127,6 +1106,23 @@ export const joinMatchmakingQueue = onCall(async (request) => {
   }
 
   const userSnap = await db.collection("users").doc(uid).get();
+  const activeMatchId = userSnap.get("activeMatchId") as string | undefined;
+  if (activeMatchId) {
+    const active = await db.collection("matches").doc(activeMatchId).get();
+    if (active.exists) {
+      const status = active.get("status") as string;
+      const player1 = active.get("player1") as string;
+      const player2 = active.get("player2") as string;
+      if (shouldDropQueueForLiveMatch(uid, status, player1, player2)) {
+        await db.collection("queue").doc(uid).delete();
+        return {
+          activeMatchId,
+          clientJoinedAtMs: Date.now(),
+        };
+      }
+    }
+  }
+
   const displayName =
     (typeof request.data?.displayName === "string" && request.data.displayName.trim())
       ? request.data.displayName.trim()
