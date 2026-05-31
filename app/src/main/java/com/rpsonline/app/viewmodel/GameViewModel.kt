@@ -119,6 +119,8 @@ class GameViewModel(
             if (current?.status == MatchStatus.COMPLETED || current?.status == MatchStatus.ABANDONED) {
                 return
             }
+        } else {
+            MatchSessionMonitor.ingestAuthoritativeMatch(match)
         }
         val userId = authRepository.currentUserId
         val openRound = match?.openRound()
@@ -402,6 +404,13 @@ class GameViewModel(
                     maybeRequestTimeoutResolution(activeMatch, open.roundNumber)
                 }
 
+                if (clockSyncOppRunning && oppMs <= 0L) {
+                    val open = activeMatch.openRound() ?: break
+                    if (!opponentSubmittedNow) {
+                        maybeRequestTimeoutResolution(activeMatch, open.roundNumber)
+                    }
+                }
+
                 delay(100)
             }
         }
@@ -467,8 +476,8 @@ class GameViewModel(
     }
 
     /**
-     * Request server resolution once per round. Match clock takes precedence over round
-     * deadline when both expire (server checks clock expiry first).
+     * Request server resolution once per round. Used when either match clock expires or the
+     * round deadline passes; the server checks match-clock expiry first.
      */
     private fun maybeRequestTimeoutResolution(match: Match, roundNumber: Int) {
         if (timeoutRequestedForRound == roundNumber) {

@@ -214,9 +214,30 @@ class HomeViewModel(
                             return@withContext
                         }
                         if (joinResult.immediateMatchId != null) {
+                            val immediateMatch = runCatching {
+                                matchRepository.getMatchFromServer(joinResult.immediateMatchId)
+                            }.getOrNull()
+                            if (
+                                immediateMatch == null ||
+                                immediateMatch.status == MatchStatus.ABANDONED ||
+                                (
+                                    immediateMatch.status == MatchStatus.LOBBY &&
+                                        immediateMatch.isReadyDeadlineExpired()
+                                    )
+                            ) {
+                                runCatching {
+                                    matchRepository.confirmMatchReady(joinResult.immediateMatchId)
+                                }
+                                failMatchmaking(
+                                    generation = generation,
+                                    message = PRE_GAME_READY_TIMEOUT_MESSAGE,
+                                )
+                                return@withContext
+                            }
                             awaitingMatchFromQueue = false
                             awaitingMatchStartedAtMs = null
                             stopQueueTimer()
+                            MatchSessionMonitor.setMatchmakingInProgress(true)
                             _uiState.update {
                                 it.copy(
                                     isJoiningQueue = false,
@@ -483,6 +504,11 @@ class HomeViewModel(
                         val shouldSync = inMatchmakingFlow ||
                             _uiState.value.preGameSync?.matchId == match.id
                         if (!shouldSync) {
+                            if (match.status == MatchStatus.LOBBY && match.isReadyDeadlineExpired()) {
+                                viewModelScope.launch(Dispatchers.IO) {
+                                    runCatching { matchRepository.confirmMatchReady(match.id) }
+                                }
+                            }
                             _uiState.update { it.copy(preGameSync = null, activeMatchId = null) }
                             return@collect
                         }
@@ -578,6 +604,7 @@ class HomeViewModel(
                 }.getOrNull()
 
                 if (serverMatch != null && serverMatch.isParticipant(uid)) {
+                    MatchSessionMonitor.ingestAuthoritativeMatch(serverMatch)
                     if (serverMatch.status == MatchStatus.ABANDONED) {
                         failPreGameSync(PRE_GAME_READY_TIMEOUT_MESSAGE)
                         break
@@ -628,6 +655,7 @@ class HomeViewModel(
     }
 
     private fun failPreGameSync(message: String) {
+        val matchId = _uiState.value.preGameSync?.matchId
         stopPreGameReadyLoop()
         MatchSessionMonitor.setMatchmakingInProgress(false)
         awaitingMatchFromQueue = false
@@ -642,11 +670,18 @@ class HomeViewModel(
                 matchmakingError = message,
             )
         }
+        matchId?.let { abandonedMatchId ->
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching { matchRepository.confirmMatchReady(abandonedMatchId) }
+                runCatching { MatchSessionMonitor.refreshOnResume() }
+            }
+        }
     }
 
     private suspend fun navigateToActiveMatchWhenServerReady(matchId: String) {
         val serverMatch = matchRepository.getMatchFromServer(matchId) ?: return
         if (serverMatch.status != MatchStatus.ACTIVE) return
+        MatchSessionMonitor.ingestAuthoritativeMatch(serverMatch)
         stopPreGameReadyLoop()
         awaitingMatchFromQueue = false
         awaitingMatchStartedAtMs = null

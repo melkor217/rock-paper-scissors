@@ -254,6 +254,11 @@ object MatchSessionMonitor {
             ?: snapshot.getLong("clientJoinedAt")?.takeIf { it > 0L }
     }
 
+    /** Server-polled or game-screen snapshot; wins over stale cached listener data. */
+    fun ingestAuthoritativeMatch(match: Match) {
+        publishActiveMatch(match, fromCache = false, authoritative = true)
+    }
+
     private fun attachMatchListener(matchId: String) {
         listeningMatchId = matchId
         matchListener = firestore.collection("matches").document(matchId)
@@ -267,17 +272,53 @@ object MatchSessionMonitor {
             }
     }
 
-    private fun publishActiveMatch(match: Match?, fromCache: Boolean) {
+    private fun publishActiveMatch(
+        match: Match?,
+        fromCache: Boolean,
+        authoritative: Boolean = false,
+    ) {
+        if (match == null) {
+            _activeMatch.value = null
+            return
+        }
+        val current = _activeMatch.value
+        if (!authoritative && !shouldReplaceActiveMatch(incoming = match, current = current, fromCache = fromCache)) {
+            return
+        }
         _activeMatch.value = match
         val uid = auth.currentUser?.uid ?: return
         if (
-            match?.status == MatchStatus.ACTIVE &&
+            match.status == MatchStatus.ACTIVE &&
             match.isParticipant(uid) &&
             _matchmakingInProgress.value &&
             !fromCache
         ) {
             requestGameNavigation(match.id)
         }
+    }
+
+    /** Avoid cached LOBBY snapshots overwriting a live ACTIVE match after background resume. */
+    private fun shouldReplaceActiveMatch(
+        incoming: Match,
+        current: Match?,
+        fromCache: Boolean,
+    ): Boolean {
+        if (current == null || current.id != incoming.id) return true
+        if (current.status == MatchStatus.ACTIVE && incoming.status == MatchStatus.LOBBY) return false
+        if (current.status == MatchStatus.LOBBY && incoming.status == MatchStatus.ACTIVE) return true
+        if (fromCache && current.status == MatchStatus.ACTIVE) return false
+        if (incoming.lastActivityAt > current.lastActivityAt) return true
+        if (incoming.status != current.status) {
+            return statusRank(incoming.status) > statusRank(current.status)
+        }
+        return !fromCache && incoming.lastActivityAt >= current.lastActivityAt
+    }
+
+    private fun statusRank(status: MatchStatus): Int = when (status) {
+        MatchStatus.LOBBY -> 1
+        MatchStatus.ACTIVE -> 2
+        MatchStatus.COMPLETED -> 3
+        MatchStatus.ABANDONED -> 3
     }
 
     private fun clearFirestoreListeners() {

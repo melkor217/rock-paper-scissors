@@ -392,11 +392,18 @@ async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string)
     await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
     return;
   }
-  const status = active.get("status");
-  const player1 = active.get("player1");
-  const player2 = active.get("player2");
-  const isParticipant = player1 === uid || player2 === uid;
-  if ((status !== "active" && status !== "lobby") || !isParticipant) {
+  const match = active.data() as MatchDoc;
+  const status = match.status;
+  const isParticipant = match.player1 === uid || match.player2 === uid;
+  if (!isParticipant) {
+    await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
+    return;
+  }
+  if (status === "lobby" && isLobbyReadyExpired(match)) {
+    await abandonLobbyMatch(active.ref, match);
+    return;
+  }
+  if (status !== "active" && status !== "lobby") {
     await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
   }
 }
@@ -411,15 +418,19 @@ async function attemptQueueMatch(uid: string, data: Record<string, unknown>): Pr
   if (profile.activeMatchId) {
     const active = await db.collection("matches").doc(profile.activeMatchId).get();
     if (active.exists) {
-      const status = active.get("status") as string;
-      const player1 = active.get("player1") as string;
-      const player2 = active.get("player2") as string;
-      if (shouldDropQueueForLiveMatch(uid, status, player1, player2)) {
+      const match = active.data() as MatchDoc;
+      const status = match.status;
+      const player1 = match.player1;
+      const player2 = match.player2;
+      if (status === "lobby" && isLobbyReadyExpired(match)) {
+        await abandonLobbyMatch(active.ref, match);
+      } else if (shouldDropQueueForLiveMatch(uid, status, player1, player2)) {
         // Late queue join/heartbeat after pairing — keep the live match, drop stray queue doc.
         await db.collection("queue").doc(uid).delete();
         return;
+      } else {
+        await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
       }
-      await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
     } else {
       await clearStaleActiveMatchIfNeeded(uid, profile.activeMatchId);
     }
@@ -1316,16 +1327,23 @@ export const joinMatchmakingQueue = onCall(async (request) => {
   if (activeMatchId) {
     const active = await db.collection("matches").doc(activeMatchId).get();
     if (active.exists) {
-      const status = active.get("status") as string;
-      const player1 = active.get("player1") as string;
-      const player2 = active.get("player2") as string;
-      if (shouldDropQueueForLiveMatch(uid, status, player1, player2)) {
+      const match = active.data() as MatchDoc;
+      const status = match.status;
+      const player1 = match.player1;
+      const player2 = match.player2;
+      if (status === "lobby" && isLobbyReadyExpired(match)) {
+        await abandonLobbyMatch(active.ref, match);
+      } else if (shouldDropQueueForLiveMatch(uid, status, player1, player2)) {
         await db.collection("queue").doc(uid).delete();
         return {
           activeMatchId,
           clientJoinedAtMs: Date.now(),
         };
+      } else {
+        await clearStaleActiveMatchIfNeeded(uid, activeMatchId);
       }
+    } else {
+      await clearStaleActiveMatchIfNeeded(uid, activeMatchId);
     }
   }
 

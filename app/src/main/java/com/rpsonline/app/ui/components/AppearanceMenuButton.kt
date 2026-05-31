@@ -1,5 +1,6 @@
 package com.rpsonline.app.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,11 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -29,15 +28,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.R
 import com.rpsonline.app.data.preferences.AppThemeStyle
 import com.rpsonline.app.ui.theme.colorSchemeFor
+import kotlin.math.cos
+import kotlin.math.sin
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,19 +49,18 @@ fun AppearanceMenuButton(
 ) {
     var showSheet by remember { mutableStateOf(false) }
     val appearanceLabel = stringResource(R.string.appearance)
-    val selectedLabel = stringResource(R.string.selected)
 
-    IconButton(
+    TopBarSegmentedSlot(
         onClick = { showSheet = true },
-        modifier = modifier.semantics {
-            contentDescription = appearanceLabel
-        },
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.Palette,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp),
+        active = true,
+        contentDescription = appearanceLabel,
+        modifier = modifier,
+    ) { litColor, ghostColor, contentSize ->
+        ThemeSelectorKnob(
+            currentStyle = currentStyle,
+            litColor = litColor,
+            ghostColor = ghostColor,
+            modifier = Modifier.size(contentSize),
         )
     }
 
@@ -96,6 +96,103 @@ fun AppearanceMenuButton(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ThemeSelectorKnob(
+    currentStyle: AppThemeStyle,
+    litColor: Color,
+    ghostColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = colorSchemeFor(currentStyle)
+    val styles = AppThemeStyle.entries
+    val styleIndex = styles.indexOf(currentStyle).coerceAtLeast(0)
+    val slotCount = styles.size
+    val angleStep = if (slotCount <= 1) 0f else 270f / (slotCount - 1)
+
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val outerRadius = minOf(size.width, size.height) / 2f
+        val faceRadius = outerRadius * 0.88f
+        val hubRadius = outerRadius * 0.14f
+
+        drawCircle(
+            color = ghostColor.copy(alpha = 0.92f),
+            radius = outerRadius,
+            center = center,
+        )
+        drawCircle(
+            brush = Brush.sweepGradient(
+                0f to scheme.primary,
+                0.33f to scheme.secondary,
+                0.66f to scheme.tertiary,
+                1f to scheme.primary,
+                center = center,
+            ),
+            radius = faceRadius,
+            center = center,
+        )
+        drawCircle(
+            color = scheme.background.copy(alpha = 0.48f),
+            radius = faceRadius * 0.58f,
+            center = center,
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.16f),
+            radius = faceRadius * 0.92f,
+            center = center,
+            style = Stroke(width = outerRadius * 0.06f),
+        )
+
+        styles.forEachIndexed { index, _ ->
+            val angleRad = Math.toRadians(-90.0 + index * angleStep)
+            val tickInner = faceRadius * 0.68f
+            val tickOuter = faceRadius * 0.96f
+            val selected = index == styleIndex
+            val tickColor = if (selected) litColor else ghostColor.copy(alpha = 0.55f)
+            val start = Offset(
+                x = center.x + cos(angleRad).toFloat() * tickInner,
+                y = center.y + sin(angleRad).toFloat() * tickInner,
+            )
+            val end = Offset(
+                x = center.x + cos(angleRad).toFloat() * tickOuter,
+                y = center.y + sin(angleRad).toFloat() * tickOuter,
+            )
+            drawLine(
+                color = tickColor,
+                start = start,
+                end = end,
+                strokeWidth = if (selected) outerRadius * 0.14f else outerRadius * 0.07f,
+            )
+        }
+
+        val pointerAngleRad = Math.toRadians(-90.0 + styleIndex * angleStep)
+        val pointerInner = faceRadius * 0.22f
+        val pointerOuter = faceRadius * 0.62f
+        drawLine(
+            color = litColor,
+            start = Offset(
+                x = center.x + cos(pointerAngleRad).toFloat() * pointerInner,
+                y = center.y + sin(pointerAngleRad).toFloat() * pointerInner,
+            ),
+            end = Offset(
+                x = center.x + cos(pointerAngleRad).toFloat() * pointerOuter,
+                y = center.y + sin(pointerAngleRad).toFloat() * pointerOuter,
+            ),
+            strokeWidth = outerRadius * 0.12f,
+        )
+        drawCircle(
+            color = litColor.copy(alpha = 0.35f),
+            radius = hubRadius * 1.35f,
+            center = center,
+        )
+        drawCircle(
+            color = litColor,
+            radius = hubRadius,
+            center = center,
+        )
     }
 }
 

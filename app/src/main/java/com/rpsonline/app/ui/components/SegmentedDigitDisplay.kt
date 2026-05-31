@@ -29,9 +29,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rpsonline.app.data.model.Move
+import com.rpsonline.app.ui.segment.SegmentLayout
+import com.rpsonline.app.ui.segment.SegmentedSpinnerSteps
+import com.rpsonline.app.ui.segment.SevenSegmentColonLayout
+import com.rpsonline.app.ui.segment.SevenSegmentGeometry
+import com.rpsonline.app.ui.segment.SevenSegmentPainter
+import com.rpsonline.app.ui.segment.asSevenSegmentTarget
 import com.rpsonline.app.ui.theme.isRpsDarkTheme
 import com.rpsonline.app.ui.util.LocalSegmentedDisplayPulseMove
 import kotlinx.coroutines.coroutineScope
@@ -277,10 +284,23 @@ val SegmentedDigitWidth = 11.dp
 val SegmentedDigitHeight = 18.dp
 val SegmentedDisplayHeight = 36.dp
 /** Slightly narrower digits so the full top-bar row fits without clipping. */
-private val TopBarSegmentedDigitWidth = 10.dp
-private val SegmentedDigitSpacing = 1.dp
-/** Narrow colon pips centered inside the full digit slot. */
-private val SegmentedTimeColonPipWidth = 4.dp
+internal val TopBarSegmentedDigitWidth = 10.dp
+internal val SegmentedDigitSpacing = 1.dp
+
+private fun colonSlotWidth(digitWidth: Dp): Dp =
+    digitWidth * SevenSegmentColonLayout.WIDTH_RATIO
+
+/** Scale top-bar status digits to fill [containerWidth] while preserving layout ratios. */
+fun computeTopBarStatusDigitWidth(containerWidth: Dp): Dp {
+    val spacing = SegmentedDigitSpacing
+    if (containerWidth <= spacing * 11) return TopBarSegmentedDigitWidth
+    return ((containerWidth - spacing * 11) / (11f + SevenSegmentColonLayout.WIDTH_RATIO))
+        .coerceAtLeast(TopBarSegmentedDigitWidth)
+}
+
+fun computeTopBarStatusDigitHeight(digitWidth: Dp): Dp =
+    (digitWidth * (SegmentedDigitHeight / TopBarSegmentedDigitWidth))
+        .coerceAtMost(SegmentedDisplayHeight)
 
 @Composable
 private fun SegmentedPulseSlotIndex(
@@ -334,6 +354,14 @@ private fun sevenSegmentHalfLitColor(): Color {
     return lerp(sevenSegmentGhostColor(), sevenSegmentLitColor(), 0.58f)
 }
 
+/** Ghost segment color for top-bar controls (shared with seven-segment displays). */
+@Composable
+fun segmentedDisplayGhostColor(): Color = sevenSegmentGhostColor()
+
+/** Lit segment color for top-bar controls (shared with seven-segment displays). */
+@Composable
+fun segmentedDisplayLitColor(): Color = sevenSegmentLitColor()
+
 @Composable
 fun SevenSegmentBlankSlot(
     modifier: Modifier = Modifier,
@@ -360,7 +388,7 @@ private fun SevenSegmentValuePulseSlot(
     digitWidth: Dp,
     digitHeight: Dp,
 ) {
-    val segments = segmentsFor(digit)
+    val segments = SevenSegmentGeometry.segmentsFor(digit)
     SegmentedDisplayPulseSlot(
         pulseAlpha = pulseAlpha,
         offColor = offColor,
@@ -484,11 +512,8 @@ fun ThreeDigitSegmentedDisplay(
     }
 }
 
-enum class SegmentedSpinnerStyle {
-    QUEUE,
-    MATCH,
-    MATCH_CLOCK_STOPPED,
-}
+/** @see com.rpsonline.app.ui.segment.SegmentedSpinnerStyle */
+typealias SegmentedSpinnerStyle = com.rpsonline.app.ui.segment.SegmentedSpinnerStyle
 
 /** Spinner segment + four digits for queue elapsed time (MM:SS). */
 @Composable
@@ -715,25 +740,14 @@ private fun SegmentedColonPulseSlot(
     modifier: Modifier = Modifier,
     slotIndex: Int = -1,
 ) {
+    val colonWidth = colonSlotWidth(digitWidth)
     WithOptionalPulseSlotIndex(slotIndex) {
-        Box(
-            modifier = modifier.size(digitWidth, digitHeight),
-            contentAlignment = Alignment.Center,
-        ) {
-            SegmentedDisplayPulseSlot(
-                pulseAlpha = pulseAlpha,
-                offColor = offColor,
-                digitWidth = digitWidth,
-                digitHeight = digitHeight,
-            )
-            if (lit) {
-                SevenSegmentTimeColon(
-                    color = litColor,
-                    lit = true,
-                    digitHeight = digitHeight,
-                )
-            }
-        }
+        SevenSegmentTimeColon(
+            color = if (lit) litColor else offColor,
+            lit = lit,
+            digitHeight = digitHeight,
+            modifier = modifier.size(width = colonWidth, height = digitHeight),
+        )
     }
 }
 
@@ -749,7 +763,7 @@ private fun SevenSegmentDisplayWithPulse(
     val fullLitColor = sevenSegmentLitColor()
     val halfLitColor = sevenSegmentHalfLitColor()
     Canvas(modifier = modifier) {
-        val layout = sevenSegmentLayout(size.width, size.height)
+        val layout = SevenSegmentGeometry.layout(size.width, size.height)
         layout
             .sortedWith(
                 compareBy<SegmentLayout> { segment ->
@@ -782,7 +796,7 @@ private fun SpacerBetweenSegments() {
     Spacer(modifier = Modifier.width(SegmentedDigitSpacing))
 }
 
-/** Colon pips at the original narrow size, centered over ghost segments. */
+/** Colon pips only — no full digit ghost slot. */
 @Composable
 private fun SevenSegmentTimeColon(
     color: Color,
@@ -790,9 +804,7 @@ private fun SevenSegmentTimeColon(
     lit: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Canvas(
-        modifier = modifier.size(width = SegmentedTimeColonPipWidth, height = digitHeight),
-    ) {
+    Canvas(modifier = modifier) {
         val centerX = size.width / 2f
         drawColonPip(Offset(centerX, size.height * 0.36f), color, lit)
         drawColonPip(Offset(centerX, size.height * 0.64f), color, lit)
@@ -836,40 +848,6 @@ private fun DrawScope.drawColonPip(center: Offset, color: Color, lit: Boolean) {
     )
 }
 
-private val queueSpinnerSegmentSteps = listOf(
-    setOf('f'),
-    setOf('a'),
-    setOf('b'),
-    setOf('g'),
-    setOf('c'),
-    setOf('d'),
-    setOf('e'),
-)
-
-/** Pairs and bars — visually distinct from the queue single-segment chase. */
-private val matchSpinnerSegmentSteps = listOf(
-    setOf('a', 'd'),
-    setOf('f', 'b'),
-    setOf('g'),
-    setOf('e', 'c'),
-    setOf('a', 'g'),
-    setOf('d', 'g'),
-    setOf('f', 'e'),
-    setOf('b', 'c'),
-)
-
-/** Slow pause bars and side pairs — player submitted; match clock held. */
-private val matchClockStoppedSpinnerSteps = listOf(
-    setOf('a', 'd'),
-    setOf('a', 'd'),
-    setOf('g'),
-    setOf('g'),
-    setOf('f', 'e'),
-    setOf('b', 'c'),
-    setOf('f', 'e'),
-    setOf('b', 'c'),
-)
-
 @Composable
 private fun SpinningSevenSegmentPulseSlot(
     pulseAlpha: Float,
@@ -880,16 +858,8 @@ private fun SpinningSevenSegmentPulseSlot(
     style: SegmentedSpinnerStyle = SegmentedSpinnerStyle.QUEUE,
     modifier: Modifier = Modifier,
 ) {
-    val steps = when (style) {
-        SegmentedSpinnerStyle.QUEUE -> queueSpinnerSegmentSteps
-        SegmentedSpinnerStyle.MATCH -> matchSpinnerSegmentSteps
-        SegmentedSpinnerStyle.MATCH_CLOCK_STOPPED -> matchClockStoppedSpinnerSteps
-    }
-    val stepDelayMs = when (style) {
-        SegmentedSpinnerStyle.QUEUE -> 90L
-        SegmentedSpinnerStyle.MATCH -> 180L
-        SegmentedSpinnerStyle.MATCH_CLOCK_STOPPED -> 340L
-    }
+    val steps = SegmentedSpinnerSteps.steps(style)
+    val stepDelayMs = SegmentedSpinnerSteps.stepDelayMs(style)
     var step by remember(style) { mutableIntStateOf(0) }
     LaunchedEffect(animate, style) {
         if (!animate) {
@@ -913,103 +883,29 @@ private fun SpinningSevenSegmentPulseSlot(
     )
 }
 
-private fun sevenSegmentLayout(width: Float, height: Float): List<SegmentLayout> {
-    val thickness = (width * 0.15f).coerceAtLeast(1f)
-    val gap = thickness * 0.42f
-    val sideInset = width * 0.05f
-
-    val leftX = sideInset
-    val rightX = width - sideInset - thickness
-    val barLeft = leftX + thickness + gap
-    val barWidth = (rightX - gap - barLeft).coerceAtLeast(thickness)
-
-    val topY = height * 0.05f
-    val bottomY = height * 0.95f - thickness
-    val midY = height * 0.5f - thickness / 2f
-
-    val upperVertTop = topY + thickness + gap
-    val upperVertBottom = midY - gap
-    val upperVertLen = (upperVertBottom - upperVertTop).coerceAtLeast(thickness)
-
-    val lowerVertTop = midY + thickness + gap
-    val lowerVertBottom = bottomY - gap
-    val lowerVertLen = (lowerVertBottom - lowerVertTop).coerceAtLeast(thickness)
-
-    return listOf(
-        SegmentLayout('a', barLeft, topY, barWidth, thickness, horizontal = true),
-        SegmentLayout('g', barLeft, midY, barWidth, thickness, horizontal = true),
-        SegmentLayout('d', barLeft, bottomY, barWidth, thickness, horizontal = true),
-        SegmentLayout('f', leftX, upperVertTop, upperVertLen, thickness, horizontal = false),
-        SegmentLayout('b', rightX, upperVertTop, upperVertLen, thickness, horizontal = false),
-        SegmentLayout('e', leftX, lowerVertTop, lowerVertLen, thickness, horizontal = false),
-        SegmentLayout('c', rightX, lowerVertTop, lowerVertLen, thickness, horizontal = false),
-    )
-}
-
-private data class SegmentLayout(
-    val id: Char,
-    val left: Float,
-    val top: Float,
-    val length: Float,
-    val thickness: Float,
-    val horizontal: Boolean,
-)
-
 private fun DrawScope.drawSevenSegment(
     segment: SegmentLayout,
     color: Color,
     inflate: Float = 0f,
     thicknessScale: Float = 1f,
 ) {
-    val thickness = segment.thickness * thicknessScale
-    val corner = CornerRadius(thickness * 0.22f, thickness * 0.22f)
-    if (segment.horizontal) {
-        val width = segment.length + inflate * 2f
-        val height = thickness + inflate * 0.5f
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(segment.left - inflate, segment.top - (height - segment.thickness) / 2f),
-            size = Size(width, height),
-            cornerRadius = corner,
-        )
-    } else {
-        val width = thickness + inflate * 0.5f
-        val height = segment.length + inflate * 2f
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(
-                segment.left - (width - segment.thickness) / 2f,
-                segment.top - inflate,
-            ),
-            size = Size(width, height),
-            cornerRadius = corner,
-        )
-    }
-}
-
-private fun DrawScope.drawSevenSegmentLit(segment: SegmentLayout, color: Color) {
-    val base = segment.thickness
-    drawSevenSegment(segment, color.copy(alpha = 0.2f), inflate = base * 0.72f)
-    drawSevenSegment(segment, color.copy(alpha = 0.34f), inflate = base * 0.46f)
-    drawSevenSegment(segment, color.copy(alpha = 0.52f), inflate = base * 0.24f)
-    drawSevenSegment(
-        segment,
-        color,
-        inflate = base * 0.06f,
-        thicknessScale = 1.16f,
+    SevenSegmentPainter.drawSegment(
+        target = asSevenSegmentTarget(),
+        slotLeft = 0f,
+        slotTop = 0f,
+        segment = segment,
+        colorArgb = color.toArgb(),
+        inflateFactor = inflate,
+        thicknessScale = thicknessScale,
     )
 }
 
-private fun segmentsFor(digit: Char): Set<Char> = when (digit) {
-    '0' -> setOf('a', 'b', 'c', 'd', 'e', 'f')
-    '1' -> setOf('b', 'c')
-    '2' -> setOf('a', 'b', 'd', 'e', 'g')
-    '3' -> setOf('a', 'b', 'c', 'd', 'g')
-    '4' -> setOf('b', 'c', 'f', 'g')
-    '5' -> setOf('a', 'c', 'd', 'f', 'g')
-    '6' -> setOf('a', 'c', 'd', 'e', 'f', 'g')
-    '7' -> setOf('a', 'b', 'c')
-    '8' -> setOf('a', 'b', 'c', 'd', 'e', 'f', 'g')
-    '9' -> setOf('a', 'b', 'c', 'd', 'f', 'g')
-    else -> emptySet()
+private fun DrawScope.drawSevenSegmentLit(segment: SegmentLayout, color: Color) {
+    SevenSegmentPainter.drawLitSegment(
+        target = asSevenSegmentTarget(),
+        slotLeft = 0f,
+        slotTop = 0f,
+        segment = segment,
+        colorArgb = color.toArgb(),
+    )
 }

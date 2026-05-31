@@ -155,6 +155,7 @@ data class Match(
     /** True when the user should resume this match instead of joining a new queue. */
     fun isLiveForReconnect(nowMs: Long = System.currentTimeMillis()): Boolean {
         if (status == MatchStatus.LOBBY) {
+            if (isReadyDeadlineExpired(nowMs)) return false
             val last = lastActivityAt
             return last <= 0L || nowMs - last <= LOBBY_RECONNECT_GRACE_MS
         }

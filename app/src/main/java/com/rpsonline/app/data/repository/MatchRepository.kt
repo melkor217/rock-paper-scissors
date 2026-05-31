@@ -215,7 +215,9 @@ class MatchRepository(
         val joinOutcome = try {
             val callable = MatchmakingFunctions.joinQueue(matchModes, queueProfile)
             callable.activeMatchId?.let { matchId ->
-                return JoinQueueResult(immediateMatchId = matchId, clientJoinedAtMs = null)
+                resolveJoinableActiveMatchId(matchId)?.let { liveMatchId ->
+                    return JoinQueueResult(immediateMatchId = liveMatchId, clientJoinedAtMs = null)
+                }
             }
             callable.clientJoinedAtMs
         } catch (callableError: Exception) {
@@ -252,12 +254,27 @@ class MatchRepository(
             firestore.collection("users").document(userId).get(Source.SERVER).await()
         } ?: return null
         val matchId = userSnap.getString("activeMatchId") ?: return null
+        return resolveJoinableActiveMatchId(matchId)
+    }
+
+    /**
+     * Returns [matchId] when the user should resume that match instead of joining queue.
+     * Abandons expired pre-game lobbies so a stale [activeMatchId] cannot block matchmaking.
+     */
+    private suspend fun resolveJoinableActiveMatchId(matchId: String): String? {
+        val userId = uid
         val matchSnap = withTimeoutOrNull(QUEUE_READ_TIMEOUT_MS) {
             firestore.collection("matches").document(matchId).get(Source.SERVER).await()
         } ?: return null
         if (!matchSnap.exists()) return null
         val match = matchSnap.toMatch(matchId)
-        if (!match.isParticipant(userId) || !match.isLiveForReconnect(nowMs())) return null
+        if (!match.isParticipant(userId)) return null
+        if (match.status == MatchStatus.ABANDONED) return null
+        if (match.status == MatchStatus.LOBBY && match.isReadyDeadlineExpired()) {
+            runCatching { confirmMatchReady(matchId) }
+            return null
+        }
+        if (!match.isLiveForReconnect()) return null
         return matchId
     }
 

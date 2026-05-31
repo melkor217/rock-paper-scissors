@@ -1,0 +1,72 @@
+package com.rpsonline.app.platform
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.rpsonline.app.MainActivity
+import com.rpsonline.app.R
+import com.rpsonline.app.ui.segment.SegmentedNotificationStatus
+import com.rpsonline.app.ui.segment.SegmentedSpinnerStyle
+import com.rpsonline.app.ui.segment.TopBarStatusRowSpec
+
+object MatchNotificationHelper {
+    private const val MATCH_FOUND_CHANNEL_ID = "match_found"
+    private const val MATCH_FOUND_NOTIFICATION_ID = 2001
+
+    fun ensureChannels(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        val channel = NotificationChannel(
+            MATCH_FOUND_CHANNEL_ID,
+            context.getString(R.string.match_found_notification_channel),
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = context.getString(R.string.match_found_notification_channel_desc)
+        }
+        manager.createNotificationChannel(channel)
+    }
+
+    fun showMatchFound(context: Context, opponentName: String?) {
+        ensureChannels(context)
+        val openAppIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val body = opponentName?.takeIf { it.isNotBlank() }?.let { name ->
+            context.getString(R.string.match_found_notification_body_vs, name)
+        } ?: context.getString(R.string.match_found_notification_body)
+        val segmentedDisplay = TopBarStatusRowSpec(
+            status = SegmentedNotificationStatus.MATCH_FOUND,
+            onlineCount = SegmentedNotificationState.onlineCount,
+            showLiveTime = true,
+            elapsedSeconds = 0L,
+            spinnerStyle = SegmentedSpinnerStyle.QUEUE,
+        )
+        val notification = NotificationCompat.Builder(context, MATCH_FOUND_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_match_found)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_EVENT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .also { builder ->
+                SevenSegmentNotificationRenderer.applySegmentedStatusViews(
+                    builder = builder,
+                    context = context,
+                    state = segmentedDisplay,
+                    accessibilitySummary = body,
+                )
+            }
+            .build()
+        NotificationManagerCompat.from(context).notify(MATCH_FOUND_NOTIFICATION_ID, notification)
+    }
+}

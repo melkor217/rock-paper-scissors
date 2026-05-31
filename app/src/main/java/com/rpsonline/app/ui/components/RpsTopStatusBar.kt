@@ -23,15 +23,24 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.DisplayCutoutCompat
 import androidx.core.view.ViewCompat
 
-/** Matches top-bar icon size (see [ClockSoundMuteButton]). */
-val RpsTopBarIconSize = 24.dp
+/** Matches top-bar segmented icon slot width. */
+val RpsTopBarIconSize = TopBarSegmentedIconButtonWidth
 
-/** Left ear inset; nudges segmented displays slightly in from the screen edge. */
-private val RpsTopBarEarStartPadding = 22.dp
+/** Inset from the left/right screen edge (display cutout horizontal inset). */
+private val RpsTopBarScreenEdgePadding = 26.dp
+
+/** Extra inset between ear content and the cutout on both sides. */
+private val RpsTopBarCutoutGapPadding = 14.dp
+
+/** Keep segmented display and icons off the top edge and rounded corners. */
+private val RpsTopBarVerticalPadding = 6.dp
+
+/** Gap between right-ear icon slots. */
+private val RpsTopBarIconSpacing = 4.dp
 
 /**
  * Global status bar split around the camera cutout: left ear | camera | right ear.
- * Each ear uses [RpsTopBarIconSize] horizontal padding inside its box.
+ * Left: segmented display with screen-edge padding. Right: icon block with matching padding.
  */
 @Composable
 fun RpsTopStatusBar(
@@ -44,6 +53,7 @@ fun RpsTopStatusBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .padding(vertical = RpsTopBarVerticalPadding)
             .then(background)
             .rpsTopBarLayout(),
         verticalAlignment = Alignment.CenterVertically,
@@ -51,10 +61,14 @@ fun RpsTopStatusBar(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = RpsTopBarEarStartPadding, end = RpsTopBarIconSize),
+                .padding(
+                    start = RpsTopBarScreenEdgePadding,
+                    end = RpsTopBarCutoutGapPadding,
+                ),
             contentAlignment = Alignment.CenterStart,
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 content = leftContent,
@@ -66,12 +80,15 @@ fun RpsTopStatusBar(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = RpsTopBarIconSize),
-            contentAlignment = Alignment.CenterEnd,
+                .padding(
+                    start = RpsTopBarCutoutGapPadding,
+                    end = RpsTopBarScreenEdgePadding,
+                ),
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                horizontalArrangement = Arrangement.spacedBy(RpsTopBarIconSpacing),
                 content = rightContent,
             )
         }

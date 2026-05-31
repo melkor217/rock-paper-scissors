@@ -8,11 +8,21 @@ import kotlin.math.exp
 import kotlin.math.sin
 
 class ClockTickPlayer {
-    private var audioTrack: AudioTrack? = null
+    private var clockTrack: AudioTrack? = null
+    private var readyTrack: AudioTrack? = null
 
     fun playTick() {
+        playFromTrack { clockTrack ?: createAudioTrack(CLOCK_AMPLITUDE).also { clockTrack = it } }
+    }
+
+    /** Same waveform as [playTick], but louder for pre-game ready confirmations. */
+    fun playReadyTick() {
+        playFromTrack { readyTrack ?: createAudioTrack(READY_AMPLITUDE).also { readyTrack = it } }
+    }
+
+    private inline fun playFromTrack(trackProvider: () -> AudioTrack?) {
         try {
-            val track = audioTrack ?: createAudioTrack().also { audioTrack = it }
+            val track = trackProvider() ?: return
             if (track.state != AudioTrack.STATE_INITIALIZED) {
                 release()
                 return
@@ -27,11 +37,13 @@ class ClockTickPlayer {
 
     fun stop() {
         try {
-            audioTrack?.let { track ->
-                if (track.state == AudioTrack.STATE_INITIALIZED &&
-                    track.playState == AudioTrack.PLAYSTATE_PLAYING
-                ) {
-                    track.stop()
+            listOf(clockTrack, readyTrack).forEach { track ->
+                track?.let {
+                    if (it.state == AudioTrack.STATE_INITIALIZED &&
+                        it.playState == AudioTrack.PLAYSTATE_PLAYING
+                    ) {
+                        it.stop()
+                    }
                 }
             }
         } catch (_: Exception) {
@@ -40,15 +52,20 @@ class ClockTickPlayer {
     }
 
     fun release() {
-        audioTrack?.run {
+        clockTrack?.run {
             stop()
             release()
         }
-        audioTrack = null
+        clockTrack = null
+        readyTrack?.run {
+            stop()
+            release()
+        }
+        readyTrack = null
     }
 
-    private fun createAudioTrack(): AudioTrack {
-        val samples = tickSamples()
+    private fun createAudioTrack(amplitude: Double): AudioTrack {
+        val samples = tickSamples(amplitude)
         return AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -71,7 +88,7 @@ class ClockTickPlayer {
             }
     }
 
-    private fun tickSamples(): ShortArray {
+    private fun tickSamples(amplitude: Double): ShortArray {
         val numSamples = SAMPLE_RATE * TICK_DURATION_MS / 1000
         val samples = ShortArray(numSamples)
         for (i in 0 until numSamples) {
@@ -81,7 +98,7 @@ class ClockTickPlayer {
             val envelope = attack * decay
             val body = sin(2 * PI * 1650 * t) * 0.55 + sin(2 * PI * 820 * t) * 0.35
             val transient = sin(2 * PI * 3200 * t) * exp(-t * 520) * 0.45
-            val value = ((body + transient) * envelope * 0.95 * Short.MAX_VALUE).toInt()
+            val value = ((body + transient) * envelope * amplitude * Short.MAX_VALUE).toInt()
             samples[i] = value.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
@@ -91,5 +108,7 @@ class ClockTickPlayer {
         const val SAMPLE_RATE = 44_100
         const val TICK_DURATION_MS = 28
         const val ATTACK_SECONDS = 0.0015
+        const val CLOCK_AMPLITUDE = 0.95
+        const val READY_AMPLITUDE = 1.45
     }
 }

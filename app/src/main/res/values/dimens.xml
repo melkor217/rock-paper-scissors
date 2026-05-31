@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 11 digit slots + narrow colon + 11 spacers; notification digits 8×15dp. -->
+    <dimen name="segmented_notification_row_width">102dp</dimen>
+    <dimen name="segmented_notification_row_height">15dp</dimen>
+    <!-- NotificationSegmentDimensions.compositeWidth/HeightDp() -->
+    <dimen name="segmented_notification_image_width">110dp</dimen>
+    <dimen name="segmented_notification_image_height">39dp</dimen>
+</resources>

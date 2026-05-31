@@ -1,5 +1,7 @@
 package com.rpsonline.app.ui.components
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -34,18 +36,27 @@ fun TopBarSegmentedQueueIndicator(
         else -> stringResource(R.string.players_online_count, onlineCount)
     }
 
-    TopBarSegmentedStatusRow(
-        onlineCount = onlineCount,
-        inMatch = inMatch,
-        inQueue = inQueue,
-        elapsedSeconds = elapsedSeconds,
-        playerClockStopped = playerClockStopped,
-        modifier = modifier
-            .height(SegmentedDisplayHeight)
-            .semantics {
-                contentDescription = "$onlineDescription. $timerDescription"
-            },
-    )
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        val digitWidth = computeTopBarStatusDigitWidth(maxWidth)
+        val digitHeight = computeTopBarStatusDigitHeight(digitWidth)
+        TopBarSegmentedStatusRow(
+            onlineCount = onlineCount,
+            inMatch = inMatch,
+            inQueue = inQueue,
+            elapsedSeconds = elapsedSeconds,
+            playerClockStopped = playerClockStopped,
+            digitWidth = digitWidth,
+            digitHeight = digitHeight,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(SegmentedDisplayHeight)
+                .semantics {
+                    contentDescription = "$onlineDescription. $timerDescription"
+                },
+        )
+    }
 }
 
 /** @deprecated Use [TopBarSegmentedQueueIndicator] with [onlineCount]. */
