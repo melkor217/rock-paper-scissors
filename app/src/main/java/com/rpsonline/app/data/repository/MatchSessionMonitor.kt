@@ -181,7 +181,7 @@ object MatchSessionMonitor {
             firestore.collection("matches").document(matchId).get(Source.SERVER).await()
         }.getOrNull() ?: return
         if (matchSnap.exists()) {
-            publishActiveMatch(matchSnap.toMatch(matchId))
+            publishActiveMatch(matchSnap.toMatch(matchId), fromCache = false)
         }
     }
 
@@ -224,7 +224,7 @@ object MatchSessionMonitor {
                 firestore.collection("matches").document(matchId).get().await()
             }.getOrNull()
             if (snap != null && snap.exists()) {
-                publishActiveMatch(snap.toMatch(matchId))
+                publishActiveMatch(snap.toMatch(matchId), fromCache = false)
             } else if (_activeMatch.value?.id == matchId) {
                 _activeMatch.value = null
             }
@@ -262,17 +262,19 @@ object MatchSessionMonitor {
                     _activeMatch.value = null
                     return@addSnapshotListener
                 }
-                publishActiveMatch(matchSnapshot?.toMatch(matchId))
+                val fromCache = matchSnapshot?.metadata?.isFromCache ?: true
+                publishActiveMatch(matchSnapshot?.toMatch(matchId), fromCache)
             }
     }
 
-    private fun publishActiveMatch(match: Match?) {
+    private fun publishActiveMatch(match: Match?, fromCache: Boolean) {
         _activeMatch.value = match
         val uid = auth.currentUser?.uid ?: return
         if (
             match?.status == MatchStatus.ACTIVE &&
             match.isParticipant(uid) &&
-            _matchmakingInProgress.value
+            _matchmakingInProgress.value &&
+            !fromCache
         ) {
             requestGameNavigation(match.id)
         }

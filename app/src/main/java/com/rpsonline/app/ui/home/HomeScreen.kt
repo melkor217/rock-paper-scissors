@@ -12,22 +12,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -44,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.widget.Toast
@@ -63,6 +72,7 @@ import com.rpsonline.app.ui.util.formatQueueTime
 import com.rpsonline.app.ui.util.findActivity
 import com.rpsonline.app.viewmodel.AppUpdateViewModel
 import com.rpsonline.app.viewmodel.HomeViewModel
+import com.rpsonline.app.viewmodel.PreGameSyncUiState
 
 @Composable
 fun HomeScreen(
@@ -70,7 +80,7 @@ fun HomeScreen(
     onLeaderboard: () -> Unit,
     onProfile: () -> Unit,
     onChangelog: () -> Unit,
-    autoStartMatchModes: Set<MatchMode>? = null,
+    autoStartMatchmaking: Boolean = false,
     viewModel: HomeViewModel = viewModel(),
     updateViewModel: AppUpdateViewModel = viewModel(),
 ) {
@@ -93,16 +103,16 @@ fun HomeScreen(
         onPauseOrDispose { }
     }
 
-    var autoMatchmakingStarted by remember(autoStartMatchModes) { mutableStateOf(false) }
-    LaunchedEffect(autoStartMatchModes, uiState.profile, isServerConnected) {
+    var autoMatchmakingStarted by remember(autoStartMatchmaking) { mutableStateOf(false) }
+    LaunchedEffect(autoStartMatchmaking, uiState.profile, isServerConnected) {
         if (
-            autoStartMatchModes != null &&
+            autoStartMatchmaking &&
             !autoMatchmakingStarted &&
             uiState.profile != null &&
             isServerConnected
         ) {
             autoMatchmakingStarted = true
-            viewModel.startMatchmaking(context, autoStartMatchModes)
+            viewModel.startMatchmakingWithSavedPreferences(context)
         }
     }
 
@@ -243,7 +253,15 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        if (
+        if (uiState.preGameSync != null) {
+            val preGameSync = uiState.preGameSync!!
+            val readySecondsRemaining = rememberPreGameReadySecondsRemaining(preGameSync.readyDeadlineAtMs)
+            PreGameSyncStatusCard(
+                state = preGameSync,
+                readySecondsRemaining = readySecondsRemaining,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        } else if (
             (uiState.isJoiningQueue || uiState.isInQueue || openingMatchId != null) &&
             uiState.activeMatchId == null
         ) {
@@ -269,6 +287,30 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.opening_match),
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+            }
+            uiState.preGameSync != null -> {
+                val readySecondsRemaining = rememberPreGameReadySecondsRemaining(
+                    uiState.preGameSync!!.readyDeadlineAtMs,
+                )
+                Button(
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp),
+                ) {
+                    Text(
+                        text = if (readySecondsRemaining > 0) {
+                            stringResource(
+                                R.string.waiting_for_opponent_countdown,
+                                readySecondsRemaining,
+                            )
+                        } else {
+                            stringResource(R.string.waiting_for_opponent)
+                        },
                         style = MaterialTheme.typography.headlineSmall,
                     )
                 }
@@ -364,6 +406,162 @@ private enum class QueueStatusPhase {
     Joining,
     Searching,
     MatchFound,
+}
+
+@Composable
+private fun PreGameSyncStatusCard(
+    state: PreGameSyncUiState,
+    readySecondsRemaining: Int,
+) {
+    val subtitleReference = stringResource(R.string.finding_opponent)
+    val scheme = MaterialTheme.colorScheme
+    RpsCard(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = scheme.primaryContainer.copy(alpha = 0.94f),
+        borderColor = scheme.primary.copy(alpha = 0.55f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.match_found),
+                style = MaterialTheme.typography.labelLarge,
+                color = scheme.onPrimaryContainer.copy(alpha = 0.85f),
+            )
+            PreGameSyncPrimaryLine(
+                myDisplayName = state.myDisplayName,
+                opponentDisplayName = state.opponentDisplayName,
+                myReady = state.myReady,
+                opponentReady = state.opponentReady,
+            )
+            HomeQueueStatusSubtitleSlot(
+                text = if (readySecondsRemaining > 0) {
+                    stringResource(R.string.pre_game_ready_countdown, readySecondsRemaining)
+                } else {
+                    null
+                },
+                referenceText = subtitleReference,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PreGameSyncPrimaryLine(
+    myDisplayName: String,
+    opponentDisplayName: String,
+    myReady: Boolean,
+    opponentReady: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val primaryColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val timerTypography = MaterialTheme.typography.headlineMedium
+    val timerStyle = timerTypography.copy(fontWeight = FontWeight.Bold)
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val timerReference = formatQueueTime(5_999)
+
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        val maxWidthPx = constraints.maxWidth.coerceAtLeast(0)
+        val slotHeightPx = textMeasurer.measure(
+            text = timerReference,
+            style = timerStyle,
+            maxLines = 1,
+            constraints = Constraints(maxWidth = maxWidthPx),
+        ).size.height
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(with(density) { slotHeightPx.toDp() }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PreGamePlayerReadyColumn(
+                    displayName = myDisplayName,
+                    ready = myReady,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = stringResource(R.string.pre_game_vs),
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = primaryColor.copy(alpha = 0.6f),
+                )
+                PreGamePlayerReadyColumn(
+                    displayName = opponentDisplayName,
+                    ready = opponentReady,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreGamePlayerReadyColumn(
+    displayName: String,
+    ready: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val readyColor = scheme.primary
+    val waitingColor = scheme.onPrimaryContainer.copy(alpha = 0.55f)
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = displayName,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
+            ),
+            color = scheme.onPrimaryContainer,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+        Icon(
+            imageVector = if (ready) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+            contentDescription = stringResource(
+                if (ready) R.string.player_ready else R.string.player_not_ready,
+            ),
+            tint = if (ready) readyColor else waitingColor,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun rememberPreGameReadySecondsRemaining(deadlineAtMs: Long): Int {
+    var remaining by remember(deadlineAtMs) {
+        mutableIntStateOf(preGameReadySecondsRemaining(deadlineAtMs))
+    }
+    LaunchedEffect(deadlineAtMs) {
+        while (isActive) {
+            remaining = preGameReadySecondsRemaining(deadlineAtMs)
+            if (remaining <= 0) break
+            delay(1_000)
+        }
+    }
+    return remaining
+}
+
+private fun preGameReadySecondsRemaining(deadlineAtMs: Long): Int {
+    if (deadlineAtMs <= 0L) return 0
+    return ((deadlineAtMs - System.currentTimeMillis()) / 1_000L).toInt().coerceAtLeast(0)
 }
 
 /**

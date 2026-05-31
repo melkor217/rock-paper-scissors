@@ -349,6 +349,10 @@ class MatchRepository(
         }.isSuccess
     }
 
+    suspend fun confirmMatchReady(matchId: String) {
+        MatchmakingFunctions.confirmMatchReady(matchId)
+    }
+
     suspend fun leaveQueue() {
         leaveQueueForUser(uid)
     }
@@ -687,6 +691,9 @@ internal fun DocumentSnapshot.toMatch(id: String): Match {
         player2Name = getString("player2Name") ?: "Player 2",
         matchMode = MatchMode.fromString(getString("matchMode")),
         status = MatchStatus.fromString(getString("status")),
+        player1Ready = contains("player1Ready") && getBoolean("player1Ready") == true,
+        player2Ready = contains("player2Ready") && getBoolean("player2Ready") == true,
+        readyDeadlineAt = getTimestamp("readyDeadlineAt")?.toDate()?.time ?: 0L,
         currentRound = getLong("currentRound")?.toInt() ?: 1,
         player1Wins = getLong("player1Wins")?.toInt() ?: 0,
         player2Wins = getLong("player2Wins")?.toInt() ?: 0,
@@ -719,6 +726,9 @@ private fun Match.toJson(): JSONObject {
     obj.put("player2Name", player2Name)
     obj.put("matchMode", matchMode.name)
     obj.put("status", status.name)
+    obj.put("player1Ready", player1Ready)
+    obj.put("player2Ready", player2Ready)
+    if (readyDeadlineAt > 0L) obj.put("readyDeadlineAt", readyDeadlineAt)
     obj.put("currentRound", currentRound)
     obj.put("player1Wins", player1Wins)
     obj.put("player2Wins", player2Wins)
@@ -765,6 +775,9 @@ private fun JSONObject.toMatch(): Match {
         player2Name = optString("player2Name", ""),
         matchMode = MatchMode.fromString(optNullableString("matchMode")),
         status = MatchStatus.fromString(optNullableString("status")),
+        player1Ready = optBoolean("player1Ready", false),
+        player2Ready = optBoolean("player2Ready", false),
+        readyDeadlineAt = optLong("readyDeadlineAt", 0L),
         currentRound = optInt("currentRound", 1),
         player1Wins = optInt("player1Wins", 0),
         player2Wins = optInt("player2Wins", 0),

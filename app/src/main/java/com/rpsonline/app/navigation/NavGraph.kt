@@ -20,7 +20,6 @@ import com.rpsonline.app.data.model.MatchStatus
 import com.rpsonline.app.data.repository.AuthRepository
 import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.MatchSessionMonitor
-import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.ui.auth.SignInScreen
 import com.rpsonline.app.ui.changelog.ChangelogScreen
 import com.rpsonline.app.ui.game.GameScreen
@@ -32,14 +31,10 @@ import kotlinx.coroutines.delay
 
 object Routes {
     const val SIGN_IN = "sign_in"
-    const val HOME = "home?matchModes={matchModes}"
+    const val HOME = "home?autoMatchmake={autoMatchmake}"
 
-    fun home(autoMatchmake: Set<MatchMode>? = null): String =
-        if (autoMatchmake != null) {
-            "home?matchModes=${MatchMode.encodeRouteArg(autoMatchmake)}"
-        } else {
-            "home?matchModes="
-        }
+    fun home(autoStartMatchmaking: Boolean = false): String =
+        "home?autoMatchmake=$autoStartMatchmaking"
     const val GAME = "game/{matchId}"
     const val RESULT = "result/{matchId}"
     const val LEADERBOARD = "leaderboard"
@@ -128,21 +123,17 @@ fun RpsNavGraph() {
         composable(
             route = Routes.HOME,
             arguments = listOf(
-                navArgument("matchModes") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
+                navArgument("autoMatchmake") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 },
             ),
         ) { backStackEntry ->
-            val autoMatchmake = backStackEntry.arguments
-                ?.getString("matchModes")
-                ?.takeIf { it.isNotBlank() }
-                ?.let { MatchMode.parseRouteArg(it) }
+            val autoStartMatchmaking = backStackEntry.arguments?.getBoolean("autoMatchmake") ?: false
             val homeViewModel: HomeViewModel = viewModel(backStackEntry)
             if (isSignedIn) {
                 HomeScreen(
-                    autoStartMatchModes = autoMatchmake,
+                    autoStartMatchmaking = autoStartMatchmaking,
                     viewModel = homeViewModel,
                     onReconnectToGame = { matchId ->
                         navController.navigate(Routes.game(matchId))
@@ -180,10 +171,10 @@ fun RpsNavGraph() {
             val matchId = backStackEntry.arguments?.getString("matchId") ?: return@composable
             ResultScreen(
                 matchId = matchId,
-                onPlayAgain = { matchMode ->
+                onPlayAgain = {
                     MatchSessionMonitor.consumeGameNavigation()
                     MatchSessionMonitor.clearQueueState(endMatchmaking = true)
-                    navController.navigate(Routes.home(setOf(matchMode))) {
+                    navController.navigate(Routes.home(autoStartMatchmaking = true)) {
                         popUpTo(Routes.HOME) { inclusive = true }
                         launchSingleTop = true
                     }

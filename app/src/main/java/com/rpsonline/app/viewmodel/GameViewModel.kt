@@ -79,8 +79,21 @@ class GameViewModel(
     private var stuckRoundNudgeJob: Job? = null
     init {
         observeJob = viewModelScope.launch {
+            bootstrapActiveMatch()
             matchRepository.observeMatch(matchId).collect { match ->
                 applyMatchSnapshot(match)
+            }
+        }
+    }
+
+    private suspend fun bootstrapActiveMatch() {
+        syncMatchFromServer()
+        if (_uiState.value.match?.status == MatchStatus.LOBBY) {
+            runCatching { matchRepository.confirmMatchReady(matchId) }
+            repeat(PRE_START_POLL_ATTEMPTS) {
+                delay(PRE_START_SERVER_POLL_MS)
+                syncMatchFromServer()
+                if (_uiState.value.match?.status == MatchStatus.ACTIVE) return
             }
         }
     }
@@ -769,6 +782,8 @@ class GameViewModel(
     }
 
     companion object {
+        private const val PRE_START_POLL_ATTEMPTS = 40
+        private const val PRE_START_SERVER_POLL_MS = 500L
         private const val SUBMIT_MOVE_TIMEOUT_MS = 15_000L
         private const val SUBMIT_STUCK_WATCHDOG_MS = 18_000L
         private const val SUBMIT_CONFIRM_ATTEMPTS = 15

@@ -165,6 +165,11 @@ fun GameScreen(
     ) {
         if (match == null || userId == null) {
             RpsLoadingColumn(modifier = Modifier.weight(1f))
+        } else if (match.status == MatchStatus.LOBBY) {
+            RpsLoadingColumn(
+                modifier = Modifier.weight(1f),
+                message = stringResource(R.string.waiting_for_opponent),
+            )
         } else {
         val endTransition = frozenEndTransition
         val inMatchEndTransition = endTransition != null && !navigatedToResult

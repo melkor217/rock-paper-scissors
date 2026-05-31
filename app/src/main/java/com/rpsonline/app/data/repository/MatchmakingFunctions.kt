@@ -16,6 +16,7 @@ internal data class JoinQueueCallableResult(
 
 internal object MatchmakingFunctions {
     private const val JOIN_CALLABLE = "joinMatchmakingQueue"
+    private const val CONFIRM_READY_CALLABLE = "confirmMatchReady"
     private const val CALL_TIMEOUT_MS = 15_000L
 
     suspend fun joinQueue(matchModes: Set<MatchMode>, profile: UserProfile): JoinQueueCallableResult {
@@ -59,6 +60,40 @@ internal object MatchmakingFunctions {
             }
         }
         throw lastError ?: IllegalStateException("Could not join matchmaking via server")
+    }
+
+    suspend fun confirmMatchReady(matchId: String) {
+        var lastError: Exception? = null
+        repeat(5) { attempt ->
+            try {
+                awaitCallableAuth()
+                val functions = FirebaseFunctions.getInstance(
+                    FirebaseApp.getInstance(),
+                    FIREBASE_FUNCTIONS_REGION,
+                )
+                withTimeout(CALL_TIMEOUT_MS) {
+                    functions.getHttpsCallable(CONFIRM_READY_CALLABLE)
+                        .call(hashMapOf("matchId" to matchId))
+                        .await()
+                }
+                return
+            } catch (e: FirebaseFunctionsException) {
+                lastError = e
+                when (e.code) {
+                    FirebaseFunctionsException.Code.UNAUTHENTICATED,
+                    FirebaseFunctionsException.Code.UNAVAILABLE,
+                    FirebaseFunctionsException.Code.DEADLINE_EXCEEDED,
+                    FirebaseFunctionsException.Code.INTERNAL,
+                    -> if (attempt < 4) delay(400L * (attempt + 1)) else throw e
+                    else -> throw e
+                }
+            } catch (e: Exception) {
+                lastError = e
+                if (attempt >= 4) throw e
+                delay(400L * (attempt + 1))
+            }
+        }
+        throw lastError ?: IllegalStateException("Could not confirm match ready")
     }
 
     fun isRecoverableViaFirestore(error: Throwable): Boolean {

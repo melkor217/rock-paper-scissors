@@ -87,6 +87,7 @@ const PLAYED_ROUND_END_REASON: RoundEndReason = "normal";
 const ROUND_TIMEOUT_END_REASON: RoundEndReason = "round_timeout";
 const CLOCK_TIMEOUT_END_REASON: RoundEndReason = "clock_timeout";
 const CANCELLED_ROUND_END_REASON: RoundEndReason = "cancelled";
+const LOBBY_READY_MS = 15_000;
 
 interface MatchDoc {
   player1: string;
@@ -94,7 +95,11 @@ interface MatchDoc {
   player1Name: string;
   player2Name: string;
   matchMode: MatchMode;
-  status: "active" | "completed" | "abandoned";
+  status: "lobby" | "active" | "completed" | "abandoned";
+  player1Ready?: boolean;
+  player2Ready?: boolean;
+  /** Lobby closes when both players have not readied by this time. */
+  readyDeadlineAt?: Timestamp;
   currentRound: number;
   player1Wins: number;
   player2Wins: number;
@@ -312,7 +317,6 @@ async function createMatch(
       };
 
     const now = Timestamp.now();
-    const deadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
     const matchRef = db.collection("matches").doc();
     const match: MatchDoc = {
       player1: playerA,
@@ -322,7 +326,9 @@ async function createMatch(
       matchMode,
       player1Elo: userA.elo,
       player2Elo: userB.elo,
-      status: "active",
+      status: "lobby",
+      player1Ready: false,
+      player2Ready: false,
       currentRound: 1,
       player1Wins: 0,
       player2Wins: 0,
@@ -331,7 +337,8 @@ async function createMatch(
       player1MoveCount: 0,
       player2MoveCount: 0,
       ...initialClockFields(now),
-      rounds: [{ roundNumber: 1, deadline, startedAt: now }],
+      rounds: [{ roundNumber: 1 }],
+      readyDeadlineAt: Timestamp.fromMillis(now.toMillis() + LOBBY_READY_MS),
       createdAt: now,
       lastActivityAt: now,
     };
@@ -389,7 +396,7 @@ async function clearStaleActiveMatchIfNeeded(uid: string, activeMatchId: string)
   const player1 = active.get("player1");
   const player2 = active.get("player2");
   const isParticipant = player1 === uid || player2 === uid;
-  if (status !== "active" || !isParticipant) {
+  if ((status !== "active" && status !== "lobby") || !isParticipant) {
     await userRef.set({ activeMatchId: FieldValue.delete() }, { merge: true });
   }
 }
@@ -516,6 +523,37 @@ function sanitizeRound(round: RoundDoc): RoundDoc {
 
 function sanitizeRounds(rounds: RoundDoc[]): RoundDoc[] {
   return rounds.map(sanitizeRound);
+}
+
+async function abandonLobbyMatch(
+  matchRef: FirebaseFirestore.DocumentReference,
+  match: MatchDoc,
+): Promise<void> {
+  const batch = db.batch();
+  batch.update(matchRef, {
+    status: "abandoned",
+    resolution: "abandoned",
+    lastActivityAt: FieldValue.serverTimestamp(),
+  });
+  batch.update(db.collection("users").doc(match.player1), { activeMatchId: FieldValue.delete() });
+  batch.update(db.collection("users").doc(match.player2), { activeMatchId: FieldValue.delete() });
+  await batch.commit();
+}
+
+function isLobbyReadyExpired(match: MatchDoc, nowMs: number = Date.now()): boolean {
+  const deadlineMs = match.readyDeadlineAt?.toMillis() ?? 0;
+  return deadlineMs > 0 && nowMs > deadlineMs;
+}
+
+async function abandonLobbyIfExpired(matchId: string): Promise<"ok" | "abandoned" | "missing"> {
+  const matchRef = db.collection("matches").doc(matchId);
+  const snap = await matchRef.get();
+  if (!snap.exists) return "missing";
+  const match = snap.data() as MatchDoc;
+  if (match.status !== "lobby") return "ok";
+  if (!isLobbyReadyExpired(match)) return "ok";
+  await abandonLobbyMatch(matchRef, match);
+  return "abandoned";
 }
 
 async function abandonMatch(
@@ -1325,6 +1363,98 @@ export const joinMatchmakingQueue = onCall(async (request) => {
   };
 });
 
+/** Marks a participant ready; starts the match when both players have confirmed. */
+export const confirmMatchReady = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const matchId = request.data?.matchId;
+  if (typeof matchId !== "string" || !matchId.trim()) {
+    throw new HttpsError("invalid-argument", "matchId is required.");
+  }
+
+  const matchRef = db.collection("matches").doc(matchId);
+  const preSnap = await matchRef.get();
+  if (!preSnap.exists) {
+    throw new HttpsError("not-found", "Match not found.");
+  }
+  const preMatch = preSnap.data() as MatchDoc;
+  if (preMatch.status === "active") {
+    return { ok: true, started: true };
+  }
+  if (preMatch.status !== "lobby") {
+    throw new HttpsError("failed-precondition", "Match is not waiting for players.");
+  }
+  if (uid !== preMatch.player1 && uid !== preMatch.player2) {
+    throw new HttpsError("permission-denied", "Not a participant.");
+  }
+
+  const expired = await abandonLobbyIfExpired(matchId);
+  if (expired === "abandoned" || expired === "missing") {
+    throw new HttpsError("failed-precondition", "Ready deadline passed.");
+  }
+
+  const started = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) return false;
+    const match = snap.data() as MatchDoc;
+    if (match.status === "active") return true;
+    if (match.status !== "lobby") return false;
+    if (uid !== match.player1 && uid !== match.player2) return false;
+    if (isLobbyReadyExpired(match)) return false;
+
+    const player1Ready = uid === match.player1 ? true : !!match.player1Ready;
+    const player2Ready = uid === match.player2 ? true : !!match.player2Ready;
+
+    if (player1Ready && player2Ready) {
+      const now = Timestamp.now();
+      const rounds = [...match.rounds];
+      const firstIdx = rounds.findIndex((round) => round.roundNumber === 1);
+      const firstRound: RoundDoc = firstIdx >= 0
+        ? { ...rounds[firstIdx] }
+        : { roundNumber: 1 };
+      firstRound.startedAt = now;
+      firstRound.deadline = Timestamp.fromMillis(now.toMillis() + ROUND_TIMEOUT_MS);
+      if (firstIdx >= 0) {
+        rounds[firstIdx] = sanitizeRound(firstRound);
+      } else {
+        rounds.unshift(sanitizeRound(firstRound));
+      }
+
+      tx.update(matchRef, {
+        status: "active",
+        player1Ready: true,
+        player2Ready: true,
+        rounds: sanitizeRounds(rounds),
+        lastActivityAt: FieldValue.serverTimestamp(),
+      });
+      return true;
+    }
+
+    const readyUpdate: Record<string, unknown> = {
+      lastActivityAt: FieldValue.serverTimestamp(),
+    };
+    if (uid === match.player1) readyUpdate.player1Ready = true;
+    else readyUpdate.player2Ready = true;
+    tx.update(matchRef, readyUpdate);
+    return false;
+  });
+
+  if (!started) {
+    const after = await matchRef.get();
+    if (after.exists) {
+      const afterMatch = after.data() as MatchDoc;
+      if (afterMatch.status === "lobby" && isLobbyReadyExpired(afterMatch)) {
+        await abandonLobbyMatch(matchRef, afterMatch);
+        throw new HttpsError("failed-precondition", "Ready deadline passed.");
+      }
+    }
+  }
+
+  return { ok: true, started };
+});
+
 /** Lightweight RTT probe for in-app connection meter (requires auth). */
 export const ping = onCall(async (request) => {
   if (!request.auth) {
@@ -1367,6 +1497,36 @@ export const cleanupStale = onSchedule(
   });
   staleQueueIds.forEach((id) => queueBatch.delete(db.collection("queue").doc(id)));
   await queueBatch.commit();
+
+  const lobbyCutoff = Timestamp.now();
+  const expiredLobbies = await db.collection("matches")
+    .where("status", "==", "lobby")
+    .where("readyDeadlineAt", "<", lobbyCutoff)
+    .get();
+
+  for (const doc of expiredLobbies.docs) {
+    const match = doc.data() as MatchDoc;
+    const batch = db.batch();
+    batch.update(doc.ref, { status: "abandoned", resolution: "abandoned" });
+    batch.update(db.collection("users").doc(match.player1), { activeMatchId: FieldValue.delete() });
+    batch.update(db.collection("users").doc(match.player2), { activeMatchId: FieldValue.delete() });
+    await batch.commit();
+  }
+
+  const staleLobbies = await db.collection("matches")
+    .where("status", "==", "lobby")
+    .where("lastActivityAt", "<", Timestamp.fromMillis(Date.now() - 120_000))
+    .get();
+
+  for (const doc of staleLobbies.docs) {
+    if (doc.get("readyDeadlineAt") != null) continue;
+    const match = doc.data() as MatchDoc;
+    const batch = db.batch();
+    batch.update(doc.ref, { status: "abandoned" });
+    batch.update(db.collection("users").doc(match.player1), { activeMatchId: FieldValue.delete() });
+    batch.update(db.collection("users").doc(match.player2), { activeMatchId: FieldValue.delete() });
+    await batch.commit();
+  }
 
   const staleMatches = await db.collection("matches")
     .where("status", "==", "active")

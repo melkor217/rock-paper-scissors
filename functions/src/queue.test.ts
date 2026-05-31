@@ -52,6 +52,10 @@ describe("queue", () => {
       true,
     );
     assert.equal(
+      shouldDropQueueForLiveMatch("guest", "lobby", "guest", "daniil"),
+      true,
+    );
+    assert.equal(
       shouldDropQueueForLiveMatch("guest", "completed", "guest", "daniil"),
       false,
     );

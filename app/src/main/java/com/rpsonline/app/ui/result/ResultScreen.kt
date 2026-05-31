@@ -36,7 +36,6 @@ import com.rpsonline.app.data.repository.MatchRepository
 import com.rpsonline.app.data.repository.UserRepository
 import com.rpsonline.app.domain.matchResultOutcomeDetail
 import com.rpsonline.app.domain.opponentEloAtMatch
-import com.rpsonline.app.domain.MatchMode
 import com.rpsonline.app.domain.DisplayNames
 import com.rpsonline.app.ui.components.HomeOutlinedButton
 import com.rpsonline.app.ui.components.MatchEloChangeLabel
@@ -52,7 +51,7 @@ import com.rpsonline.app.ui.components.rpsScreenPadding
 @Composable
 fun ResultScreen(
     matchId: String,
-    onPlayAgain: (MatchMode) -> Unit,
+    onPlayAgain: () -> Unit,
     onHome: () -> Unit,
     onOpponentProfile: (String) -> Unit,
 ) {
@@ -187,7 +186,7 @@ fun ResultScreen(
             onClick = {
                 if (playAgainTriggered) return@Button
                 playAgainTriggered = true
-                onPlayAgain(currentMatch.matchMode)
+                onPlayAgain()
             },
             enabled = !playAgainTriggered,
             modifier = Modifier

@@ -15,13 +15,19 @@ enum class Move(val label: String) {
 }
 
 enum class MatchStatus {
+    LOBBY,
     ACTIVE,
     COMPLETED,
     ABANDONED;
 
     companion object {
-        fun fromString(value: String?): MatchStatus =
-            entries.find { it.name.equals(value, ignoreCase = true) } ?: ACTIVE
+        fun fromString(value: String?): MatchStatus = when (value?.lowercase()) {
+            "lobby" -> LOBBY
+            "active" -> ACTIVE
+            "completed" -> COMPLETED
+            "abandoned" -> ABANDONED
+            else -> ACTIVE
+        }
     }
 }
 
@@ -119,6 +125,9 @@ data class Match(
     val player2Name: String = "",
     val matchMode: MatchMode = MatchMode.BO3,
     val status: MatchStatus = MatchStatus.ACTIVE,
+    val player1Ready: Boolean = false,
+    val player2Ready: Boolean = false,
+    val readyDeadlineAt: Long = 0L,
     val currentRound: Int = 1,
     val player1Wins: Int = 0,
     val player2Wins: Int = 0,
@@ -145,10 +154,35 @@ data class Match(
 
     /** True when the user should resume this match instead of joining a new queue. */
     fun isLiveForReconnect(nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (status == MatchStatus.LOBBY) {
+            val last = lastActivityAt
+            return last <= 0L || nowMs - last <= LOBBY_RECONNECT_GRACE_MS
+        }
         if (status != MatchStatus.ACTIVE) return false
         val last = lastActivityAt
-        return last > 0 && nowMs - last <= 90_000L
+        return last > 0 && nowMs - last <= ACTIVE_RECONNECT_GRACE_MS
     }
+
+    fun isPlayerReady(userId: String): Boolean =
+        if (userId == player1) player1Ready else player2Ready
+
+    fun isOpponentReady(userId: String): Boolean =
+        if (userId == player1) player2Ready else player1Ready
+
+    /** Lobby ready window; falls back to createdAt + grace when field is missing (older matches). */
+    fun effectiveReadyDeadlineAtMs(nowMs: Long = System.currentTimeMillis()): Long {
+        if (readyDeadlineAt > 0L) return readyDeadlineAt
+        if (createdAt > 0L) return createdAt + LOBBY_READY_MS
+        return nowMs + LOBBY_READY_MS
+    }
+
+    fun readySecondsRemaining(nowMs: Long = System.currentTimeMillis()): Int {
+        val deadlineMs = effectiveReadyDeadlineAtMs(nowMs)
+        return ((deadlineMs - nowMs) / 1_000L).toInt().coerceAtLeast(0)
+    }
+
+    fun isReadyDeadlineExpired(nowMs: Long = System.currentTimeMillis()): Boolean =
+        readySecondsRemaining(nowMs) <= 0
 
     fun opponentName(userId: String): String =
         if (userId == player1) player2Name else player1Name
@@ -259,6 +293,12 @@ data class Match(
             .filter { it.isRecapRound() }
             .sortedWith(compareBy({ it.resolvedAt ?: 0L }, { it.roundNumber }))
             .map { round -> round.toRoundRecap(userId, player1) }
+
+    companion object {
+        private const val LOBBY_RECONNECT_GRACE_MS = 20_000L
+        const val LOBBY_READY_MS = 15_000L
+        private const val ACTIVE_RECONNECT_GRACE_MS = 90_000L
+    }
 }
 
 private fun RoundResult.toRoundRecap(userId: String, player1: String): RoundRecap {

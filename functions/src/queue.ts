@@ -28,5 +28,6 @@ export function shouldDropQueueForLiveMatch(
   player1: string,
   player2: string,
 ): boolean {
-  return matchStatus === "active" && (player1 === uid || player2 === uid);
+  return (matchStatus === "active" || matchStatus === "lobby")
+    && (player1 === uid || player2 === uid);
 }

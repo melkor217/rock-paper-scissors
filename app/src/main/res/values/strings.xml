@@ -72,7 +72,12 @@
     <string name="your_move">Your move</string>
     <string name="your_move_revealed">Your move: %1$s</string>
     <string name="your_move_hidden">Your move hidden</string>
+    <string name="player_ready">Ready</string>
+    <string name="player_not_ready">Not ready</string>
     <string name="waiting_for_opponent">Waiting for opponent</string>
+    <string name="waiting_for_opponent_countdown">Waiting for opponent · %1$ds</string>
+    <string name="pre_game_vs">vs</string>
+    <string name="pre_game_ready_countdown">Ready in %1$ds</string>
     <string name="round_label">Round</string>
     <string name="players_online_count">%1$d players online</string>
     <string name="players_online_loading">Players online</string>

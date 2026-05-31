@@ -68,5 +68,6 @@ private fun Match.inferResolutionFromLegacyFields(): MatchResolution? = when (st
         player2 -> MatchResolution.PLAYER2_WIN
         else -> null
     }
+    MatchStatus.LOBBY,
     MatchStatus.ACTIVE -> null
 }
